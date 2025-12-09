@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw } from 'lucide-react'
+import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw, X } from 'lucide-react'
 import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, enviarDatosParte } from './services/notionService'
 import './App.css'
 
@@ -35,146 +35,146 @@ function App() {
 	const [refrescando, setRefrescando] = useState(false) // Estado para el botón de refrescar
 	const [mostrarInfoSync, setMostrarInfoSync] = useState(false) // Estado para el popup de info de sincronización
 
-    // Smart Polling: ajusta frecuencia según actividad
-    const partesPollRef = useRef(null)
-    const lastParteChangeRef = useRef(Date.now())
-    const currentPollIntervalRef = useRef(3000) // Empezar en modo rápido
-    const lastPartesHashRef = useRef('')
+	// Smart Polling: ajusta frecuencia según actividad
+	const partesPollRef = useRef(null)
+	const lastParteChangeRef = useRef(Date.now())
+	const currentPollIntervalRef = useRef(3000) // Empezar en modo rápido
+	const lastPartesHashRef = useRef('')
 
-    const getSmartPollInterval = () => {
-        const timeSinceChange = Date.now() - lastParteChangeRef.current
-        if (timeSinceChange < 30000) {
-            setSyncMode('rápido')
-            return 3000 // Modo rápido: cambios recientes (<30s)
-        }
-        if (timeSinceChange < 120000) {
-            setSyncMode('normal')
-            return 8000 // Modo normal: sin cambios <2min
-        }
-        setSyncMode('lento')
-        return 15000 // Modo lento: sin cambios >2min
-    }
+	const getSmartPollInterval = () => {
+		const timeSinceChange = Date.now() - lastParteChangeRef.current
+		if (timeSinceChange < 30000) {
+			setSyncMode('rápido')
+			return 3000 // Modo rápido: cambios recientes (<30s)
+		}
+		if (timeSinceChange < 120000) {
+			setSyncMode('normal')
+			return 8000 // Modo normal: sin cambios <2min
+		}
+		setSyncMode('lento')
+		return 15000 // Modo lento: sin cambios >2min
+	}
 
-    const hashPartes = (partes) => {
-        // Hash simple basado en IDs, estados y última edición
-        return partes.map(p => `${p.id}-${p.estado}-${p.ultimaEdicion}`).join('|')
-    }
+	const hashPartes = (partes) => {
+		// Hash simple basado en IDs, estados y última edición
+		return partes.map(p => `${p.id}-${p.estado}-${p.ultimaEdicion}`).join('|')
+	}
 
-    const startPartesPolling = () => {
-        if (partesPollRef.current) return
+	const startPartesPolling = () => {
+		if (partesPollRef.current) return
 
-        const poll = async () => {
-            try {
-                if (editandoParte) return
+		const poll = async () => {
+			try {
+				if (editandoParte) return
 
-                const partes = await getPartesTrabajo()
-                const newHash = hashPartes(partes)
+				const partes = await getPartesTrabajo()
+				const newHash = hashPartes(partes)
 
-                // Detectar cambios
-                if (newHash !== lastPartesHashRef.current) {
-                    lastPartesHashRef.current = newHash
-                    lastParteChangeRef.current = Date.now()
-                    setDatos(prev => ({ ...prev, partesTrabajo: partes }))
-                } else {
-                    // Sin cambios, solo actualizar datos
-                    setDatos(prev => ({ ...prev, partesTrabajo: partes }))
-                }
+				// Detectar cambios
+				if (newHash !== lastPartesHashRef.current) {
+					lastPartesHashRef.current = newHash
+					lastParteChangeRef.current = Date.now()
+					setDatos(prev => ({ ...prev, partesTrabajo: partes }))
+				} else {
+					// Sin cambios, solo actualizar datos
+					setDatos(prev => ({ ...prev, partesTrabajo: partes }))
+				}
 
-                // Ajustar intervalo si cambió
-                const newInterval = getSmartPollInterval()
-                if (newInterval !== currentPollIntervalRef.current) {
-                    currentPollIntervalRef.current = newInterval
-                    stopPartesPolling()
-                    startPartesPolling()
-                }
-            } catch (e) { /* noop */ }
-        }
+				// Ajustar intervalo si cambió
+				const newInterval = getSmartPollInterval()
+				if (newInterval !== currentPollIntervalRef.current) {
+					currentPollIntervalRef.current = newInterval
+					stopPartesPolling()
+					startPartesPolling()
+				}
+			} catch (e) { /* noop */ }
+		}
 
-        poll() // Primera ejecución inmediata
-        partesPollRef.current = setInterval(poll, currentPollIntervalRef.current)
-    }
+		poll() // Primera ejecución inmediata
+		partesPollRef.current = setInterval(poll, currentPollIntervalRef.current)
+	}
 
-    const stopPartesPolling = () => {
-        if (partesPollRef.current) {
-            clearInterval(partesPollRef.current)
-            partesPollRef.current = null
-        }
-    }
+	const stopPartesPolling = () => {
+		if (partesPollRef.current) {
+			clearInterval(partesPollRef.current)
+			partesPollRef.current = null
+		}
+	}
 
-    // Smart Polling para opciones de estado
-    const estadoOptionsPollRef = useRef(null)
-    const lastEstadoChangeRef = useRef(Date.now())
-    const lastEstadoHashRef = useRef('')
+	// Smart Polling para opciones de estado
+	const estadoOptionsPollRef = useRef(null)
+	const lastEstadoChangeRef = useRef(Date.now())
+	const lastEstadoHashRef = useRef('')
 
-    const hashEstadoOptions = (opts) => {
-        return JSON.stringify(opts?.options?.map(o => o.name) || [])
-    }
+	const hashEstadoOptions = (opts) => {
+		return JSON.stringify(opts?.options?.map(o => o.name) || [])
+	}
 
-    const startEstadoPolling = () => {
-        if (estadoOptionsPollRef.current) return
+	const startEstadoPolling = () => {
+		if (estadoOptionsPollRef.current) return
 
-        const poll = async () => {
-            try {
-                const opts = await getOpcionesEstadoEmpleados()
-                const newHash = hashEstadoOptions(opts)
+		const poll = async () => {
+			try {
+				const opts = await getOpcionesEstadoEmpleados()
+				const newHash = hashEstadoOptions(opts)
 
-                if (newHash !== lastEstadoHashRef.current) {
-                    lastEstadoHashRef.current = newHash
-                    lastEstadoChangeRef.current = Date.now()
-                    setEstadoOptions(opts || { type: 'status', options: [] })
-                }
+				if (newHash !== lastEstadoHashRef.current) {
+					lastEstadoHashRef.current = newHash
+					lastEstadoChangeRef.current = Date.now()
+					setEstadoOptions(opts || { type: 'status', options: [] })
+				}
 
-                // Ajustar intervalo basado en actividad
-                const timeSinceChange = Date.now() - lastEstadoChangeRef.current
-                let newInterval = timeSinceChange < 60000 ? 10000 : 30000 // 10s si cambios recientes, 30s si no
+				// Ajustar intervalo basado en actividad
+				const timeSinceChange = Date.now() - lastEstadoChangeRef.current
+				let newInterval = timeSinceChange < 60000 ? 10000 : 30000 // 10s si cambios recientes, 30s si no
 
-                if (estadoOptionsPollRef.current) {
-                    clearInterval(estadoOptionsPollRef.current)
-                    estadoOptionsPollRef.current = setInterval(poll, newInterval)
-                }
-            } catch (e) {
-                setEstadoOptions({ type: 'status', options: [] })
-            }
-        }
+				if (estadoOptionsPollRef.current) {
+					clearInterval(estadoOptionsPollRef.current)
+					estadoOptionsPollRef.current = setInterval(poll, newInterval)
+				}
+			} catch (e) {
+				setEstadoOptions({ type: 'status', options: [] })
+			}
+		}
 
-        poll()
-        estadoOptionsPollRef.current = setInterval(poll, 10000)
-    }
+		poll()
+		estadoOptionsPollRef.current = setInterval(poll, 10000)
+	}
 
-    const stopEstadoPolling = () => {
-        if (estadoOptionsPollRef.current) {
-            clearInterval(estadoOptionsPollRef.current)
-            estadoOptionsPollRef.current = null
-        }
-    }
+	const stopEstadoPolling = () => {
+		if (estadoOptionsPollRef.current) {
+			clearInterval(estadoOptionsPollRef.current)
+			estadoOptionsPollRef.current = null
+		}
+	}
 
-    useEffect(() => {
-        cargarDatos()
-        cargarOpcionesEstado()
-        startEstadoPolling()
-        startPartesPolling()
+	useEffect(() => {
+		cargarDatos()
+		cargarOpcionesEstado()
+		startEstadoPolling()
+		startPartesPolling()
 
-        const onVis = () => {
-            if (document.visibilityState === 'hidden') {
-                stopPartesPolling()
-                stopEstadoPolling()
-                // cerrar stream si está abierto
-                if (estadoStreamRef.current) { estadoStreamRef.current.close(); estadoStreamRef.current = null }
-            } else {
-                // refresco inmediato al volver y reanudar
-                getPartesTrabajo().then(partes => setDatos(prev => ({ ...prev, partesTrabajo: partes }))).catch(()=>{})
-                cargarOpcionesEstado()
-                startPartesPolling()
-                startEstadoPolling()
-            }
-        }
-        document.addEventListener('visibilitychange', onVis)
-        return () => {
-            stopPartesPolling()
-            stopEstadoPolling()
-            document.removeEventListener('visibilitychange', onVis)
-        }
-    }, [])
+		const onVis = () => {
+			if (document.visibilityState === 'hidden') {
+				stopPartesPolling()
+				stopEstadoPolling()
+				// cerrar stream si está abierto
+				if (estadoStreamRef.current) { estadoStreamRef.current.close(); estadoStreamRef.current = null }
+			} else {
+				// refresco inmediato al volver y reanudar
+				getPartesTrabajo().then(partes => setDatos(prev => ({ ...prev, partesTrabajo: partes }))).catch(() => { })
+				cargarOpcionesEstado()
+				startPartesPolling()
+				startEstadoPolling()
+			}
+		}
+		document.addEventListener('visibilitychange', onVis)
+		return () => {
+			stopPartesPolling()
+			stopEstadoPolling()
+			document.removeEventListener('visibilitychange', onVis)
+		}
+	}, [])
 
 	const cargarOpcionesEstado = async () => {
 		try {
@@ -468,8 +468,8 @@ function PantallaPrincipal({ onNavigate }) {
 
 			<div className="main-actions">
 				<div className="action-card" onClick={() => onNavigate('crear')}>
-                    <div className="action-icon">
-                        <Plus size={40} />
+					<div className="action-icon">
+						<Plus size={40} />
 					</div>
 					<h3 className="action-title">Crear Nuevo Parte</h3>
 					<p className="action-description">
@@ -478,8 +478,8 @@ function PantallaPrincipal({ onNavigate }) {
 				</div>
 
 				<div className="action-card" onClick={() => onNavigate('consulta')}>
-                    <div className="action-icon">
-                        <Search size={40} />
+					<div className="action-icon">
+						<Search size={40} />
 					</div>
 					<h3 className="action-title">Consultar Partes</h3>
 					<p className="action-description">
@@ -506,11 +506,11 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	const [loadingEmpleados, setLoadingEmpleados] = useState(false)
 	const [mostrarEmpleadosObra, setMostrarEmpleadosObra] = useState(false)
 	const [loadingEmpleadosParte, setLoadingEmpleadosParte] = useState(false)
-    const [guardandoCambios, setGuardandoCambios] = useState(false)
-    const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
+	const [guardandoCambios, setGuardandoCambios] = useState(false)
+	const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
 	// Estado local para reflejar selección de estado inmediatamente en UI
 	const [estadoLocal, setEstadoLocal] = useState({})
-    const [enviandoParteId, setEnviandoParteId] = useState(null)
+	const [enviandoParteId, setEnviandoParteId] = useState(null)
 
 	// Función para limpiar todos los filtros
 	const limpiarFiltros = () => {
@@ -594,14 +594,14 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		try {
 			const fechaObj = new Date(fecha)
 			if (isNaN(fechaObj.getTime())) return fecha
-			
+
 			// Formatear en DD-MM-YYYY HH:MM (hora de España)
 			const dia = fechaObj.getDate().toString().padStart(2, '0')
 			const mes = (fechaObj.getMonth() + 1).toString().padStart(2, '0')
 			const año = fechaObj.getFullYear()
 			const hora = fechaObj.getHours().toString().padStart(2, '0')
 			const minutos = fechaObj.getMinutes().toString().padStart(2, '0')
-			
+
 			return `${dia}-${mes}-${año} ${hora}:${minutos}`
 		} catch (error) {
 			return fecha
@@ -629,26 +629,31 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			'Oficial': 0,
 			'Encargado': 0,
 			'Capataz': 0,
-			'Peón': 0
+			'Peón': 0,
+			'Otros': 0
 		}
 
 		detalles.forEach(detalle => {
 			const horas = detalle.horas || 0
 			const categoria = detalle.categoria || ''
+			const catLower = categoria.toLowerCase()
 
 			// Normalizar categoría para agrupar variantes
-			if (categoria.toLowerCase().includes('oficial 1') || categoria.toLowerCase().includes('of. 1')) {
+			if (catLower.includes('oficial 1') || catLower.includes('of. 1') || catLower.includes('of 1')) {
 				categorias['Oficial 1ª'] += horas
-			} else if (categoria.toLowerCase().includes('oficial 2') || categoria.toLowerCase().includes('of. 2')) {
+			} else if (catLower.includes('oficial 2') || catLower.includes('of. 2') || catLower.includes('of 2')) {
 				categorias['Oficial 2ª'] += horas
-			} else if (categoria.toLowerCase().includes('oficial') || categoria.toLowerCase().includes('of.')) {
+			} else if (catLower.includes('oficial') || catLower.includes('of.')) {
 				categorias['Oficial'] += horas
-			} else if (categoria.toLowerCase().includes('encargado')) {
+			} else if (catLower.includes('encargado')) {
 				categorias['Encargado'] += horas
-			} else if (categoria.toLowerCase().includes('capataz')) {
+			} else if (catLower.includes('capataz')) {
 				categorias['Capataz'] += horas
-			} else if (categoria.toLowerCase().includes('pe') && categoria.toLowerCase().includes('n')) {
+			} else if (catLower.includes('peon') || catLower.includes('peón')) {
 				categorias['Peón'] += horas
+			} else {
+				// Capturar todas las demás categorías (Albañil, Montador, Ferralla, etc.)
+				categorias['Otros'] += horas
 			}
 		})
 
@@ -742,7 +747,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			setLoadingEmpleadosParte(true)
 			const detallesCompletos = await getDetallesCompletosParte(parte.id)
 			console.log('Detalles completos del parte:', detallesCompletos)
-			
+
 			// Extraer la Persona Autorizada
 			let personaAutorizadaId = ''
 			if (detallesCompletos.parte.personaAutorizada) {
@@ -763,13 +768,13 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			// Extraer empleados y horas
 			const empleadosActuales = []
 			const horasActuales = {}
-			
+
 			detallesCompletos.empleados.forEach(detalle => {
 				console.log('Procesando detalle:', detalle)
-				
+
 				// Extraer empleadoId del formato que devuelve la API
 				let empleadoId = null
-				
+
 				if (detalle.empleadoId) {
 					// Si es un array de objetos con id
 					if (Array.isArray(detalle.empleadoId) && detalle.empleadoId.length > 0) {
@@ -784,9 +789,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 						empleadoId = detalle.empleadoId
 					}
 				}
-				
+
 				console.log('EmpleadoId procesado:', empleadoId)
-				
+
 				if (empleadoId) {
 					empleadosActuales.push(empleadoId)
 					horasActuales[empleadoId] = detalle.horas || 8
@@ -818,7 +823,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			}
 		} catch (error) {
 			console.error('Error al cargar detalles completos del parte:', error)
-			
+
 			// Fallback: usar datos básicos del parte
 			setEditandoParte({
 				id: parte.id,
@@ -875,7 +880,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 		const indice = new Map()
 		const registrarEmpleados = (lista) => {
-			;(lista || []).forEach(empleado => {
+			; (lista || []).forEach(empleado => {
 				if (!empleado || !empleado.id) return
 				indice.set(empleado.id, empleado)
 			})
@@ -921,23 +926,23 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 	// Función para guardar cambios
 	const guardarCambios = async () => {
-        if (!editandoParte) return
+		if (!editandoParte) return
 
-        setGuardandoCambios(true)
+		setGuardandoCambios(true)
 
-        try {
-            // Validar datos requeridos
-            if (!editandoParte.obraId || !editandoParte.fecha || !editandoParte.personaAutorizadaId) {
-                setMensajeUI({ tipo: 'error', texto: 'Completa obra, fecha y persona autorizada para continuar.' })
-                return
-            }
+		try {
+			// Validar datos requeridos
+			if (!editandoParte.obraId || !editandoParte.fecha || !editandoParte.personaAutorizadaId) {
+				setMensajeUI({ tipo: 'error', texto: 'Completa obra, fecha y persona autorizada para continuar.' })
+				return
+			}
 
 			// Encontrar la obra seleccionada
 			const obraSeleccionada = datos.obras.find(obra => obra.id === editandoParte.obraId)
-            if (!obraSeleccionada) {
-                setMensajeUI({ tipo: 'error', texto: 'La obra seleccionada no es válida.' })
-                return
-            }
+			if (!obraSeleccionada) {
+				setMensajeUI({ tipo: 'error', texto: 'La obra seleccionada no es válida.' })
+				return
+			}
 
 			// Preparar datos para actualizar
 			const datosActualizacion = {
@@ -974,10 +979,10 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 			// Cerrar modal de edición
 			cancelarEdicion()
-			
+
 		} catch (error) {
-            console.error('Error al actualizar parte:', error)
-            setMensajeUI({ tipo: 'error', texto: `No se pudo actualizar el parte: ${error.message}` })
+			console.error('Error al actualizar parte:', error)
+			setMensajeUI({ tipo: 'error', texto: `No se pudo actualizar el parte: ${error.message}` })
 		} finally {
 			setGuardandoCambios(false)
 		}
@@ -1019,13 +1024,13 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		setEditandoParte(prev => {
 			const empleadosActuales = prev.empleados || []
 			const horasActuales = prev.empleadosHoras || {}
-			
+
 			if (empleadosActuales.includes(empleadoId)) {
 				// Quitar empleado
 				const newEmpleados = empleadosActuales.filter(id => id !== empleadoId)
 				const newHoras = { ...horasActuales }
 				delete newHoras[empleadoId]
-				
+
 				return {
 					...prev,
 					empleados: newEmpleados,
@@ -1045,26 +1050,26 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		})
 	}
 
-    // Helper para limitar/redondear horas
-    const clampRoundHoras = (val) => {
-        let n = parseFloat(val)
-        if (!isFinite(n)) n = 0
-        if (n < 0) n = 0
-        if (n > 24) n = 24
-        return Math.round(n * 2) / 2
-    }
+	// Helper para limitar/redondear horas
+	const clampRoundHoras = (val) => {
+		let n = parseFloat(val)
+		if (!isFinite(n)) n = 0
+		if (n < 0) n = 0
+		if (n > 24) n = 24
+		return Math.round(n * 2) / 2
+	}
 
-    // Función para cambiar horas de un empleado
-    const cambiarHorasEmpleado = (empleadoId, horas) => {
-        const h = clampRoundHoras(horas)
-        setEditandoParte(prev => ({
-            ...prev,
-            empleadosHoras: {
-                ...prev.empleadosHoras,
-                [empleadoId]: h
-            }
-        }))
-    }
+	// Función para cambiar horas de un empleado
+	const cambiarHorasEmpleado = (empleadoId, horas) => {
+		const h = clampRoundHoras(horas)
+		setEditandoParte(prev => ({
+			...prev,
+			empleadosHoras: {
+				...prev.empleadosHoras,
+				[empleadoId]: h
+			}
+		}))
+	}
 
 	// Filtrar partes según los criterios
 	const partesFiltrados = datos.partesTrabajo.filter(parte => {
@@ -1106,70 +1111,70 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		if (!url) return
 		window.open(url, '_blank', 'noopener,noreferrer')
 	}
-    // Cambiar estado de un empleado (permitido siempre excepto partes firmados)
-    const cambiarEstadoEmpleado = async (empleadoId, nuevoEstado) => {
-        // Reflejo instantáneo en UI
-        setEstadoLocal(prev => ({ ...prev, [empleadoId]: nuevoEstado }))
-        try {
-            await actualizarEstadoEmpleado(empleadoId, normalizeEstadoForApi(nuevoEstado))
-            // Si estamos viendo detalles, refrescar la lista de detalles para ver el estado actualizado
-            if (parteSeleccionado) {
-                await verDetalles(parteSeleccionado)
-            }
-        } catch (error) {
-            // Revertir si falla
-            setEstadoLocal(prev => ({ ...prev, [empleadoId]: undefined }))
-            setMensajeUI({ tipo: 'error', texto: error.message })
-        }
-    }
+	// Cambiar estado de un empleado (permitido siempre excepto partes firmados)
+	const cambiarEstadoEmpleado = async (empleadoId, nuevoEstado) => {
+		// Reflejo instantáneo en UI
+		setEstadoLocal(prev => ({ ...prev, [empleadoId]: nuevoEstado }))
+		try {
+			await actualizarEstadoEmpleado(empleadoId, normalizeEstadoForApi(nuevoEstado))
+			// Si estamos viendo detalles, refrescar la lista de detalles para ver el estado actualizado
+			if (parteSeleccionado) {
+				await verDetalles(parteSeleccionado)
+			}
+		} catch (error) {
+			// Revertir si falla
+			setEstadoLocal(prev => ({ ...prev, [empleadoId]: undefined }))
+			setMensajeUI({ tipo: 'error', texto: error.message })
+		}
+	}
 
 
 	const estadoStreamRef = useRef(null)
 
-    useEffect(() => {
-        // Abrir SSE para sincronizar estado mientras el modal de detalles esté abierto
-        if (parteSeleccionado?.id) {
-            let attempt = 0
-            const maxDelay = 30000
-            const connect = () => {
-                try {
-                    const es = new EventSource(`/api/partes-trabajo/${parteSeleccionado.id}/estado/stream`)
-                    es.onmessage = (ev) => {
-                        attempt = 0 // reset backoff en mensaje
-                        try {
-                            const data = JSON.parse(ev.data)
-                            setParteSeleccionado(prev => prev ? ({ ...prev, estado: data.estado, ultimaEdicion: data.ultimaEdicion }) : prev)
-                        } catch {}
-                    }
-                    es.onerror = () => {
-                        es.close()
-                        // backoff
-                        attempt += 1
-                        const delay = Math.min(maxDelay, 1000 * Math.pow(2, attempt))
-                        setTimeout(() => { if (estadoStreamRef.current === es) connect() }, delay)
-                    }
-                    estadoStreamRef.current = es
-                } catch {
-                    attempt += 1
-                    const delay = Math.min(maxDelay, 1000 * Math.pow(2, attempt))
-                    setTimeout(connect, delay)
-                }
-            }
-            connect()
-        } else {
-            // cerrar stream si no hay parte seleccionada
-            if (estadoStreamRef.current) {
-                estadoStreamRef.current.close()
-                estadoStreamRef.current = null
-            }
-        }
-        return () => {
-            if (estadoStreamRef.current) {
-                estadoStreamRef.current.close()
-                estadoStreamRef.current = null
-            }
-        }
-    }, [parteSeleccionado?.id])
+	useEffect(() => {
+		// Abrir SSE para sincronizar estado mientras el modal de detalles esté abierto
+		if (parteSeleccionado?.id) {
+			let attempt = 0
+			const maxDelay = 30000
+			const connect = () => {
+				try {
+					const es = new EventSource(`/api/partes-trabajo/${parteSeleccionado.id}/estado/stream`)
+					es.onmessage = (ev) => {
+						attempt = 0 // reset backoff en mensaje
+						try {
+							const data = JSON.parse(ev.data)
+							setParteSeleccionado(prev => prev ? ({ ...prev, estado: data.estado, ultimaEdicion: data.ultimaEdicion }) : prev)
+						} catch { }
+					}
+					es.onerror = () => {
+						es.close()
+						// backoff
+						attempt += 1
+						const delay = Math.min(maxDelay, 1000 * Math.pow(2, attempt))
+						setTimeout(() => { if (estadoStreamRef.current === es) connect() }, delay)
+					}
+					estadoStreamRef.current = es
+				} catch {
+					attempt += 1
+					const delay = Math.min(maxDelay, 1000 * Math.pow(2, attempt))
+					setTimeout(connect, delay)
+				}
+			}
+			connect()
+		} else {
+			// cerrar stream si no hay parte seleccionada
+			if (estadoStreamRef.current) {
+				estadoStreamRef.current.close()
+				estadoStreamRef.current = null
+			}
+		}
+		return () => {
+			if (estadoStreamRef.current) {
+				estadoStreamRef.current.close()
+				estadoStreamRef.current = null
+			}
+		}
+	}, [parteSeleccionado?.id])
 
 	const cerrarDetalles = () => {
 		if (estadoStreamRef.current) {
@@ -1192,13 +1197,13 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 							</button>
 							<h2 className="edicion-title">Editar Parte: {editandoParte.nombre}</h2>
 						</div>
-						
-                    {mensajeUI.texto && (
-                        <div className={`message ${mensajeUI.tipo}`} style={{ marginBottom: 12 }}>
-                            {mensajeUI.texto}
-                        </div>
-                    )}
-                    <div className="edicion-form">
+
+						{mensajeUI.texto && (
+							<div className={`message ${mensajeUI.tipo}`} style={{ marginBottom: 12 }}>
+								{mensajeUI.texto}
+							</div>
+						)}
+						<div className="edicion-form">
 							<div className="form-group">
 								<label className="form-label">Provincia:</label>
 								<select
@@ -1291,8 +1296,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 											)}
 										</div>
 									</div>
-									<button 
-										className="btn btn-primary" 
+									<button
+										className="btn btn-primary"
 										onClick={() => setMostrarEmpleadosObra(!mostrarEmpleadosObra)}
 									>
 										<Users size={20} />
@@ -1300,7 +1305,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 									</button>
 								</div>
 
-							{/* Empleados actuales del parte */}
+								{/* Empleados actuales del parte */}
 								<div className="empleados-actuales">
 									<h4>Empleados asignados al parte ({editandoParte.empleados.length}):</h4>
 									{loadingEmpleadosParte ? (
@@ -1325,7 +1330,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 															/>
 															<span className="empleado-nombre-edicion">
 																<strong>{empleado.nombre}</strong>
-                                                                <span className="categoria-empleado">{empleado.categoria}</span>
+																<span className="categoria-empleado">{empleado.categoria}</span>
 															</span>
 														</label>
 													</div>
@@ -1342,33 +1347,33 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 														/>
 														<span className="horas-unidad">h</span>
 													</div>
-												<div className="empleado-estado-edicion">
-													<label className="horas-label">Estado:</label>
-                                            <select
-														className="form-select"
-														onChange={(e) => cambiarEstadoEmpleado(empleado.id, e.target.value)}
-													defaultValue={empleado.estado || ''}
-													>
-                                                    <option value="">{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
-                                                {(estadoOptions.options || []).map(opt => (
-                                                    <option key={opt.name} value={opt.name}>
-                                                        {opt.name}
-                                                    </option>
-                                                ))}
-													</select>
-                                            {/* Indicador del color del estado seleccionado */}
-                                            {(() => {
-                                                const seleccionado = estadoLocal[empleado.id] || empleado.estado
-                                                const opt = getEstadoOptionByName(seleccionado)
-                                                if (!opt) return null
-                                                const color = mapNotionColorToHex(opt.color)
-                                                return (
-                                                    <span className="estado-empleado" title={seleccionado}>
-                                                        <span className="badge-dot" style={{ backgroundColor: color }} /> {seleccionado}
-                                                    </span>
-                                                )
-                                            })()}
-												</div>
+													<div className="empleado-estado-edicion">
+														<label className="horas-label">Estado:</label>
+														<select
+															className="form-select"
+															onChange={(e) => cambiarEstadoEmpleado(empleado.id, e.target.value)}
+															defaultValue={empleado.estado || ''}
+														>
+															<option value="">{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
+															{(estadoOptions.options || []).map(opt => (
+																<option key={opt.name} value={opt.name}>
+																	{opt.name}
+																</option>
+															))}
+														</select>
+														{/* Indicador del color del estado seleccionado */}
+														{(() => {
+															const seleccionado = estadoLocal[empleado.id] || empleado.estado
+															const opt = getEstadoOptionByName(seleccionado)
+															if (!opt) return null
+															const color = mapNotionColorToHex(opt.color)
+															return (
+																<span className="estado-empleado" title={seleccionado}>
+																	<span className="badge-dot" style={{ backgroundColor: color }} /> {seleccionado}
+																</span>
+															)
+														})()}
+													</div>
 												</div>
 											))}
 										</div>
@@ -1390,49 +1395,49 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 											</div>
 										) : (
 											<div className="empleados-lista-disponibles">
-                                                {getEmpleadosNoAsignados().map(empleado => (
-                                                    <div key={empleado.id} className="empleado-disponible-item">
-                                                        <div className="empleado-info-disponible">
-                                                            <label className="empleado-checkbox-disponible">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={false}
-                                                                    onChange={() => toggleEmpleado(empleado.id)}
-                                                                />
-                                                                <span className="empleado-nombre-disponible">
-                                                                    <strong>{empleado.nombre}</strong>
-                                                                    <span className="categoria-empleado">{empleado.categoria}</span>
-                                                                </span>
-                                                            </label>
-                                                        </div>
-                                                        <div className="empleado-estado-edicion">
-                                                            <label className="horas-label">Estado:</label>
-                                                            <select
-                                                                className="form-select"
-                                                                onChange={(e) => cambiarEstadoEmpleado(empleado.id, e.target.value)}
-                                                                defaultValue={estadoLocal[empleado.id] || empleado.estado || ''}
-                                                            >
-                                                                <option value="">{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
-                                                                {(estadoOptions.options || []).map(opt => (
-                                                                    <option key={opt.name} value={opt.name}>
-                                                                        {opt.name}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                            {(() => {
-                                                                const seleccionado = estadoLocal[empleado.id] || empleado.estado
-                                                                const opt = getEstadoOptionByName(seleccionado)
-                                                                if (!opt) return null
-                                                                const color = mapNotionColorToHex(opt.color)
-                                                                return (
-                                                                    <span className="estado-empleado" title={seleccionado}>
-                                                                        <span className="badge-dot" style={{ backgroundColor: color }} /> {seleccionado}
-                                                                    </span>
-                                                                )
-                                                            })()}
-                                                        </div>
-                                                    </div>
-                                                ))}
+												{getEmpleadosNoAsignados().map(empleado => (
+													<div key={empleado.id} className="empleado-disponible-item">
+														<div className="empleado-info-disponible">
+															<label className="empleado-checkbox-disponible">
+																<input
+																	type="checkbox"
+																	checked={false}
+																	onChange={() => toggleEmpleado(empleado.id)}
+																/>
+																<span className="empleado-nombre-disponible">
+																	<strong>{empleado.nombre}</strong>
+																	<span className="categoria-empleado">{empleado.categoria}</span>
+																</span>
+															</label>
+														</div>
+														<div className="empleado-estado-edicion">
+															<label className="horas-label">Estado:</label>
+															<select
+																className="form-select"
+																onChange={(e) => cambiarEstadoEmpleado(empleado.id, e.target.value)}
+																defaultValue={estadoLocal[empleado.id] || empleado.estado || ''}
+															>
+																<option value="">{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
+																{(estadoOptions.options || []).map(opt => (
+																	<option key={opt.name} value={opt.name}>
+																		{opt.name}
+																	</option>
+																))}
+															</select>
+															{(() => {
+																const seleccionado = estadoLocal[empleado.id] || empleado.estado
+																const opt = getEstadoOptionByName(seleccionado)
+																if (!opt) return null
+																const color = mapNotionColorToHex(opt.color)
+																return (
+																	<span className="estado-empleado" title={seleccionado}>
+																		<span className="badge-dot" style={{ backgroundColor: color }} /> {seleccionado}
+																	</span>
+																)
+															})()}
+														</div>
+													</div>
+												))}
 											</div>
 										)}
 									</div>
@@ -1441,8 +1446,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 							{/* Acciones de edición */}
 							<div className="edicion-acciones">
-								<button 
-									className="btn btn-success" 
+								<button
+									className="btn btn-success"
 									onClick={guardarCambios}
 									disabled={guardandoCambios}
 								>
@@ -1458,8 +1463,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 										</>
 									)}
 								</button>
-								<button 
-									className="btn btn-secondary" 
+								<button
+									className="btn btn-secondary"
 									onClick={cancelarEdicion}
 									disabled={guardandoCambios}
 								>
@@ -1494,20 +1499,20 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 									</div>
 								</div>
 							)}
-							
+
 							<div className="info-grid">
 								<div className="info-item">
 									<Building size={20} />
 									<span><strong>Obra:</strong> {parteSeleccionado.obra || 'Sin obra'}</span>
 								</div>
-                            <div className="info-item">
-                                <Calendar size={20} />
-                                <span><strong>Fecha:</strong> {formatearFecha(parteSeleccionado.fecha)}</span>
-                            </div>
-                            <div className="info-item">
-                                <Clock size={20} />
-                                <span><strong>Última Edición:</strong> {formatearFecha(parteSeleccionado.ultimaEdicion)}</span>
-                            </div>
+								<div className="info-item">
+									<Calendar size={20} />
+									<span><strong>Fecha:</strong> {formatearFecha(parteSeleccionado.fecha)}</span>
+								</div>
+								<div className="info-item">
+									<Clock size={20} />
+									<span><strong>Última Edición:</strong> {formatearFecha(parteSeleccionado.ultimaEdicion)}</span>
+								</div>
 								<div className="info-item">
 									<span><strong>Estado:</strong> {parteSeleccionado.estado || 'Pendiente'}</span>
 								</div>
@@ -1515,19 +1520,21 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 							{/* Resumen de horas por categoría */}
 							{!loadingDetalles && detallesEmpleados.length > 0 && (() => {
-								const { categorias, total } = calcularSumatoriosHoras(detallesEmpleados)
+								const { categorias } = calcularSumatoriosHoras(detallesEmpleados)
+								// Usar el valor de Notion como fuente de verdad para el total
+								const horasTotalesNotion = parteSeleccionado.horasTotales || parteSeleccionado.rpHorasTotales
 								return (
 									<div className="resumen-horas-section">
 										<h3>Resumen de Horas</h3>
 										<div className="resumen-horas-grid">
-											{Object.entries(categorias).map(([categoria, horas]) => (
+											{Object.entries(categorias).filter(([, horas]) => horas > 0).map(([categoria, horas]) => (
 												<div key={categoria} className="resumen-horas-item">
 													<span className="resumen-horas">Horas de {categoria}: {horas}</span>
 												</div>
 											))}
 										</div>
 										<div className="resumen-total">
-											<span className="total-horas">Horas totales: {total}</span>
+											<span className="total-horas">Horas totales: {horasTotalesNotion || 0}</span>
 										</div>
 									</div>
 								)
@@ -1543,7 +1550,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 									</div>
 								) : detallesEmpleados.length > 0 ? (
 									<div className="empleados-lista-detalles">
-								{detallesEmpleados.map((detalle, index) => (
+										{detallesEmpleados.map((detalle, index) => (
 											<div key={detalle.id || index} className="empleado-detalle">
 												<div className="empleado-info-detalle">
 													<div className="empleado-nombre">
@@ -1557,8 +1564,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 														<Clock size={16} />
 														<span>{detalle.horas || 0} horas</span>
 													</div>
-										</div>
-										{/* Estado del empleado oculto en vista de detalles por requerimiento */}
+												</div>
+												{/* Estado del empleado oculto en vista de detalles por requerimiento */}
 												{detalle.detalle && (
 													<div className="empleado-notas">
 														<p>{detalle.detalle}</p>
@@ -1580,7 +1587,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 									<p>{parteSeleccionado.notas}</p>
 								</div>
 							)}
-							
+
 							{/* Acciones del parte */}
 							<div className="parte-acciones-detalles">
 								{parteSeleccionado.urlPDF && tienePDFDisponible(parteSeleccionado.estado) && (
@@ -1617,7 +1624,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 										)}
 									</button>
 								)}
-								
+
 								{/* Botones de edición solo si el parte es editable */}
 								{puedeEditarParte(parteSeleccionado.estado) ? (
 									<div className="acciones-edicion">
@@ -1635,20 +1642,20 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 						</div>
 					</div>
 				</div>
-            ) : (
-                <>
-                    <div className="section-header">
-                        <button className="btn-back" onClick={onVolver}>
-                            <ArrowLeft size={20} />
-                            Volver al Inicio
-                        </button>
-                        <h2 className="section-title">Consultar Partes Existentes</h2>
-                    </div>
-                    {mensajeUI.texto && (
-                        <div className={`message ${mensajeUI.tipo}`} style={{ marginBottom: 12 }}>
-                            {mensajeUI.texto}
-                        </div>
-                    )}
+			) : (
+				<>
+					<div className="section-header">
+						<button className="btn-back" onClick={onVolver}>
+							<ArrowLeft size={20} />
+							Volver al Inicio
+						</button>
+						<h2 className="section-title">Consultar Partes Existentes</h2>
+					</div>
+					{mensajeUI.texto && (
+						<div className={`message ${mensajeUI.tipo}`} style={{ marginBottom: 12 }}>
+							{mensajeUI.texto}
+						</div>
+					)}
 
 					<div className="card">
 						<div className="card-header">
@@ -1745,8 +1752,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 							)}
 						</div>
 
-					{/* Debug info para filtros - Comentado para ocultar */}
-					{/* {import.meta.env.MODE === 'development' && (
+						{/* Debug info para filtros - Comentado para ocultar */}
+						{/* {import.meta.env.MODE === 'development' && (
 							<div className="debug-filtros">
 								<strong>Debug Filtros:</strong> Obras disponibles: {obrasUnicas.length} |
 								Partes totales: {datos.partesTrabajo.length} |
@@ -1760,7 +1767,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 						{/* Lista de partes */}
 						<div className="partes-lista">
-								{partesFiltrados.length === 0 ? (
+							{partesFiltrados.length === 0 ? (
 								<div className="no-partes">
 									<p className="text-large">No se encontraron partes con los filtros seleccionados</p>
 								</div>
@@ -1788,86 +1795,86 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 										return formatearHorasTexto(suma)
 									})()
 
-										return (
-											<div key={parte.id} className={`parte-card ${estadoClase}`}>
-												<div className="parte-header">
-													<h3 className="parte-nombre">{parte.nombre}</h3>
-													<span className={`estado-badge ${parte.estado?.toLowerCase() || 'pendiente'}`}>
-														{parte.estado || 'Pendiente'}
-													</span>
+									return (
+										<div key={parte.id} className={`parte-card ${estadoClase}`}>
+											<div className="parte-header">
+												<h3 className="parte-nombre">{parte.nombre}</h3>
+												<span className={`estado-badge ${parte.estado?.toLowerCase() || 'pendiente'}`}>
+													{parte.estado || 'Pendiente'}
+												</span>
+											</div>
+											<div className="parte-info">
+												<div className="info-item">
+													<Building size={20} />
+													<span><strong>Obra</strong> {parte.obra || 'Sin obra'}</span>
 												</div>
-												<div className="parte-info">
-													<div className="info-item">
-														<Building size={20} />
-														<span><strong>Obra</strong> {parte.obra || 'Sin obra'}</span>
-													</div>
-													<div className="info-item">
-														<Calendar size={20} />
-														<span><strong>Fecha</strong> {formatearFecha(parte.fecha)}</span>
-													</div>
-													<div className="info-item">
-														<Users size={20} />
-														<span><strong>Horas</strong> {horasTotalesCalculadas}</span>
-													</div>
+												<div className="info-item">
+													<Calendar size={20} />
+													<span><strong>Fecha</strong> {formatearFecha(parte.fecha)}</span>
 												</div>
-
-												{/* Indicador visual si el parte no es editable */}
-												{!puedeEditarParte(parte.estado) && (
-													<div className="parte-no-editable-indicator">
-														<FileText size={16} />
-														<span>No editable - {parte.estado}</span>
-													</div>
-												)}
-
-												<div className="parte-acciones">
-													<button className="btn btn-primary" onClick={() => verDetalles(parte)}>
-														Ver Detalles
-													</button>
-													{parte.urlPDF && tienePDFDisponible(parte.estado) && (
-														<button className="btn btn-secondary" onClick={() => window.open(parte.urlPDF, '_blank')}>
-															Descargar PDF
-														</button>
-													)}
-													{esEstadoListoFirmar(parte.estado) && parte.firmarUrl && (
-														<button
-															className="btn btn-sign"
-															onClick={() => abrirFirma(parte.firmarUrl)}
-														>
-															<PenSquare size={18} />
-															Firmar
-														</button>
-													)}
-													{esEstadoBorrador(parte.estado) && (
-														<button
-															className="btn btn-warning"
-															onClick={() => handleEnviarDatos(parte)}
-															disabled={enviandoParteId === parte.id}
-														>
-															{enviandoParteId === parte.id ? (
-																<>
-																	<Loader2 size={18} className="spinner-inline" />
-																	Enviando...
-																</>
-															) : (
-																<>
-																	<Send size={18} />
-																	Enviar Datos
-																</>
-															)}
-														</button>
-													)}
-
-													{/* Botones de edición solo si el parte es editable */}
-													{puedeEditarParte(parte.estado) && (
-														<button className="btn btn-success" onClick={() => iniciarEdicion(parte)}>
-															<FileText size={20} />
-															Editar
-														</button>
-													)}
+												<div className="info-item">
+													<Users size={20} />
+													<span><strong>Horas</strong> {horasTotalesCalculadas}</span>
 												</div>
 											</div>
-										)
-									})
+
+											{/* Indicador visual si el parte no es editable */}
+											{!puedeEditarParte(parte.estado) && (
+												<div className="parte-no-editable-indicator">
+													<FileText size={16} />
+													<span>No editable - {parte.estado}</span>
+												</div>
+											)}
+
+											<div className="parte-acciones">
+												<button className="btn btn-primary" onClick={() => verDetalles(parte)}>
+													Ver Detalles
+												</button>
+												{parte.urlPDF && tienePDFDisponible(parte.estado) && (
+													<button className="btn btn-secondary" onClick={() => window.open(parte.urlPDF, '_blank')}>
+														Descargar PDF
+													</button>
+												)}
+												{esEstadoListoFirmar(parte.estado) && parte.firmarUrl && (
+													<button
+														className="btn btn-sign"
+														onClick={() => abrirFirma(parte.firmarUrl)}
+													>
+														<PenSquare size={18} />
+														Firmar
+													</button>
+												)}
+												{esEstadoBorrador(parte.estado) && (
+													<button
+														className="btn btn-warning"
+														onClick={() => handleEnviarDatos(parte)}
+														disabled={enviandoParteId === parte.id}
+													>
+														{enviandoParteId === parte.id ? (
+															<>
+																<Loader2 size={18} className="spinner-inline" />
+																Enviando...
+															</>
+														) : (
+															<>
+																<Send size={18} />
+																Enviar Datos
+															</>
+														)}
+													</button>
+												)}
+
+												{/* Botones de edición solo si el parte es editable */}
+												{puedeEditarParte(parte.estado) && (
+													<button className="btn btn-success" onClick={() => iniciarEdicion(parte)}>
+														<FileText size={20} />
+														Editar
+													</button>
+												)}
+											</div>
+										</div>
+									)
+								})
 							)}
 						</div>
 					</div>
@@ -1879,22 +1886,20 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 // Componente para crear nuevo parte
 function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
-	// Función para obtener fecha y hora actual en formato YYYY-MM-DDTHH:MM
-	const getCurrentDateTime = () => {
+	// Función para obtener fecha actual en formato YYYY-MM-DD
+	const getCurrentDate = () => {
 		const now = new Date()
 		const year = now.getFullYear()
 		const month = String(now.getMonth() + 1).padStart(2, '0')
 		const day = String(now.getDate()).padStart(2, '0')
-		const hours = String(now.getHours()).padStart(2, '0')
-		const minutes = String(now.getMinutes()).padStart(2, '0')
-		return `${year}-${month}-${day}T${hours}:${minutes}`
+		return `${year}-${month}-${day}`
 	}
 
-  const [formData, setFormData] = useState({
+	const [formData, setFormData] = useState({
 		provinciaSeleccionada: '', // Nueva propiedad para provincia
 		obraId: '',
 		obra: '',
-		fecha: getCurrentDateTime(),
+		fecha: getCurrentDate(),
 		personaAutorizadaId: '',
 		personaAutorizada: '',
 		empleados: [],
@@ -1903,54 +1908,60 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	})
 	const [loading, setLoading] = useState(false)
 	const [message, setMessage] = useState('')
-  const [empleadosObra, setEmpleadosObra] = useState([])
-  const [estadoLocal, setEstadoLocal] = useState({})
-  const [loadingEmpleados, setLoadingEmpleados] = useState(false)
-  const [parteCreado, setParteCreado] = useState(null)
-  const [showOpciones, setShowOpciones] = useState(false)
-  const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
+	const [empleadosObra, setEmpleadosObra] = useState([])
+	const [estadoLocal, setEstadoLocal] = useState({})
+	const [loadingEmpleados, setLoadingEmpleados] = useState(false)
+	const [parteCreado, setParteCreado] = useState(null)
+	const [showOpciones, setShowOpciones] = useState(false)
+	const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
+	const [busquedaEmpleado, setBusquedaEmpleado] = useState('')
 
-  // Helpers tolerantes para horas: limitar 0-24 y redondear a 0.5
-  const clampRoundHoras = (val) => {
-    let n = parseFloat(val)
-    if (!isFinite(n)) n = 0
-    if (n < 0) n = 0
-    if (n > 24) n = 24
-    return Math.round(n * 2) / 2
-  }
+	// Filtrar empleados por nombre de búsqueda
+	const empleadosFiltrados = empleadosObra.filter(empleado =>
+		empleado.nombre.toLowerCase().includes(busquedaEmpleado.toLowerCase())
+	)
 
-  // Helpers de estado (locales a creación)
-  const mapNotionColorToHex = (color) => {
-    switch ((color || '').toLowerCase()) {
-      case 'gray': return '#6b7280'
-      case 'brown': return '#92400e'
-      case 'orange': return '#f97316'
-      case 'yellow': return '#eab308'
-      case 'green': return '#16a34a'
-      case 'blue': return '#2563eb'
-      case 'purple': return '#7c3aed'
-      case 'pink': return '#db2777'
-      case 'red': return '#dc2626'
-      default: return '#64748b'
-    }
-  }
+	// Helpers tolerantes para horas: limitar 0-24 y redondear a 0.5
+	const clampRoundHoras = (val) => {
+		let n = parseFloat(val)
+		if (!isFinite(n)) n = 0
+		if (n < 0) n = 0
+		if (n > 24) n = 24
+		return Math.round(n * 2) / 2
+	}
 
-  const getEstadoOptionByName = (name) => {
-    return (estadoOptions?.options || []).find(opt => opt.name === name)
-  }
+	// Helpers de estado (locales a creación)
+	const mapNotionColorToHex = (color) => {
+		switch ((color || '').toLowerCase()) {
+			case 'gray': return '#6b7280'
+			case 'brown': return '#92400e'
+			case 'orange': return '#f97316'
+			case 'yellow': return '#eab308'
+			case 'green': return '#16a34a'
+			case 'blue': return '#2563eb'
+			case 'purple': return '#7c3aed'
+			case 'pink': return '#db2777'
+			case 'red': return '#dc2626'
+			default: return '#64748b'
+		}
+	}
 
-  const normalizeEstadoForApi = (valor) => {
-    const type = estadoOptions?.type
-    if (type === 'checkbox') {
-      if (typeof valor === 'boolean') return valor
-      const v = String(valor).toLowerCase()
-      return v === 'on' || v === 'true' || v === 'sí' || v === 'si'
-    }
-    return valor
-  }
+	const getEstadoOptionByName = (name) => {
+		return (estadoOptions?.options || []).find(opt => opt.name === name)
+	}
+
+	const normalizeEstadoForApi = (valor) => {
+		const type = estadoOptions?.type
+		if (type === 'checkbox') {
+			if (typeof valor === 'boolean') return valor
+			const v = String(valor).toLowerCase()
+			return v === 'on' || v === 'true' || v === 'sí' || v === 'si'
+		}
+		return valor
+	}
 
 	// Función para cargar empleados de una obra
-  const cargarEmpleadosObra = async (obraId) => {
+	const cargarEmpleadosObra = async (obraId) => {
 		if (!obraId) {
 			setEmpleadosObra([])
 			return
@@ -1958,24 +1969,24 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 
 		setLoadingEmpleados(true)
 		try {
-      const empleados = await getEmpleadosObra(obraId)
-      setEmpleadosObra(empleados)
+			const empleados = await getEmpleadosObra(obraId)
+			setEmpleadosObra(empleados)
 		} catch (error) {
 			console.error('Error al cargar empleados de la obra:', error)
 			setEmpleadosObra([])
 		} finally {
 			setLoadingEmpleados(false)
-  }
+		}
 
-  const cambiarEstadoEmpleadoObra = async (empleadoId, nuevoEstado) => {
-    setEstadoLocal(prev => ({ ...prev, [empleadoId]: nuevoEstado }))
-    try {
-      await actualizarEstadoEmpleado(empleadoId, normalizeEstadoForApi(nuevoEstado))
-    } catch (e) {
-      setEstadoLocal(prev => ({ ...prev, [empleadoId]: undefined }))
-      setMensajeUI({ tipo: 'error', texto: e.message })
-    }
-  }
+		const cambiarEstadoEmpleadoObra = async (empleadoId, nuevoEstado) => {
+			setEstadoLocal(prev => ({ ...prev, [empleadoId]: nuevoEstado }))
+			try {
+				await actualizarEstadoEmpleado(empleadoId, normalizeEstadoForApi(nuevoEstado))
+			} catch (e) {
+				setEstadoLocal(prev => ({ ...prev, [empleadoId]: undefined }))
+				setMensajeUI({ tipo: 'error', texto: e.message })
+			}
+		}
 	}
 
 	// Función para obtener provincias únicas
@@ -2017,20 +2028,20 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		cargarEmpleadosObra(obraId)
 	}
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setMessage('')
-    setMensajeUI({ tipo: '', texto: '' })
+	const handleSubmit = async (e) => {
+		e.preventDefault()
+		setLoading(true)
+		setMessage('')
+		setMensajeUI({ tipo: '', texto: '' })
 
 		try {
 			// Encontrar la obra seleccionada
 			const obraSeleccionada = datos.obras.find(obra => obra.id === formData.obraId)
 			const personaAutorizadaSeleccionada = datos.jefesObra.find(jefe => jefe.id === formData.personaAutorizadaId)
 
-      if (!obraSeleccionada || !personaAutorizadaSeleccionada) {
-        throw new Error('Selecciona una obra y una Persona Autorizada válidos')
-      }
+			if (!obraSeleccionada || !personaAutorizadaSeleccionada) {
+				throw new Error('Selecciona una obra y una Persona Autorizada válidos')
+			}
 
 			const parteCreado = await crearParteTrabajo({
 				obra: obraSeleccionada.nombre,
@@ -2044,17 +2055,17 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 
 			setParteCreado(parteCreado)
 			setShowOpciones(true)
-      setMessage(parteCreado.mensaje || 'Parte creado exitosamente')
-      setMensajeUI({ tipo: 'success', texto: 'Parte creado correctamente.' })
+			setMessage(parteCreado.mensaje || 'Parte creado exitosamente')
+			setMensajeUI({ tipo: 'success', texto: 'Parte creado correctamente.' })
 
 			// Recargar datos
 			if (onParteCreado) {
 				onParteCreado()
 			}
 		} catch (error) {
-      console.error('Error al crear parte:', error)
-      setMessage(`Error al crear el parte: ${error.message}`)
-      setMensajeUI({ tipo: 'error', texto: error.message })
+			console.error('Error al crear parte:', error)
+			setMessage(`Error al crear el parte: ${error.message}`)
+			setMensajeUI({ tipo: 'error', texto: error.message })
 		} finally {
 			setLoading(false)
 		}
@@ -2066,7 +2077,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 			provinciaSeleccionada: '',
 			obraId: '',
 			obra: '',
-			fecha: getCurrentDateTime(),
+			fecha: getCurrentDate(),
 			personaAutorizadaId: '',
 			personaAutorizada: '',
 			empleados: [],
@@ -2111,17 +2122,17 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 						<div className="opciones-container">
 							<h3>¿Qué quieres hacer ahora?</h3>
 							<div className="opciones-buttons">
-								<button 
-									type="button" 
-									className="btn btn-primary" 
+								<button
+									type="button"
+									className="btn btn-primary"
 									onClick={volverAFormulario}
 								>
 									<Plus size={20} />
 									Crear Otro Parte
 								</button>
-								<button 
-									type="button" 
-									className="btn btn-secondary" 
+								<button
+									type="button"
+									className="btn btn-secondary"
 									onClick={verDetallesParte}
 								>
 									<FileText size={20} />
@@ -2144,230 +2155,278 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 					</div>
 				) : (
 					<form onSubmit={handleSubmit} className="formulario-parte">
-                    {mensajeUI.texto && (
-                        <div className={`message ${mensajeUI.tipo}`}>
-                            {mensajeUI.texto}
-                        </div>
-                    )}
-                    {message && !mensajeUI.texto && (
-                        <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
-                            {message}
-                        </div>
-                    )}
-					
-					<div className="form-group">
-						<label className="form-label">Seleccionar Provincia:</label>
-						<select
-							className="form-select"
-							value={formData.provinciaSeleccionada}
-							onChange={(e) => handleProvinciaChange(e.target.value)}
-							required
-						>
-							<option value="">Selecciona una provincia</option>
-							{getProvinciasUnicas().map(provincia => (
-								<option key={provincia} value={provincia}>
-									{provincia}
-								</option>
-							))}
-						</select>
-					</div>
+						{mensajeUI.texto && (
+							<div className={`message ${mensajeUI.tipo}`}>
+								{mensajeUI.texto}
+							</div>
+						)}
+						{message && !mensajeUI.texto && (
+							<div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
+								{message}
+							</div>
+						)}
 
-					<div className="grid grid-2">
 						<div className="form-group">
-							<label className="form-label">Seleccionar Obra:</label>
+							<label className="form-label">Seleccionar Provincia:</label>
 							<select
 								className="form-select"
-								value={formData.obraId}
-								onChange={(e) => handleObraChange(e.target.value)}
+								value={formData.provinciaSeleccionada}
+								onChange={(e) => handleProvinciaChange(e.target.value)}
 								required
-								disabled={!formData.provinciaSeleccionada}
 							>
-								<option value="">
-									{!formData.provinciaSeleccionada
-										? 'Primero selecciona una provincia'
-										: 'Selecciona una obra'}
-								</option>
-								{getObrasFiltradas().map(obra => (
-									<option key={obra.id} value={obra.id}>
-										{obra.nombre}
+								<option value="">Selecciona una provincia</option>
+								{getProvinciasUnicas().map(provincia => (
+									<option key={provincia} value={provincia}>
+										{provincia}
+									</option>
+								))}
+							</select>
+						</div>
+
+						<div className="grid grid-2">
+							<div className="form-group">
+								<label className="form-label">Seleccionar Obra:</label>
+								<select
+									className="form-select"
+									value={formData.obraId}
+									onChange={(e) => handleObraChange(e.target.value)}
+									required
+									disabled={!formData.provinciaSeleccionada}
+								>
+									<option value="">
+										{!formData.provinciaSeleccionada
+											? 'Primero selecciona una provincia'
+											: 'Selecciona una obra'}
+									</option>
+									{getObrasFiltradas().map(obra => (
+										<option key={obra.id} value={obra.id}>
+											{obra.nombre}
+										</option>
+									))}
+								</select>
+							</div>
+
+							<div className="form-group">
+								<label className="form-label">Fecha del Parte:</label>
+								<input
+									type="date"
+									className="form-input"
+									value={formData.fecha}
+									onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+									required
+								/>
+							</div>
+						</div>
+
+						<div className="form-group">
+							<label className="form-label">Persona Autorizada:</label>
+							<select
+								className="form-select"
+								value={formData.personaAutorizadaId}
+								onChange={(e) => setFormData({ ...formData, personaAutorizadaId: e.target.value })}
+								required
+							>
+								<option value="">Selecciona una Persona Autorizada</option>
+								{datos.jefesObra.map(jefe => (
+									<option key={jefe.id} value={jefe.id}>
+										{jefe.nombre} ({jefe.email})
 									</option>
 								))}
 							</select>
 						</div>
 
 						<div className="form-group">
-							<label className="form-label">Fecha y Hora del Parte:</label>
-							<input
-								type="datetime-local"
-								className="form-input"
-								value={formData.fecha}
-								onChange={(e) => setFormData({...formData, fecha: e.target.value})}
-								required
-							/>
-						</div>
-					</div>
-
-					<div className="form-group">
-						<label className="form-label">Persona Autorizada:</label>
-						<select
-							className="form-select"
-							value={formData.personaAutorizadaId}
-							onChange={(e) => setFormData({...formData, personaAutorizadaId: e.target.value})}
-							required
-						>
-							<option value="">Selecciona una Persona Autorizada</option>
-							{datos.jefesObra.map(jefe => (
-								<option key={jefe.id} value={jefe.id}>
-									{jefe.nombre} ({jefe.email})
-								</option>
-							))}
-						</select>
-					</div>
-
-					<div className="form-group">
-						<label className="form-label">Empleados asignados a la obra:</label>
-						{!formData.obraId ? (
-							<div className="empleados-placeholder">
-								<p>Selecciona una obra para ver los empleados asignados</p>
-							</div>
-						) : loadingEmpleados ? (
-							<div className="empleados-loading">
-								<Loader2 size={20} className="loading-spinner" />
-								<p>Cargando empleados de la obra...</p>
-							</div>
-						) : empleadosObra.length === 0 ? (
-							<div className="empleados-empty">
-								<p>No hay empleados asignados a esta obra</p>
-							</div>
-						) : (
-							<div className="empleados-lista">
-								{empleadosObra.map(empleado => (
-									<div key={empleado.id} className="empleado-item">
-										<label className="empleado-checkbox">
-											<input
-												type="checkbox"
-												checked={formData.empleados.includes(empleado.id)}
-												onChange={(e) => {
-													if (e.target.checked) {
-														setFormData({
-															...formData,
-															empleados: [...formData.empleados, empleado.id],
-															empleadosHoras: {
-																...formData.empleadosHoras,
-																[empleado.id]: 8 // Horas por defecto
-															}
-														})
-													} else {
-														const newEmpleadosHoras = { ...formData.empleadosHoras }
-														delete newEmpleadosHoras[empleado.id]
-														setFormData({
-															...formData,
-															empleados: formData.empleados.filter(id => id !== empleado.id),
-															empleadosHoras: newEmpleadosHoras
-														})
-													}
-												}}
-											/>
-											<span className="empleado-info">
-												<div className="empleado-nombre-estado">
-													<strong>{empleado.nombre}</strong>
-													<span className={`estado-empleado ${empleado.estado?.toLowerCase() || 'sin-estado'}`}>
-														{empleado.estado || 'Sin estado'}
-													</span>
-												</div>
-                                                <span className="categoria">{empleado.categoria}</span>
-											</span>
-										</label>
-                                        {/* Bloque de horas solo si está seleccionado */}
-                                        {formData.empleados.includes(empleado.id) && (
-                                                <>
-                                                <div className="empleado-horas-input">
-                                                    <label className="horas-label">Horas trabajadas:</label>
-                                                    <input
-                                                        type="number"
-                                                        className="horas-input"
-                                                        min="0"
-                                                        max="24"
-                                                        step="0.5"
-                                                        value={formData.empleadosHoras[empleado.id] || 8}
-                                                        onChange={(e) => {
-                                                            const horas = clampRoundHoras(e.target.value)
-                                                            setFormData({
-                                                                ...formData,
-                                                                empleadosHoras: {
-                                                                    ...formData.empleadosHoras,
-                                                                    [empleado.id]: horas
-                                                                }
-                                                            })
-                                                        }}
-                                                    />
-                                                    <span className="horas-unidad">h</span>
-                                                </div>
-                                                </>
-                                            )}
-                                        {/* Selector de estado SIEMPRE visible para permitir cambios en asignación */}
-                                        <div className="empleado-estado-edicion">
-                                            <label className="horas-label">Estado:</label>
-                                            <select
-                                                className="form-select"
-                                                onChange={(e) => cambiarEstadoEmpleadoObra(empleado.id, e.target.value)}
-                                                defaultValue={estadoLocal[empleado.id] || empleado.estado || ''}
-                                            >
-                                                <option value="">{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
-                                                {(estadoOptions.options || []).map(opt => (
-                                                    <option key={opt.name} value={opt.name}>
-                                                        {opt.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {(() => {
-                                                const seleccionado = estadoLocal[empleado.id] || empleado.estado
-                                                const opt = getEstadoOptionByName(seleccionado)
-                                                if (!opt) return null
-                                                const color = mapNotionColorToHex(opt.color)
-                                                return (
-                                                    <span className="estado-empleado" title={seleccionado}>
-                                                        <span className="badge-dot" style={{ backgroundColor: color }} /> {seleccionado}
-                                                    </span>
-                                                )
-                                            })()}
-                                        </div>
-									</div>
-								))}
-							</div>
-						)}
-					</div>
-
-					<div className="form-group">
-						<label className="form-label">Notas Adicionales:</label>
-						<textarea
-							className="form-input"
-							rows="4"
-							value={formData.notas}
-							onChange={(e) => setFormData({...formData, notas: e.target.value})}
-							placeholder="Añade cualquier nota o comentario sobre el trabajo realizado..."
-						/>
-					</div>
-
-					<div className="form-actions">
-						<button type="submit" className="btn btn-success" disabled={loading}>
-							{loading ? (
-								<>
-									<Loader2 size={24} className="loading-spinner" />
-									Creando...
-								</>
+							<label className="form-label">Empleados asignados a la obra:</label>
+							{!formData.obraId ? (
+								<div className="empleados-placeholder">
+									<p>Selecciona una obra para ver los empleados asignados</p>
+								</div>
+							) : loadingEmpleados ? (
+								<div className="empleados-loading">
+									<Loader2 size={20} className="loading-spinner" />
+									<p>Cargando empleados de la obra...</p>
+								</div>
+							) : empleadosObra.length === 0 ? (
+								<div className="empleados-empty">
+									<p>No hay empleados asignados a esta obra</p>
+								</div>
 							) : (
 								<>
-									<Plus size={24} />
-									Crear Parte
+									{/* Buscador de empleados */}
+									<div className="empleados-search">
+										<Search size={18} />
+										<input
+											type="text"
+											placeholder="Buscar empleado por nombre..."
+											value={busquedaEmpleado}
+											onChange={(e) => setBusquedaEmpleado(e.target.value)}
+											className="empleados-search-input"
+										/>
+										{busquedaEmpleado && (
+											<button
+												type="button"
+												onClick={() => setBusquedaEmpleado('')}
+												className="search-clear"
+											>
+												<X size={16} />
+											</button>
+										)}
+									</div>
+									{empleadosFiltrados.length === 0 ? (
+										<div className="empleados-empty">
+											<p>No se encontraron empleados con "{busquedaEmpleado}"</p>
+										</div>
+									) : (
+										<div className="empleados-lista empleados-lista-compacta">
+											{empleadosFiltrados.map(empleado => (
+												<div key={empleado.id} className="empleado-item">
+													<label className="empleado-checkbox">
+														<input
+															type="checkbox"
+															checked={formData.empleados.includes(empleado.id)}
+															onChange={(e) => {
+																if (e.target.checked) {
+																	setFormData({
+																		...formData,
+																		empleados: [...formData.empleados, empleado.id]
+																	})
+																} else {
+																	const newEmpleadosHoras = { ...formData.empleadosHoras }
+																	delete newEmpleadosHoras[empleado.id]
+																	setFormData({
+																		...formData,
+																		empleados: formData.empleados.filter(id => id !== empleado.id),
+																		empleadosHoras: newEmpleadosHoras
+																	})
+																}
+															}}
+														/>
+														<span className="empleado-info">
+															<div className="empleado-nombre-estado">
+																<strong>{empleado.nombre}</strong>
+																<span className={`estado-empleado ${empleado.estado?.toLowerCase() || 'sin-estado'}`}>
+																	{empleado.estado || 'Sin estado'}
+																</span>
+															</div>
+															<span className="categoria">{empleado.categoria}</span>
+														</span>
+													</label>
+													{/* Bloque de horas solo si está seleccionado */}
+													{formData.empleados.includes(empleado.id) && (
+														<>
+															<div className="empleado-horas-input">
+																<label className="horas-label">Horas trabajadas:</label>
+																<button
+																	type="button"
+																	className="horas-btn horas-btn-minus"
+																	onClick={() => {
+																		const currentHoras = formData.empleadosHoras[empleado.id] || 0
+																		const newHoras = Math.max(0, currentHoras - 1)
+																		setFormData({
+																			...formData,
+																			empleadosHoras: {
+																				...formData.empleadosHoras,
+																				[empleado.id]: newHoras
+																			}
+																		})
+																	}}
+																>
+																	−
+																</button>
+																<input
+																	type="number"
+																	className="horas-input"
+																	min="0"
+																	max="24"
+																	step="0.5"
+																	value={formData.empleadosHoras[empleado.id] ?? ''}
+																	onFocus={(e) => e.target.select()}
+																	onChange={(e) => {
+																		const horas = clampRoundHoras(e.target.value)
+																		setFormData({
+																			...formData,
+																			empleadosHoras: {
+																				...formData.empleadosHoras,
+																				[empleado.id]: horas
+																			}
+																		})
+																	}}
+																/>
+																<button
+																	type="button"
+																	className="horas-btn horas-btn-plus"
+																	onClick={() => {
+																		const currentHoras = formData.empleadosHoras[empleado.id] || 0
+																		const newHoras = Math.min(24, currentHoras + 1)
+																		setFormData({
+																			...formData,
+																			empleadosHoras: {
+																				...formData.empleadosHoras,
+																				[empleado.id]: newHoras
+																			}
+																		})
+																	}}
+																>
+																	+
+																</button>
+																<span className="horas-unidad">h</span>
+															</div>
+														</>
+													)}
+													{/* Selector de estado SIEMPRE visible para permitir cambios en asignación */}
+													<div className="empleado-estado-edicion">
+														<label className="horas-label">Estado:</label>
+														<select
+															className="form-select"
+															onChange={(e) => cambiarEstadoEmpleadoObra(empleado.id, e.target.value)}
+															defaultValue={estadoLocal[empleado.id] || empleado.estado || ''}
+														>
+															<option value="">{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
+															{(estadoOptions.options || []).map(opt => (
+																<option key={opt.name} value={opt.name}>
+																	{opt.name}
+																</option>
+															))}
+														</select>
+													</div>
+												</div>
+											))}
+										</div>
+									)}
 								</>
 							)}
-						</button>
-                    <button type="button" className="btn btn-secondary" disabled={loading} onClick={onVolver}>
-                        Cancelar
-                    </button>
-					</div>
-				</form>
+						</div>
+
+						<div className="form-group">
+							<label className="form-label">Notas Adicionales:</label>
+							<textarea
+								className="form-input"
+								rows="4"
+								value={formData.notas}
+								onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
+								placeholder="Añade cualquier nota o comentario sobre el trabajo realizado..."
+							/>
+						</div>
+
+						<div className="form-actions">
+							<button type="submit" className="btn btn-success" disabled={loading}>
+								{loading ? (
+									<>
+										<Loader2 size={24} className="loading-spinner" />
+										Creando...
+									</>
+								) : (
+									<>
+										<Plus size={24} />
+										Crear Parte
+									</>
+								)}
+							</button>
+							<button type="button" className="btn btn-secondary" disabled={loading} onClick={onVolver}>
+								Cancelar
+							</button>
+						</div>
+					</form>
 				)}
 			</div>
 		</div>
@@ -2376,7 +2435,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 
 function Footer() {
 	const [showDate, setShowDate] = useState(false)
-	const version = '1.0.1' // Actualiza esto con cada nueva versión
+	const version = '1.0.2' // Actualiza esto con cada nueva versión
 	const deployDate = new Date(__BUILD_TIMESTAMP__) // Fecha automática del último build
 
 	return (

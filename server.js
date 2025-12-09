@@ -43,27 +43,27 @@ app.use(compression())
 // CORS: si se definen orígenes permitidos, restringir; en otro caso permitir (dev)
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)
 if (ALLOWED_ORIGINS.length > 0) {
-  app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
+	app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
 } else {
-  app.use(cors())
+	app.use(cors())
 }
 
 // Request ID para trazabilidad
 app.use((req, res, next) => {
-  req.id = req.headers['x-request-id'] || uuidv4()
-  res.setHeader('x-request-id', req.id)
-  next()
+	req.id = req.headers['x-request-id'] || uuidv4()
+	res.setHeader('x-request-id', req.id)
+	next()
 })
 
 // Access logging (morgan) con tiempos y filtrado de rutas de ruido
 morgan.token('id', (req) => req.id)
 const logFormat = ':id :remote-addr - :method :url :status :res[content-length] - :response-time ms'
 app.use(morgan(logFormat, {
-  skip: (req) => {
-    const p = req.path || ''
-    // Reducir ruido: evitar logs de assets estáticos y health
-    return p.startsWith('/assets') || p.endsWith('.js') || p.endsWith('.css') || p.endsWith('.map') || p === '/api/health'
-  }
+	skip: (req) => {
+		const p = req.path || ''
+		// Reducir ruido: evitar logs de assets estáticos y health
+		return p.startsWith('/assets') || p.endsWith('.js') || p.endsWith('.css') || p.endsWith('.map') || p === '/api/health'
+	}
 }))
 app.use(express.json())
 app.use(express.static(path.join(__dirname, 'dist')))
@@ -73,24 +73,24 @@ app.use(express.static(path.join(__dirname, 'dist')))
 
 // Verificar token al iniciar o activar modo mock
 if (!NOTION_TOKEN && !USE_MOCK_DATA) {
-  console.error('ERROR: Falta la variable de entorno NOTION_TOKEN. Configure su token de Notion antes de iniciar el servidor.')
-  // Finalizar proceso para evitar ejecutar sin credenciales válidas
-  process.exit(1)
+	console.error('ERROR: Falta la variable de entorno NOTION_TOKEN. Configure su token de Notion antes de iniciar el servidor.')
+	// Finalizar proceso para evitar ejecutar sin credenciales válidas
+	process.exit(1)
 }
 
 if (USE_MOCK_DATA) {
-  console.warn('⚠️  Ejecutando en modo MOCK: se utilizarán datos simulados para todas las peticiones.')
+	console.warn('⚠️  Ejecutando en modo MOCK: se utilizarán datos simulados para todas las peticiones.')
 }
 
 // Rate limiting para /api con valores configurables
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000) // 15 minutos
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 100) // 100 req por ventana
 const apiLimiter = rateLimit({
-  windowMs: RATE_LIMIT_WINDOW_MS,
-  max: RATE_LIMIT_MAX,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => (req.path === '/health') // no limitar health
+	windowMs: RATE_LIMIT_WINDOW_MS,
+	max: RATE_LIMIT_MAX,
+	standardHeaders: true,
+	legacyHeaders: false,
+	skip: (req) => (req.path === '/health') // no limitar health
 })
 app.use('/api', apiLimiter)
 
@@ -99,53 +99,53 @@ const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30 * 1000) // 30 segundo
 const cache = new Map()
 const setCache = (key, data) => cache.set(key, { data, ts: Date.now() })
 const getCache = (key) => {
-  const e = cache.get(key)
-  if (!e) return null
-  if (Date.now() - e.ts > CACHE_TTL_MS) {
-    cache.delete(key)
-    return null
-  }
-  return e.data
+	const e = cache.get(key)
+	if (!e) return null
+	if (Date.now() - e.ts > CACHE_TTL_MS) {
+		cache.delete(key)
+		return null
+	}
+	return e.data
 }
 
 // Sanitización de datos económicos en respuestas API
 const ECONOMIC_KEY_SUBSTRINGS = ['importe', 'precio', 'coste', 'tarifa', 'eur', 'euro']
 const ECONOMIC_VALUE_REGEX = /(€|eur|euros)/i
 function sanitizeEconomic(value) {
-  if (Array.isArray(value)) {
-    return value.map(sanitizeEconomic)
-  }
-  if (value && typeof value === 'object') {
-    const out = {}
-    for (const [k, v] of Object.entries(value)) {
-      const kl = String(k).toLowerCase()
-      const keyHits = ECONOMIC_KEY_SUBSTRINGS.some(s => kl.includes(s))
-      if (keyHits) continue // eliminar claves económicas
-      const sv = sanitizeEconomic(v)
-      // Si el valor es string económico, redáctalo
-      if (typeof sv === 'string' && ECONOMIC_VALUE_REGEX.test(sv)) {
-        out[k] = '[redacted]'
-      } else {
-        out[k] = sv
-      }
-    }
-    return out
-  }
-  if (typeof value === 'string') {
-    return ECONOMIC_VALUE_REGEX.test(value) ? '[redacted]' : value
-  }
-  return value
+	if (Array.isArray(value)) {
+		return value.map(sanitizeEconomic)
+	}
+	if (value && typeof value === 'object') {
+		const out = {}
+		for (const [k, v] of Object.entries(value)) {
+			const kl = String(k).toLowerCase()
+			const keyHits = ECONOMIC_KEY_SUBSTRINGS.some(s => kl.includes(s))
+			if (keyHits) continue // eliminar claves económicas
+			const sv = sanitizeEconomic(v)
+			// Si el valor es string económico, redáctalo
+			if (typeof sv === 'string' && ECONOMIC_VALUE_REGEX.test(sv)) {
+				out[k] = '[redacted]'
+			} else {
+				out[k] = sv
+			}
+		}
+		return out
+	}
+	if (typeof value === 'string') {
+		return ECONOMIC_VALUE_REGEX.test(value) ? '[redacted]' : value
+	}
+	return value
 }
 
 // Interceptor para res.json que sanea datos económicos (excepto health)
 app.use((req, res, next) => {
-  const originalJson = res.json.bind(res)
-  res.json = (data) => {
-    const shouldSanitize = req.path.startsWith('/api/') && req.path !== '/api/health'
-    const payload = shouldSanitize ? sanitizeEconomic(data) : data
-    return originalJson(payload)
-  }
-  next()
+	const originalJson = res.json.bind(res)
+	res.json = (data) => {
+		const shouldSanitize = req.path.startsWith('/api/') && req.path !== '/api/health'
+		const payload = shouldSanitize ? sanitizeEconomic(data) : data
+		return originalJson(payload)
+	}
+	next()
 })
 
 // Headers para Notion
@@ -169,7 +169,7 @@ const extractPropertyValue = (property) => {
 		return ''
 	}
 
-		switch (property.type) {
+	switch (property.type) {
 		case 'title':
 			return property.title?.[0]?.plain_text || ''
 		case 'rich_text':
@@ -230,18 +230,18 @@ const extractPropertyValue = (property) => {
 }
 
 const buildEstadoUpdatePayload = (estadoProperty, nuevoEstado) => {
-  const estadoNombre = String(nuevoEstado || '').trim()
-  if (!estadoNombre) {
-    throw new Error('Nombre de estado inválido')
-  }
-  const tipo = estadoProperty?.type
-  if (tipo === 'select') {
-    return { select: { name: estadoNombre } }
-  }
-  if (tipo === 'multi_select') {
-    return { multi_select: [{ name: estadoNombre }] }
-  }
-  return { status: { name: estadoNombre } }
+	const estadoNombre = String(nuevoEstado || '').trim()
+	if (!estadoNombre) {
+		throw new Error('Nombre de estado inválido')
+	}
+	const tipo = estadoProperty?.type
+	if (tipo === 'select') {
+		return { select: { name: estadoNombre } }
+	}
+	if (tipo === 'multi_select') {
+		return { multi_select: [{ name: estadoNombre }] }
+	}
+	return { status: { name: estadoNombre } }
 }
 
 // Función para hacer requests a Notion con manejo de errores
@@ -269,7 +269,7 @@ const makeNotionRequest = async (method, endpoint, data = null) => {
 			message: error.response?.data?.message || error.message,
 			code: error.response?.data?.code
 		})
-		
+
 		if (error.response?.status === 401) {
 			throw new Error('Token de Notion inválido o expirado')
 		} else if (error.response?.status === 403) {
@@ -290,56 +290,56 @@ const makeNotionRequest = async (method, endpoint, data = null) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  if (USE_MOCK_DATA) {
-    return res.json({ ...mockStore.getHealthStatus(), mode: 'mock' })
-  }
-	res.json({ 
-		status: 'ok', 
+	if (USE_MOCK_DATA) {
+		return res.json({ ...mockStore.getHealthStatus(), mode: 'mock' })
+	}
+	res.json({
+		status: 'ok',
 		timestamp: new Date().toISOString(),
 		notionToken: NOTION_TOKEN ? 'configured' : 'missing',
-    mode: 'live'
+		mode: 'live'
 	})
 })
 
 // Obtener todas las obras
 app.get('/api/obras', async (req, res) => {
-  try {
-    if (USE_MOCK_DATA) {
-      const obras = mockStore.getObras()
-      return res.json(obras)
-    }
-    const cached = getCache('obras')
-    if (cached) return res.json(cached)
+	try {
+		if (USE_MOCK_DATA) {
+			const obras = mockStore.getObras()
+			return res.json(obras)
+		}
+		const cached = getCache('obras')
+		if (cached) return res.json(cached)
 		const data = await makeNotionRequest('POST', `/databases/${DATABASES.OBRAS}/query`, {
 			page_size: 100
 		})
 
-    const obras = data.results.map(page => ({
-      id: page.id,
-      nombre: extractPropertyValue(page.properties['Obra - Codigo']),
-      provincia: extractPropertyValue(page.properties['Provincia']),
-      estado: extractPropertyValue(page.properties['Estado'])
-    }))
+		const obras = data.results.map(page => ({
+			id: page.id,
+			nombre: extractPropertyValue(page.properties['Obra - Codigo']),
+			provincia: extractPropertyValue(page.properties['Provincia']),
+			estado: extractPropertyValue(page.properties['Estado'])
+		}))
 
-    setCache('obras', obras)
-    res.json(obras)
-  } catch (error) {
+		setCache('obras', obras)
+		res.json(obras)
+	} catch (error) {
 		console.error('Error al obtener obras:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al obtener obras',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
 
 // Obtener todos los jefes de obra
 app.get('/api/jefes-obra', async (req, res) => {
-  try {
-    if (USE_MOCK_DATA) {
-      return res.json(mockStore.getJefesObra())
-    }
-    const cached = getCache('jefes')
-    if (cached) return res.json(cached)
+	try {
+		if (USE_MOCK_DATA) {
+			return res.json(mockStore.getJefesObra())
+		}
+		const cached = getCache('jefes')
+		if (cached) return res.json(cached)
 		const data = await makeNotionRequest('POST', `/databases/${DATABASES.JEFE_OBRAS}/query`, {
 			page_size: 100
 		})
@@ -350,25 +350,25 @@ app.get('/api/jefes-obra', async (req, res) => {
 			email: extractPropertyValue(page.properties[' Email'])
 		}))
 
-    setCache('jefes', jefesObra)
-    res.json(jefesObra)
-  } catch (error) {
+		setCache('jefes', jefesObra)
+		res.json(jefesObra)
+	} catch (error) {
 		console.error('Error al obtener jefes de obra:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al obtener jefes de obra',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
 
 // Obtener todos los empleados
 app.get('/api/empleados', async (req, res) => {
-  try {
-    if (USE_MOCK_DATA) {
-      return res.json(mockStore.getEmpleados())
-    }
-    const cached = getCache('empleados')
-    if (cached) return res.json(cached)
+	try {
+		if (USE_MOCK_DATA) {
+			return res.json(mockStore.getEmpleados())
+		}
+		const cached = getCache('empleados')
+		if (cached) return res.json(cached)
 		const data = await makeNotionRequest('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
 			page_size: 100
 		})
@@ -385,97 +385,97 @@ app.get('/api/empleados', async (req, res) => {
 			delegado: extractPropertyValue(page.properties['Delegado'])
 		}))
 
-    setCache('empleados', empleados)
-    res.json(empleados)
-  } catch (error) {
+		setCache('empleados', empleados)
+		res.json(empleados)
+	} catch (error) {
 		console.error('Error al obtener empleados:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al obtener empleados',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
 
 // Obtener opciones válidas de la propiedad Estado de empleados (dinámico desde Notion)
 app.get('/api/empleados/estado-opciones', async (req, res) => {
-    try {
-        if (USE_MOCK_DATA) {
-            return res.json(mockStore.getEstadoOpciones())
-        }
-        const db = await makeNotionRequest('GET', `/databases/${DATABASES.EMPLEADOS}`)
-        const prop = db.properties?.['Estado']
-        if (!prop) {
-            return res.json({ type: 'unknown', options: [] })
-        }
+	try {
+		if (USE_MOCK_DATA) {
+			return res.json(mockStore.getEstadoOpciones())
+		}
+		const db = await makeNotionRequest('GET', `/databases/${DATABASES.EMPLEADOS}`)
+		const prop = db.properties?.['Estado']
+		if (!prop) {
+			return res.json({ type: 'unknown', options: [] })
+		}
 
-        let options = []
-        let type = prop.type
-        if (prop.type === 'status') {
-            options = (prop.status?.options || []).map(o => ({ name: o.name, color: o.color }))
-        } else if (prop.type === 'select') {
-            options = (prop.select?.options || []).map(o => ({ name: o.name, color: o.color }))
-        } else if (prop.type === 'checkbox') {
-            options = [
-                { name: 'true', color: 'green' },
-                { name: 'false', color: 'red' }
-            ]
-        }
+		let options = []
+		let type = prop.type
+		if (prop.type === 'status') {
+			options = (prop.status?.options || []).map(o => ({ name: o.name, color: o.color }))
+		} else if (prop.type === 'select') {
+			options = (prop.select?.options || []).map(o => ({ name: o.name, color: o.color }))
+		} else if (prop.type === 'checkbox') {
+			options = [
+				{ name: 'true', color: 'green' },
+				{ name: 'false', color: 'red' }
+			]
+		}
 
-        res.json({ type, options })
-    } catch (error) {
-        console.error('Error al obtener opciones de Estado:', error.message)
-        res.status(500).json({ error: 'Error al obtener opciones de Estado', details: error.message })
-    }
+		res.json({ type, options })
+	} catch (error) {
+		console.error('Error al obtener opciones de Estado:', error.message)
+		res.status(500).json({ error: 'Error al obtener opciones de Estado', details: error.message })
+	}
 })
 
 // Actualizar estado de un empleado
 app.put('/api/empleados/:empleadoId/estado', async (req, res) => {
-    try {
-        const { empleadoId } = req.params
-        const { estado } = req.body
+	try {
+		const { empleadoId } = req.params
+		const { estado } = req.body
 
-        if (!estado || typeof estado !== 'string') {
-            return res.status(400).json({ error: 'Parámetro "estado" requerido' })
-        }
+		if (!estado || typeof estado !== 'string') {
+			return res.status(400).json({ error: 'Parámetro "estado" requerido' })
+		}
 
-        if (USE_MOCK_DATA) {
-            try {
-                const empleado = mockStore.updateEmpleadoEstado(empleadoId, estado)
-                return res.json({ ok: true, empleadoId: empleado.id, estado: empleado.estado })
-            } catch (error) {
-                return res.status(404).json({ error: error.message })
-            }
-        }
+		if (USE_MOCK_DATA) {
+			try {
+				const empleado = mockStore.updateEmpleadoEstado(empleadoId, estado)
+				return res.json({ ok: true, empleadoId: empleado.id, estado: empleado.estado })
+			} catch (error) {
+				return res.status(404).json({ error: error.message })
+			}
+		}
 
-        // Obtener la página del empleado para detectar el tipo de la propiedad Estado
-        const empleadoPage = await makeNotionRequest('GET', `/pages/${empleadoId}`)
-        const propEstado = empleadoPage.properties?.['Estado']
-        if (!propEstado) {
-            return res.status(400).json({ error: 'La propiedad "Estado" no existe en el empleado' })
-        }
+		// Obtener la página del empleado para detectar el tipo de la propiedad Estado
+		const empleadoPage = await makeNotionRequest('GET', `/pages/${empleadoId}`)
+		const propEstado = empleadoPage.properties?.['Estado']
+		if (!propEstado) {
+			return res.status(400).json({ error: 'La propiedad "Estado" no existe en el empleado' })
+		}
 
-        // Preparar payload según el tipo de la propiedad
-        let estadoPayload
-        if (propEstado.type === 'status') {
-            estadoPayload = { status: { name: estado } }
-        } else if (propEstado.type === 'select') {
-            estadoPayload = { select: { name: estado } }
-        } else if (propEstado.type === 'checkbox') {
-            const value = /^(on|activo|true|sí|si)$/i.test(estado)
-            estadoPayload = { checkbox: value }
-        } else {
-            return res.status(400).json({ error: `Tipo de propiedad Estado no soportado: ${propEstado.type}` })
-        }
+		// Preparar payload según el tipo de la propiedad
+		let estadoPayload
+		if (propEstado.type === 'status') {
+			estadoPayload = { status: { name: estado } }
+		} else if (propEstado.type === 'select') {
+			estadoPayload = { select: { name: estado } }
+		} else if (propEstado.type === 'checkbox') {
+			const value = /^(on|activo|true|sí|si)$/i.test(estado)
+			estadoPayload = { checkbox: value }
+		} else {
+			return res.status(400).json({ error: `Tipo de propiedad Estado no soportado: ${propEstado.type}` })
+		}
 
-        const updated = await makeNotionRequest('PATCH', `/pages/${empleadoId}`, {
-            properties: { 'Estado': estadoPayload }
-        })
+		const updated = await makeNotionRequest('PATCH', `/pages/${empleadoId}`, {
+			properties: { 'Estado': estadoPayload }
+		})
 
-        res.json({ ok: true, empleadoId, estado })
-    } catch (error) {
-        console.error('Error al actualizar estado del empleado:', error.message)
-        res.status(500).json({ error: 'Error al actualizar estado del empleado', details: error.message })
-    }
+		res.json({ ok: true, empleadoId, estado })
+	} catch (error) {
+		console.error('Error al actualizar estado del empleado:', error.message)
+		res.status(500).json({ error: 'Error al actualizar estado del empleado', details: error.message })
+	}
 })
 
 // Obtener empleados de una obra específica
@@ -483,27 +483,27 @@ app.get('/api/obras/:obraId/empleados', async (req, res) => {
 	try {
 		const { obraId } = req.params
 
-    if (USE_MOCK_DATA) {
-      return res.json(mockStore.getEmpleadosPorObra(obraId))
-    }
+		if (USE_MOCK_DATA) {
+			return res.json(mockStore.getEmpleadosPorObra(obraId))
+		}
 
 		// Obtener la obra específica para ver sus empleados relacionados
 		const obraData = await makeNotionRequest('GET', `/pages/${obraId}`)
-		
+
 		// Extraer los IDs de empleados relacionados
 		const empleadosRelacionados = extractPropertyValue(obraData.properties['Empleados'])
-		
+
 		if (!empleadosRelacionados || empleadosRelacionados.length === 0) {
 			return res.json([])
 		}
 
 		// Obtener los detalles de cada empleado relacionado
 		const empleadosDetalles = []
-		
+
 		for (const empleadoRef of empleadosRelacionados) {
 			try {
 				const empleadoData = await makeNotionRequest('GET', `/pages/${empleadoRef.id}`)
-				
+
 				empleadosDetalles.push({
 					id: empleadoData.id,
 					nombre: extractPropertyValue(empleadoData.properties['Nombre Completo']),
@@ -523,16 +523,16 @@ app.get('/api/obras/:obraId/empleados', async (req, res) => {
 		res.json(empleadosDetalles)
 	} catch (error) {
 		console.error('Error al obtener empleados de la obra:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al obtener empleados de la obra',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
 
 // Obtener todos los partes de trabajo
 app.get('/api/partes-trabajo', async (req, res) => {
-  try {
+	try {
 		if (USE_MOCK_DATA) {
 			return res.json(mockStore.getPartesTrabajo())
 		}
@@ -546,32 +546,32 @@ app.get('/api/partes-trabajo', async (req, res) => {
 			]
 		})
 
-    const partesTrabajo = data.results.map(page => ({
-      id: page.id,
-      nombre: extractPropertyValue(page.properties['Nombre']),
-      fecha: extractPropertyValue(page.properties['Fecha']),
-      ultimaEdicion: extractPropertyValue(page.properties['Última edición']),
-      estado: extractPropertyValue(page.properties['Estado']),
-      obra: extractPropertyValue(page.properties['AUX Obra']),
-      personaAutorizada: extractPropertyValue(page.properties['AUX Jefe de Obra']),
-      cliente: extractPropertyValue(page.properties['AUX Cliente - texto-']),
-      rpHorasTotales: extractPropertyValue(page.properties['RP Horas totales']),
-      horasOficial1: extractPropertyValue(page.properties['Horas Oficial 1ª']),
-      horasOficial2: extractPropertyValue(page.properties['Horas Oficial 2ª ']),
-      horasCapataz: extractPropertyValue(page.properties['Horas Capataz']),
-      horasEncargado: extractPropertyValue(page.properties['Horas Encargado ']),
-      urlPDF: extractPropertyValue(page.properties['URL PDF']),
-      enviadoCliente: extractPropertyValue(page.properties['Enviado a cliente']),
-      notas: extractPropertyValue(page.properties['Notas']),
-      firmarUrl: extractPropertyValue(page.properties['Firmar'])
-    }))
+		const partesTrabajo = data.results.map(page => ({
+			id: page.id,
+			nombre: extractPropertyValue(page.properties['Nombre']),
+			fecha: extractPropertyValue(page.properties['Fecha']),
+			ultimaEdicion: extractPropertyValue(page.properties['Última edición']),
+			estado: extractPropertyValue(page.properties['Estado']),
+			obra: extractPropertyValue(page.properties['AUX Obra']),
+			personaAutorizada: extractPropertyValue(page.properties['AUX Jefe de Obra']),
+			cliente: extractPropertyValue(page.properties['AUX Cliente - texto-']),
+			rpHorasTotales: extractPropertyValue(page.properties['RP Horas totales']),
+			horasOficial1: extractPropertyValue(page.properties['Horas Oficial 1ª']),
+			horasOficial2: extractPropertyValue(page.properties['Horas Oficial 2ª ']),
+			horasCapataz: extractPropertyValue(page.properties['Horas Capataz']),
+			horasEncargado: extractPropertyValue(page.properties['Horas Encargado ']),
+			urlPDF: extractPropertyValue(page.properties['URL PDF']),
+			enviadoCliente: extractPropertyValue(page.properties['Enviado a cliente']),
+			notas: extractPropertyValue(page.properties['Notas']),
+			firmarUrl: extractPropertyValue(page.properties['Firmar'])
+		}))
 
 		res.json(partesTrabajo)
 	} catch (error) {
 		console.error('Error al obtener partes de trabajo:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al obtener partes de trabajo',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
@@ -582,7 +582,7 @@ app.post('/api/partes-trabajo', async (req, res) => {
 		const { obra, obraId, fecha, jefeObraId, notas, empleados, empleadosHoras } = req.body
 
 		if (!obra || !obraId || !fecha || !jefeObraId) {
-			return res.status(400).json({ 
+			return res.status(400).json({
 				error: 'Faltan campos requeridos',
 				required: ['obra', 'obraId', 'fecha', 'jefeObraId']
 			})
@@ -684,7 +684,7 @@ app.post('/api/partes-trabajo', async (req, res) => {
 			for (const empleadoId of empleados) {
 				try {
 					const horas = empleadosHoras[empleadoId] || 8
-					
+
 					const detalleData = await makeNotionRequest('POST', '/pages', {
 						parent: { database_id: DATABASES.DETALLES_HORA },
 						properties: {
@@ -716,12 +716,12 @@ app.post('/api/partes-trabajo', async (req, res) => {
 							}
 						}
 					})
-					
+
 					detallesCreados.push(detalleData)
-					
+
 					// Pausa entre requests para evitar rate limiting
 					await new Promise(resolve => setTimeout(resolve, 100))
-					
+
 				} catch (error) {
 					console.error(`Error al crear detalle para empleado ${empleadoId}:`, error.message)
 					erroresDetalles.push({ empleadoId, error: error.message })
@@ -744,17 +744,17 @@ app.post('/api/partes-trabajo', async (req, res) => {
 		})
 	} catch (error) {
 		console.error('Error al crear parte de trabajo:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al crear parte de trabajo',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
 
 // Obtener detalles de empleados de un parte específico
 app.get('/api/partes-trabajo/:parteId/empleados', async (req, res) => {
-  try {
-    const { parteId } = req.params
+	try {
+		const { parteId } = req.params
 
 		if (USE_MOCK_DATA) {
 			return res.json(mockStore.getDetallesEmpleados(parteId))
@@ -784,9 +784,9 @@ app.get('/api/partes-trabajo/:parteId/empleados', async (req, res) => {
 		res.json(detallesEmpleados)
 	} catch (error) {
 		console.error('Error al obtener detalles de empleados del parte:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al obtener detalles de empleados del parte',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
@@ -805,11 +805,11 @@ app.get('/api/partes-trabajo/:parteId/detalles', async (req, res) => {
 		}
 
 		// Obtener el parte específico
-    const parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
-		
+		const parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
+
 		// Extraer la Persona Autorizada
 		const personaAutorizada = extractPropertyValue(parteData.properties['Persona Autorizada'])
-		
+
 		// Obtener detalles de empleados
 		const detallesData = await makeNotionRequest('POST', `/databases/${DATABASES.DETALLES_HORA}/query`, {
 			filter: {
@@ -831,273 +831,274 @@ app.get('/api/partes-trabajo/:parteId/detalles', async (req, res) => {
 			detalle: extractPropertyValue(detalle.properties['Detalle'])
 		}))
 
-    res.json({
-      parte: {
-        id: parteData.id,
-        nombre: extractPropertyValue(parteData.properties['Nombre']),
-        fecha: extractPropertyValue(parteData.properties['Fecha']),
-        obra: extractPropertyValue(parteData.properties['AUX Obra']),
-        estado: extractPropertyValue(parteData.properties['Estado']),
-        ultimaEdicion: extractPropertyValue(parteData.properties['Última edición']),
-        notas: extractPropertyValue(parteData.properties['Notas']),
-        personaAutorizada: personaAutorizada,
-        firmarUrl: extractPropertyValue(parteData.properties['Firmar'])
-      },
-      empleados: detallesEmpleados
-    })
+		res.json({
+			parte: {
+				id: parteData.id,
+				nombre: extractPropertyValue(parteData.properties['Nombre']),
+				fecha: extractPropertyValue(parteData.properties['Fecha']),
+				obra: extractPropertyValue(parteData.properties['AUX Obra']),
+				estado: extractPropertyValue(parteData.properties['Estado']),
+				ultimaEdicion: extractPropertyValue(parteData.properties['Última edición']),
+				notas: extractPropertyValue(parteData.properties['Notas']),
+				personaAutorizada: personaAutorizada,
+				firmarUrl: extractPropertyValue(parteData.properties['Firmar']),
+				horasTotales: extractPropertyValue(parteData.properties['RP Horas totales'])
+			},
+			empleados: detallesEmpleados
+		})
 	} catch (error) {
 		console.error('Error al obtener detalles completos del parte:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al obtener detalles completos del parte',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
 
 // Obtener solo el estado y última edición de un parte (consulta puntual)
 app.get('/api/partes-trabajo/:parteId/estado', async (req, res) => {
-  try {
-    const { parteId } = req.params
-    if (USE_MOCK_DATA) {
-      try {
-        return res.json(mockStore.getParteEstado(parteId))
-      } catch (error) {
-        return res.status(404).json({ error: error.message })
-      }
-    }
-    const parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
-    res.json({
-      estado: extractPropertyValue(parteData.properties['Estado']),
-      ultimaEdicion: extractPropertyValue(parteData.properties['Última edición'])
-    })
-  } catch (error) {
-    console.error('Error al obtener estado del parte:', error.message)
-    res.status(500).json({ error: 'Error al obtener estado del parte', details: error.message })
-  }
+	try {
+		const { parteId } = req.params
+		if (USE_MOCK_DATA) {
+			try {
+				return res.json(mockStore.getParteEstado(parteId))
+			} catch (error) {
+				return res.status(404).json({ error: error.message })
+			}
+		}
+		const parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
+		res.json({
+			estado: extractPropertyValue(parteData.properties['Estado']),
+			ultimaEdicion: extractPropertyValue(parteData.properties['Última edición'])
+		})
+	} catch (error) {
+		console.error('Error al obtener estado del parte:', error.message)
+		res.status(500).json({ error: 'Error al obtener estado del parte', details: error.message })
+	}
 })
 
 // Stream de estado del parte (SSE): emite cambios en tiempo (casi) real
 app.get('/api/partes-trabajo/:parteId/estado/stream', async (req, res) => {
-  const { parteId } = req.params
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive'
-  })
+	const { parteId } = req.params
+	res.writeHead(200, {
+		'Content-Type': 'text/event-stream',
+		'Cache-Control': 'no-cache',
+		Connection: 'keep-alive'
+	})
 
-  let closed = false
-  req.on('close', () => { closed = true })
+	let closed = false
+	req.on('close', () => { closed = true })
 
-  let lastEstado = null
-  let lastEdit = null
+	let lastEstado = null
+	let lastEdit = null
 
-  if (USE_MOCK_DATA) {
-    try {
-      const snapshot = mockStore.getParteEstado(parteId)
-      res.write(`data: ${JSON.stringify(snapshot)}\n\n`)
-    } catch (error) {
-      res.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`)
-    }
+	if (USE_MOCK_DATA) {
+		try {
+			const snapshot = mockStore.getParteEstado(parteId)
+			res.write(`data: ${JSON.stringify(snapshot)}\n\n`)
+		} catch (error) {
+			res.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`)
+		}
 
-    const interval = setInterval(() => {
-      if (closed) {
-        clearInterval(interval)
-        return
-      }
-      res.write(': heartbeat\n\n')
-    }, 2000) // Reducido de 5s a 2s para mayor frecuencia
+		const interval = setInterval(() => {
+			if (closed) {
+				clearInterval(interval)
+				return
+			}
+			res.write(': heartbeat\n\n')
+		}, 2000) // Reducido de 5s a 2s para mayor frecuencia
 
-    return
-  }
+		return
+	}
 
-  const send = (obj) => {
-    res.write(`data: ${JSON.stringify(obj)}\n\n`)
-  }
+	const send = (obj) => {
+		res.write(`data: ${JSON.stringify(obj)}\n\n`)
+	}
 
-  // Smart Polling en SSE: ajusta frecuencia según cambios detectados
-  let lastChangeTime = Date.now()
-  let currentInterval = 3000 // Empezar en modo rápido
-  let intervalId = null
+	// Smart Polling en SSE: ajusta frecuencia según cambios detectados
+	let lastChangeTime = Date.now()
+	let currentInterval = 3000 // Empezar en modo rápido
+	let intervalId = null
 
-  const getSmartInterval = () => {
-    const timeSinceChange = Date.now() - lastChangeTime
-    if (timeSinceChange < 30000) return 3000 // Modo rápido: cambios recientes (<30s)
-    if (timeSinceChange < 120000) return 8000 // Modo normal: sin cambios <2min
-    return 15000 // Modo lento: sin cambios >2min
-  }
+	const getSmartInterval = () => {
+		const timeSinceChange = Date.now() - lastChangeTime
+		if (timeSinceChange < 30000) return 3000 // Modo rápido: cambios recientes (<30s)
+		if (timeSinceChange < 120000) return 8000 // Modo normal: sin cambios <2min
+		return 15000 // Modo lento: sin cambios >2min
+	}
 
-  // Función de sondeo
-  const poll = async () => {
-    try {
-      const parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
-      const estado = extractPropertyValue(parteData.properties['Estado'])
-      const ultimaEdicion = extractPropertyValue(parteData.properties['Última edición'])
+	// Función de sondeo
+	const poll = async () => {
+		try {
+			const parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
+			const estado = extractPropertyValue(parteData.properties['Estado'])
+			const ultimaEdicion = extractPropertyValue(parteData.properties['Última edición'])
 
-      if (estado !== lastEstado || ultimaEdicion !== lastEdit) {
-        lastEstado = estado
-        lastEdit = ultimaEdicion
-        lastChangeTime = Date.now() // Actualizar tiempo del último cambio
-        send({ estado, ultimaEdicion })
+			if (estado !== lastEstado || ultimaEdicion !== lastEdit) {
+				lastEstado = estado
+				lastEdit = ultimaEdicion
+				lastChangeTime = Date.now() // Actualizar tiempo del último cambio
+				send({ estado, ultimaEdicion })
 
-        // Reiniciar polling con intervalo rápido
-        const newInterval = getSmartInterval()
-        if (newInterval !== currentInterval) {
-          currentInterval = newInterval
-          if (intervalId) clearInterval(intervalId)
-          intervalId = setInterval(pollLoop, currentInterval)
-        }
-      } else {
-        // Sin cambios, verificar si necesitamos ajustar intervalo
-        const newInterval = getSmartInterval()
-        if (newInterval !== currentInterval) {
-          currentInterval = newInterval
-          if (intervalId) clearInterval(intervalId)
-          intervalId = setInterval(pollLoop, currentInterval)
-        }
-        // latidos para mantener vivo el stream
-        res.write(': heartbeat\n\n')
-      }
-    } catch (e) {
-      res.write(`event: error\ndata: ${JSON.stringify({ message: e.message })}\n\n`)
-    }
-  }
+				// Reiniciar polling con intervalo rápido
+				const newInterval = getSmartInterval()
+				if (newInterval !== currentInterval) {
+					currentInterval = newInterval
+					if (intervalId) clearInterval(intervalId)
+					intervalId = setInterval(pollLoop, currentInterval)
+				}
+			} else {
+				// Sin cambios, verificar si necesitamos ajustar intervalo
+				const newInterval = getSmartInterval()
+				if (newInterval !== currentInterval) {
+					currentInterval = newInterval
+					if (intervalId) clearInterval(intervalId)
+					intervalId = setInterval(pollLoop, currentInterval)
+				}
+				// latidos para mantener vivo el stream
+				res.write(': heartbeat\n\n')
+			}
+		} catch (e) {
+			res.write(`event: error\ndata: ${JSON.stringify({ message: e.message })}\n\n`)
+		}
+	}
 
-  const pollLoop = async () => {
-    if (closed) {
-      if (intervalId) clearInterval(intervalId)
-      return
-    }
-    await poll()
-  }
+	const pollLoop = async () => {
+		if (closed) {
+			if (intervalId) clearInterval(intervalId)
+			return
+		}
+		await poll()
+	}
 
-  // Primer envío inmediato
-  await poll()
-  // Iniciar polling adaptativo
-  intervalId = setInterval(pollLoop, currentInterval)
+	// Primer envío inmediato
+	await poll()
+	// Iniciar polling adaptativo
+	intervalId = setInterval(pollLoop, currentInterval)
 })
 app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
-  const { parteId } = req.params
-  if (!parteId) {
-    return res.status(400).json({ error: 'ID de parte requerido' })
-  }
+	const { parteId } = req.params
+	if (!parteId) {
+		return res.status(400).json({ error: 'ID de parte requerido' })
+	}
 
-  if (USE_MOCK_DATA) {
-    try {
-      const resultado = mockStore.sendParteDatos(parteId)
-      return res.json({
-        status: 'ok',
-        parteId,
-        nuevoEstado: resultado.parte.estado,
-        modo: 'mock'
-      })
-    } catch (error) {
-      const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'INVALID_STATE' ? 409 : 400
-      return res.status(status).json({
-        error: error.message,
-        estado: error.meta?.estado
-      })
-    }
-  }
+	if (USE_MOCK_DATA) {
+		try {
+			const resultado = mockStore.sendParteDatos(parteId)
+			return res.json({
+				status: 'ok',
+				parteId,
+				nuevoEstado: resultado.parte.estado,
+				modo: 'mock'
+			})
+		} catch (error) {
+			const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'INVALID_STATE' ? 409 : 400
+			return res.status(status).json({
+				error: error.message,
+				estado: error.meta?.estado
+			})
+		}
+	}
 
-  let parteData
-  try {
-    parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
-  } catch (error) {
-    console.error('Error al recuperar parte antes de enviar datos:', {
-      message: error.message,
-      status: error.response?.status
-    })
-    const status = error.response?.status === 404 ? 404 : 500
-    return res.status(status).json({
-      error: 'No se pudo recuperar el parte desde Notion',
-      details: error.response?.data?.message || error.message
-    })
-  }
+	let parteData
+	try {
+		parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
+	} catch (error) {
+		console.error('Error al recuperar parte antes de enviar datos:', {
+			message: error.message,
+			status: error.response?.status
+		})
+		const status = error.response?.status === 404 ? 404 : 500
+		return res.status(status).json({
+			error: 'No se pudo recuperar el parte desde Notion',
+			details: error.response?.data?.message || error.message
+		})
+	}
 
-  if (!parteData || !parteData.properties) {
-    return res.status(404).json({ error: 'Parte no encontrado en Notion' })
-  }
+	if (!parteData || !parteData.properties) {
+		return res.status(404).json({ error: 'Parte no encontrado en Notion' })
+	}
 
-  const estadoActual = extractPropertyValue(parteData.properties['Estado']) || ''
-  if (String(estadoActual).toLowerCase() !== PARTE_ESTADO_BORRADOR) {
-    return res.status(409).json({
-      error: 'Solo los partes en estado Borrador pueden enviarse',
-      estado: estadoActual
-    })
-  }
+	const estadoActual = extractPropertyValue(parteData.properties['Estado']) || ''
+	if (String(estadoActual).toLowerCase() !== PARTE_ESTADO_BORRADOR) {
+		return res.status(409).json({
+			error: 'Solo los partes en estado Borrador pueden enviarse',
+			estado: estadoActual
+		})
+	}
 
-  const buttonEntries = Object.entries(parteData.properties || {}).filter(([, prop]) => prop?.type === 'button')
-  const safeButton = buttonEntries.find(([, prop]) => prop?.button?.type === 'checked') || buttonEntries[0] || []
-  const [buttonName, buttonProperty] = safeButton
-  const payload = {
-    parteId,
-    notionPageId: parteData.id,
-    page_id: parteData.id,
-    property_id: buttonProperty?.id || null,
-    property_name: buttonName || null,
-    source: {
-      type: 'copuno-app',
-      action: 'enviar-datos',
-      triggeredAt: new Date().toISOString()
-    },
-    data: {
-      ...parteData,
-      // asegurar copia superficial para evitar mutaciones accidentales
-      properties: { ...parteData.properties }
-    }
-  }
+	const buttonEntries = Object.entries(parteData.properties || {}).filter(([, prop]) => prop?.type === 'button')
+	const safeButton = buttonEntries.find(([, prop]) => prop?.button?.type === 'checked') || buttonEntries[0] || []
+	const [buttonName, buttonProperty] = safeButton
+	const payload = {
+		parteId,
+		notionPageId: parteData.id,
+		page_id: parteData.id,
+		property_id: buttonProperty?.id || null,
+		property_name: buttonName || null,
+		source: {
+			type: 'copuno-app',
+			action: 'enviar-datos',
+			triggeredAt: new Date().toISOString()
+		},
+		data: {
+			...parteData,
+			// asegurar copia superficial para evitar mutaciones accidentales
+			properties: { ...parteData.properties }
+		}
+	}
 
-  if (PARTES_WEBHOOK_CONFIGURED) {
-    try {
-      console.info('[Webhook] Enviando payload partes:', JSON.stringify({
-        page_id: payload.page_id,
-        property_id: payload.property_id,
-        property_name: payload.property_name
-      }))
-      await axios.post(PARTES_DATOS_WEBHOOK_URL, payload, {
-        timeout: PARTES_WEBHOOK_TIMEOUT_MS
-      })
-    } catch (error) {
-      console.error('Error al invocar el webhook de partes:', {
-        message: error.message,
-        status: error.response?.status
-      })
-      if (error.response?.data) {
-        console.error('Respuesta recibida del webhook:', error.response.data)
-      }
-      return res.status(error.response?.status || 502).json({
-        error: 'No se pudo enviar los datos al webhook configurado',
-        details: error.response?.data?.error || error.response?.data?.message || error.message
-      })
-    }
-  } else {
-    console.warn('Webhook no configurado. Registrando payload localmente para diagnóstico.')
-    console.info('Payload parte enviado (simulado):', JSON.stringify(payload, null, 2))
-  }
+	if (PARTES_WEBHOOK_CONFIGURED) {
+		try {
+			console.info('[Webhook] Enviando payload partes:', JSON.stringify({
+				page_id: payload.page_id,
+				property_id: payload.property_id,
+				property_name: payload.property_name
+			}))
+			await axios.post(PARTES_DATOS_WEBHOOK_URL, payload, {
+				timeout: PARTES_WEBHOOK_TIMEOUT_MS
+			})
+		} catch (error) {
+			console.error('Error al invocar el webhook de partes:', {
+				message: error.message,
+				status: error.response?.status
+			})
+			if (error.response?.data) {
+				console.error('Respuesta recibida del webhook:', error.response.data)
+			}
+			return res.status(error.response?.status || 502).json({
+				error: 'No se pudo enviar los datos al webhook configurado',
+				details: error.response?.data?.error || error.response?.data?.message || error.message
+			})
+		}
+	} else {
+		console.warn('Webhook no configurado. Registrando payload localmente para diagnóstico.')
+		console.info('Payload parte enviado (simulado):', JSON.stringify(payload, null, 2))
+	}
 
-  try {
-    await makeNotionRequest('PATCH', `/pages/${parteId}`, {
-      properties: {
-        'Estado': buildEstadoUpdatePayload(parteData.properties['Estado'], PARTE_ESTADO_DATOS_ENVIADOS)
-      }
-    })
-  } catch (error) {
-    console.error('Error al actualizar estado del parte tras enviar datos:', {
-      message: error.message,
-      status: error.response?.status
-    })
-    return res.status(500).json({
-      error: 'Datos enviados, pero falló la actualización del estado en Notion',
-      details: error.response?.data?.message || error.message
-    })
-  }
+	try {
+		await makeNotionRequest('PATCH', `/pages/${parteId}`, {
+			properties: {
+				'Estado': buildEstadoUpdatePayload(parteData.properties['Estado'], PARTE_ESTADO_DATOS_ENVIADOS)
+			}
+		})
+	} catch (error) {
+		console.error('Error al actualizar estado del parte tras enviar datos:', {
+			message: error.message,
+			status: error.response?.status
+		})
+		return res.status(500).json({
+			error: 'Datos enviados, pero falló la actualización del estado en Notion',
+			details: error.response?.data?.message || error.message
+		})
+	}
 
-  res.json({
-    status: 'ok',
-    parteId,
-    nuevoEstado: PARTE_ESTADO_DATOS_ENVIADOS,
-    modo: PARTES_WEBHOOK_CONFIGURED ? 'webhook' : 'simulado'
-  })
+	res.json({
+		status: 'ok',
+		parteId,
+		nuevoEstado: PARTE_ESTADO_DATOS_ENVIADOS,
+		modo: PARTES_WEBHOOK_CONFIGURED ? 'webhook' : 'simulado'
+	})
 })
 // Actualizar un parte de trabajo existente
 app.put('/api/partes-trabajo/:parteId', async (req, res) => {
@@ -1106,7 +1107,7 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 		const { obraId, fecha, personaAutorizadaId, notas, empleados, empleadosHoras } = req.body
 
 		if (!obraId || !fecha || !personaAutorizadaId) {
-			return res.status(400).json({ 
+			return res.status(400).json({
 				error: 'Faltan campos requeridos',
 				required: ['obraId', 'fecha', 'personaAutorizadaId']
 			})
@@ -1261,7 +1262,7 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 			for (const empleadoId of empleados) {
 				try {
 					const horas = empleadosHoras[empleadoId] || 8
-					
+
 					const detalleData = await makeNotionRequest('POST', '/pages', {
 						parent: { database_id: DATABASES.DETALLES_HORA },
 						properties: {
@@ -1293,12 +1294,12 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 							}
 						}
 					})
-					
+
 					detallesCreados.push(detalleData)
-					
+
 					// Pausa entre requests para evitar rate limiting
 					await new Promise(resolve => setTimeout(resolve, 100))
-					
+
 				} catch (error) {
 					console.error(`Error al crear detalle para empleado ${empleadoId}:`, error.message)
 					erroresDetalles.push({ empleadoId, error: error.message })
@@ -1330,9 +1331,9 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 		})
 	} catch (error) {
 		console.error('Error al actualizar parte de trabajo:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al actualizar parte de trabajo',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
@@ -1363,9 +1364,9 @@ app.get('/api/datos-completos', async (req, res) => {
 		})
 	} catch (error) {
 		console.error('Error al obtener datos completos:', error.message)
-		res.status(500).json({ 
+		res.status(500).json({
 			error: 'Error al obtener datos completos',
-			details: error.message 
+			details: error.message
 		})
 	}
 })
@@ -1373,7 +1374,7 @@ app.get('/api/datos-completos', async (req, res) => {
 // Ruta para servir la aplicación React (solo para rutas que no sean API)
 // Mantener rutas de API por encima y servir SPA para el resto
 app.get(/^(?!\/api\/).*/, (req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'))
+	res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
 app.listen(PORT, () => {
@@ -1381,7 +1382,7 @@ app.listen(PORT, () => {
 	console.log(`📊 API disponible en http://localhost:${PORT}/api`)
 	console.log(`🔍 Health check: http://localhost:${PORT}/api/health`)
 	console.log(`🔑 Token de Notion: ${NOTION_TOKEN ? 'Configurado' : 'FALTANTE'}`)
-  if (USE_MOCK_DATA) {
-    console.log('🧪 Modo datos simulados ACTIVO (USE_MOCK_DATA)')
-  }
+	if (USE_MOCK_DATA) {
+		console.log('🧪 Modo datos simulados ACTIVO (USE_MOCK_DATA)')
+	}
 }) 

@@ -2,8 +2,8 @@
 
 Aplicación web moderna para la gestión de partes de trabajo con backend en Notion. Diseñada con una interfaz minimalista y elegante, optimizada para usuarios de todos los niveles.
 
-> **Versión actual:** `1.0.1` (MVP listo para producción)
-> **Release:** 8 de noviembre de 2025 · [Changelog](./CHANGELOG_V1.0.1.md)
+> **Versión actual:** `1.0.2`
+> **Release:** 9 de diciembre de 2025 · [Changelog](./CHANGELOG_V1.0.2.md)
 
 ## ✨ Características
 
@@ -334,6 +334,14 @@ NODE_ENV=production
 - ✅ **Interfaz profesional y moderna** - UX optimizada
 - ✅ **Documentación completa** - Estado actual y roadmap futuro
 
+### v1.0.2 - Mejoras Lista de Empleados (9 de diciembre de 2025) ⭐ **ACTUAL**
+- ✅ **Buscador de empleados** - Filtrado por nombre en tiempo real
+- ✅ **Layout compacto** - Diseño horizontal optimizado para tablet
+- ✅ **Botones +/- táctiles** - Entrada de horas sin teclado
+- ✅ **Cálculo de horas corregido** - Usa valor de Notion como fuente de verdad
+- ✅ **Selector de fecha simplificado** - Solo fecha, sin hora
+- 📄 **Changelog completo**: [CHANGELOG_V1.0.2.md](CHANGELOG_V1.0.2.md)
+
 ### v1.0.1 - Ajustes visuales y mensajería (8 de noviembre de 2025)
 - Nuevo formateador de horas para evitar duplicaciones y mejorar la legibilidad responsive.
 - Mensajería refinada en el flujo de envío de datos y errores de conectividad.
@@ -375,6 +383,7 @@ NODE_ENV=production
 - **Troubleshooting** común
 
 ### **📝 Changelog**
+- **[CHANGELOG_V1.0.2.md](CHANGELOG_V1.0.2.md)** – Mejoras lista de empleados, botones táctiles, buscador
 - **[CHANGELOG_V1.0.1.md](CHANGELOG_V1.0.1.md)** – Ajustes visuales y mejoras de mensajes
 - **[CHANGELOG_V1.0.0.md](CHANGELOG_V1.0.0.md)** – Detalle del release MVP
 
