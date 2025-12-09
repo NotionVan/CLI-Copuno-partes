@@ -21,7 +21,7 @@
 
 3. **Entrada de Horas Táctil**
    - Botones +/- táctiles para ajustar horas rápidamente
-   - Campo vacío por defecto (sin valor predeterminado de 8h)
+   - **8 horas por defecto** al seleccionar un empleado
    - Permite edición manual tocando el número
 
 4. **Selector de Fecha Simplificado**

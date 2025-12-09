@@ -2288,7 +2288,11 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 																if (e.target.checked) {
 																	setFormData({
 																		...formData,
-																		empleados: [...formData.empleados, empleado.id]
+																		empleados: [...formData.empleados, empleado.id],
+																		empleadosHoras: {
+																			...formData.empleadosHoras,
+																			[empleado.id]: 8
+																		}
 																	})
 																} else {
 																	const newEmpleadosHoras = { ...formData.empleadosHoras }
