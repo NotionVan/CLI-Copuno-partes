@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-26 (S1 añadido)
+- **Última edición:** 2026-05-26 (Etapas 1 y 2 implementadas — pendiente merge bloqueado por S1)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -404,6 +404,66 @@ Bloqueos externos al código que impiden completar el ciclo de despliegue normal
 
 ---
 
+## Etapas implementadas (pendientes de merge)
+
+### Etapa 1 — Deuda técnica (2026-05-26)
+
+- **Rama:** `etapa1/deuda-tecnica-c3-h2-i3`
+- **PR:** [#2](https://github.com/NotionVan/Copuno_Gestion_Partes/pull/2) — abierto, sin mergear (bloqueado por S1)
+- **Commit:** `1b4893c`
+- **Veredicto regression-checker:** ÁMBAR (H2 e I3 seguros; C3 requiere verificación manual en preview)
+
+Hallazgos abordados:
+
+- **C3** — N+1 al leer empleados de una obra. Reemplazado `GET /pages/:obraId` + bucle N × `GET /pages/:empleadoId` por una sola `POST /databases/EMPLEADOS/query` con `filter: { property: "Obras", relation: { contains: obraId } }`. Validado contra API Notion real (`@notion-integration-inspector`). De 1+N (hasta 26) peticiones secuenciales a exactamente 1.
+- **H2** — Logging estructurado JSON con `req.id` en POST y PUT de `/api/partes-trabajo`. Quick win del plan, no resuelve el problema de atomicidad pero permite correlación en logs Vercel.
+- **I3** — `RATE_LIMIT_MAX` default 100 → 1000 req/15 min (NAT compartido de oficina de obra). Configurable via env.
+
+Criterios PENDIENTE_PREVIEW (verificación manual al desbloquear S1):
+
+- [ ] Comparar lista de empleados por obra en app vs Notion para ≥2 obras activas
+- [ ] Editar parte en estado `firmado` → confirmar bloqueo 409
+- [ ] Crear parte + enviar datos → verificar `URL PDF` en Notion
+
+---
+
+### Etapa 2 — Funcionalidades mínimo viable F4 + F5 + F6 (2026-05-26)
+
+- **Rama:** `etapa2/funcionalidades-minimo-viable-f4-f5-f6` (basada en `etapa1/...`, NO en master)
+- **PR:** no creado todavía — se creará tras rebase sobre master post-merge de Etapa 1
+- **Commit:** `8659f62` (+524 / −167 líneas en 3 archivos)
+- **Veredicto regression-checker:** ÁMBAR (flujos 1 y 2 verdes; flujo 3 con degradaciones visuales aceptables)
+
+Prerrequisitos Notion verificados con `@notion-integration-inspector` (API directa, no MCP):
+
+- ✅ `Rol` (select 4 opciones: Encargado, Jefe de Obra, Jefe de Producción, Otros) en JEFE_OBRAS
+- ✅ `Persona Autorizada` (relation dual_property → JEFE_OBRAS) en OBRAS — *NOTA: se borró por error durante la sesión y fue restaurada manualmente por el usuario.*
+- ✅ `Nombre Completo` es `title`, `ID COPUNO` es `number` en EMPLEADOS
+- ⚠️ 0/50 obras tienen firmantes poblados — pendiente acción usuario con Efrén
+
+Funcionalidades:
+
+- **F4 — Selector dinámico de Persona Autorizada por obra.** Nuevo endpoint `GET /api/obras/:id/firmantes-autorizados` (lee `OBRAS.Persona Autorizada` → JEFE_OBRAS, devuelve `{id, nombre, email, rol}` con fallback `rol: 'Otros'`). Frontend con `optgroups` por rol + checkbox "Buscar en toda la base". Edge: obra sin firmantes muestra mensaje guía; firmante guardado fuera de lista filtrada se muestra con sufijo "(no asignado a esta obra)". Aplicado en creación y edición.
+- **F5 — Toggle asignación previa vs búsqueda libre de empleados.** Nuevo endpoint `GET /api/empleados/buscar?q=&limite=` (server-side, `filter: { property: 'Nombre Completo', title: { contains: q } }`, mín 3 chars, máx 50). Frontend con debounce 300 ms, sin carga masiva. Edge case: empleados ya añadidos al parte sobreviven al cambio de toggle (caché local `empleadosAñadidosDetalle`). Confirmación al cambiar de obra si hay datos previos. Solo en CrearParte.
+- **F6 — Vista empleados con ID Copuno + nombre + categoría.** Campo `idCopuno: page.properties['ID COPUNO']?.number ?? null` añadido a 3 endpoints existentes. Frontend formato `{ID} · {nombre}` con `—` si null, aplicado en 4 zonas (selector candidatos, bloque añadidos, listas asignados/disponibles edición, vista detalles del parte).
+
+Riesgos documentados (regression-checker):
+
+1. **`datos.empleados` aún no cargado al ver detalles** → muestra `—` en ID en lugar del valor real. Degradación visual, no crash. Aceptable en producción (carga rápida).
+2. **N+1 leve** en `/api/obras/:id/firmantes-autorizados` (`GET /pages/:obraId` + N × `GET /pages/:firmanteId`). Tolerable: pocos firmantes por obra. Si crece, considerar refactor análogo a C3.
+3. **0 firmantes poblados** en obras → todas las obras disparan mensaje guía hasta que el usuario asigne firmantes en Notion. Caso edge ya manejado.
+
+Criterios PENDIENTE_PREVIEW (verificación manual al desbloquear S1):
+
+- [ ] Crear parte → seleccionar obra con firmantes → ver agrupación por rol → guardar correctamente en Notion
+- [ ] Cambiar obra con datos previos → confirmar prompt aparece y respeta cancelar/aceptar
+- [ ] Editar parte en estado `firmado` → PUT 409 + UI lo comunica
+- [ ] Vista detalles parte → empleados con `ID COPUNO` muestran número, otros muestran `—`
+- [ ] Búsqueda libre `Garc` (3+ chars) → resultados en <1 s, máx 20
+- [ ] Poblar 1-2 obras con firmantes en Notion → verificar agrupación real por rol
+
+---
+
 ## Cómo mantener este documento
 
 Cada modificación de este archivo lleva tres pasos obligatorios:
@@ -428,3 +488,5 @@ Reglas por tipo de cambio:
 | 2026-05-11 | `@senior-architect-auditor` | Auditoría inicial — registrados 3 bloqueantes (H1-H3), 3 críticos (C1-C3), 5 importantes (I1-I5), 6 informativos. |
 | 2026-05-26 | `@senior-architect-auditor` | Auditoría de plan semanal (arranque 1 jun con Andrés Ríos). Añadidos N1-N5. Reclasificadas prioridades de C3, H2 (quick win) e I3. Verificaciones Notion (1.331 empleados, 27% con ID COPUNO; 55 obras activas; JEFE_OBRAS con 7 entradas mayormente de prueba; estados PARTES confirmados). |
 | 2026-05-26 | Javi Collado | Registrado stopper S1 (acceso Vercel bloqueado). |
+| 2026-05-26 | Claude Code | Etapa 1 implementada en rama `etapa1/deuda-tecnica-c3-h2-i3` (commit `1b4893c`, PR [#2](https://github.com/NotionVan/Copuno_Gestion_Partes/pull/2)). C3 + H2 quick win + I3. Regression-checker ÁMBAR. Merge bloqueado por S1. |
+| 2026-05-26 | Claude Code | Etapa 2 implementada en rama `etapa2/funcionalidades-minimo-viable-f4-f5-f6` (commit `8659f62`). F4 + F5 + F6 con edge cases. Sin PR hasta que merge de Etapa 1 desbloquee rebase sobre master. Regression-checker ÁMBAR. |
