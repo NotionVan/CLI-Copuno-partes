@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-26 (Etapas 1 y 2 implementadas — pendiente merge bloqueado por S1)
+- **Última edición:** 2026-05-26 (Etapas 1, 2 y 3 implementadas — pendiente merge bloqueado por S1)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -464,6 +464,42 @@ Criterios PENDIENTE_PREVIEW (verificación manual al desbloquear S1):
 
 ---
 
+### Etapa 3 — Funcionalidades extendidas F1 + F2 + F3 (2026-05-26)
+
+- **Rama:** `etapa3/funcionalidades-extendidas-f1-f2-f3` (basada en `etapa2/...`, NO en master)
+- **PR:** no creado todavía — se creará tras rebase sobre master post-merge de Etapas 1 y 2
+- **Commits:** `aec81c5` (implementación) + `38cf339` (blindaje `Array.isArray`)
+- **Veredicto regression-checker:** ÁMBAR (flujos 1 y 2 verdes; flujo 3 ámbar inicial cerrado con commit `38cf339`)
+
+Prerrequisitos Notion verificados con `@notion-integration-inspector` (API directa, no MCP):
+
+- ✅ `ID COPUNO` en EMPLEADOS: tipo `number`, filtro `number.equals` operativo
+- ⚠️ **Duplicados confirmados en producción:** IDs `5848` (2 empleados), `5760` (2), `5917` (2). Endpoint maneja el caso devolviendo todos los matches; frontend muestra aviso para que el usuario elija. Limpieza de datos por parte del cliente (Efrén) recomendada pero no bloqueante.
+- ✅ DETALLES_HORA: **no tiene restricción UNIQUE** (Notion no las soporta). Propiedades: `Empleados` (relation), `Fecha` (formula), `Partes de trabajo` (relation), `Cantidad Horas` (number), `ID` (unique_id autoincremental, no constraint). F3 sale gratis.
+
+Funcionalidades:
+
+- **F2 — Búsqueda por ID Copuno con fallback a nombre.** Endpoint existente `/api/empleados/buscar` extendido para aceptar `?id=NNNN` además de `?q=texto`. Filtro `property: 'ID COPUNO', number: { equals }`. 400 si id inválido; 404 si no encuentra; warning log estructurado si Notion devuelve >1 match. Frontend: detección automática de texto numérico (`/^\d{3,6}$/`) en el input de búsqueda libre — si numérico, llama primero al ID, fallback a nombre si 404. Aviso UI cuando hay duplicados.
+- **F1 — Asignación de empleados sin asignación previa.** Verificado que el backend POST/PUT no tenía validación que rechace empleados fuera de la relación `OBRAS.Empleados`. Logging H2 (Etapa 1) ampliado: añadidos `empleadosNoAsignadosObra` (count) y `empleadosNoAsignadosIds` (lista) calculados precargando la relación de la obra una vez (+1 petición, no N+1). Blindado con `Array.isArray()` tras feedback de regression-checker. **No toca la relación permanente OBRAS↔EMPLEADOS** — el empleado opera en la obra ese día sin que su asignación cambie.
+- **F3 — Mismo empleado en varias obras el mismo día.** Verificación de schema, no cambios de código. La combinación `Empleados+Fecha+Partes de trabajo` se puede repetir en DETALLES_HORA porque Notion no impone constraints únicos. F1+F2 habilitan el caso de uso desde la UI.
+
+Riesgos identificados:
+
+1. **Duplicados de ID Copuno en datos legacy** (3 casos): manejados en código (devuelve todos + aviso UI), pero merece limpieza con el cliente.
+2. **Empleados `Estado=Inactivo`** sí aparecen en búsqueda por ID/nombre. Spec no lo prohibe → comportamiento aceptable. Si el cliente quiere filtrarlos, es decisión de producto futura.
+
+Criterios PENDIENTE_PREVIEW (verificación manual al desbloquear S1):
+
+- [ ] Buscar empleado por ID válido existente → muestra empleado correcto
+- [ ] Buscar ID duplicado (5848, 5760 o 5917) → aviso UI + lista de 2 empleados
+- [ ] Buscar ID inexistente → fallback a búsqueda por nombre
+- [ ] Buscar empleado por nombre directamente → comportamiento Etapa 2 inalterado
+- [ ] Crear parte con empleado NO asignado a la obra → guarda correctamente, log Vercel muestra `empleadosNoAsignadosObra > 0`
+- [ ] Crear parte para mismo empleado en 2 obras distintas el mismo día → ambos partes se crean sin conflicto
+- [ ] Editar parte de obra sin empleados asignados → no devuelve 500 (blindaje `Array.isArray`)
+
+---
+
 ## Cómo mantener este documento
 
 Cada modificación de este archivo lleva tres pasos obligatorios:
@@ -490,3 +526,4 @@ Reglas por tipo de cambio:
 | 2026-05-26 | Javi Collado | Registrado stopper S1 (acceso Vercel bloqueado). |
 | 2026-05-26 | Claude Code | Etapa 1 implementada en rama `etapa1/deuda-tecnica-c3-h2-i3` (commit `1b4893c`, PR [#2](https://github.com/NotionVan/Copuno_Gestion_Partes/pull/2)). C3 + H2 quick win + I3. Regression-checker ÁMBAR. Merge bloqueado por S1. |
 | 2026-05-26 | Claude Code | Etapa 2 implementada en rama `etapa2/funcionalidades-minimo-viable-f4-f5-f6` (commit `8659f62`). F4 + F5 + F6 con edge cases. Sin PR hasta que merge de Etapa 1 desbloquee rebase sobre master. Regression-checker ÁMBAR. |
+| 2026-05-26 | Claude Code | Etapa 3 implementada en rama `etapa3/funcionalidades-extendidas-f1-f2-f3` (commits `aec81c5` + `38cf339`). F2 búsqueda por ID Copuno + manejo de duplicados (5848, 5760, 5917). F1 empleados libres con logging enriquecido. F3 verificado (Notion sin constraints UNIQUE). Sin PR hasta merge de Etapa 2. Regression-checker ÁMBAR cerrado con blindaje Array.isArray. |

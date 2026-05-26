@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-05-26 17:30 CEST (Etapas 1 y 2 implementadas — ver [DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) sección "Etapas implementadas")
+- **Última edición:** 2026-05-26 18:45 CEST (Etapas 1, 2 y 3 implementadas — ver [DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) sección "Etapas implementadas")
 
 ---
 
@@ -91,7 +91,7 @@ Todos en [server.js](server.js), prefijo `/api/*`. Referencia completa en [docs/
 | GET | `/api/empleados` | [server.js:365](server.js#L365) |
 | GET | `/api/empleados/estado-opciones` | [server.js:400](server.js#L400) |
 | PUT | `/api/empleados/:id/estado` | [server.js:432](server.js#L432) |
-| GET | `/api/empleados/buscar` | **Etapa 2 — F5.** Server-side filter `title.contains`, mín 3 chars, máx 50 |
+| GET | `/api/empleados/buscar` | **Etapa 2 — F5** (`?q=texto`, server-side `title.contains`) + **Etapa 3 — F2** (`?id=NNNN`, filtro `number.equals`, maneja duplicados) |
 | GET | `/api/obras/:id/empleados` | [server.js:482](server.js#L482) — **Etapa 1 — C3:** query filtrada (sin N+1) |
 | GET | `/api/obras/:id/firmantes-autorizados` | **Etapa 2 — F4.** Lee `OBRAS.Persona Autorizada` → JEFE_OBRAS, devuelve `{id, nombre, email, rol}` |
 | GET | `/api/partes-trabajo` | [server.js:534](server.js#L534) |
