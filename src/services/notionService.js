@@ -149,6 +149,17 @@ export const getJefesObra = async () => {
 	}
 }
 
+// Obtener firmantes autorizados de una obra (F4)
+export const getFirmantesAutorizados = async (obraId) => {
+	try {
+		const response = await apiClient.get(`/api/obras/${obraId}/firmantes-autorizados`)
+		return response.data
+	} catch (error) {
+		if (error.response?.status === 404) return []
+		handleApiError(error, 'obtener firmantes autorizados de la obra')
+	}
+}
+
 // Obtener todos los empleados
 export const getEmpleados = async () => {
 	try {
@@ -156,6 +167,17 @@ export const getEmpleados = async () => {
 		return response.data
 	} catch (error) {
 		handleApiError(error, 'obtener empleados')
+	}
+}
+
+// F5: búsqueda incremental de empleados (server-side)
+export const buscarEmpleados = async (q, limite = 20) => {
+	try {
+		if (!q || q.length < 3) return []
+		const response = await apiClient.get('/api/empleados/buscar', { params: { q, limite } })
+		return response.data
+	} catch (error) {
+		handleApiError(error, 'buscar empleados')
 	}
 }
 
