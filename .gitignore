@@ -103,3 +103,6 @@ gha-creds-*.json
 
 # Copias de contexto para Claude app (uso manual, no van al repo)
 docs/Contexto para claude app/
+
+# Blueprints Make (referencia local, no van al repo)
+docs/Escenarios Make/

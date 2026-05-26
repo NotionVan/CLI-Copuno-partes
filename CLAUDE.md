@@ -6,6 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
+- **Última edición:** 2026-05-26 14:04 CEST
 
 ---
 
@@ -120,6 +121,22 @@ Cualquier cambio que toque estos tres flujos requiere validación previa con `@r
 ### 3. Sincronización con Notion
 - Toda escritura va vía servidor (nunca desde el cliente). El cliente lee con polling adaptativo (ver más abajo).
 - Estados que **bloquean edición** en PUT (lógica en [server.js:1104+](server.js#L1104)): `firmado`, `datos enviados`, `enviado`.
+
+---
+
+## Escenarios Make (blueprints exportados)
+
+Los blueprints JSON de los escenarios Make.com están versionados en [docs/Escenarios Make/](docs/Escenarios%20Make/). Son la referencia canónica del lado Make — el escenario activo en producción debe coincidir con estos archivos.
+
+| Escenario | Archivo | Función |
+|---|---|---|
+| PARTES 1/4 | `PARTES1-4 - Recojo cabecera del parte.blueprint.json` | Recoge cabecera del parte desde Notion |
+| PARTES 2/4 | `PARTES2-4  - Recupero detalles parte.blueprint.json` | Recupera detalles (horas por empleado) |
+| PARTES 3/4 | `PARTES3-4  - Recibo datos del parte para generar el pdf.blueprint.json` | Genera el PDF y lo guarda en OneDrive → escribe `URL PDF` + `AUX ID PDF Onedrive` en Notion |
+| PARTES 4/4 | `PARTES4-4  - Recojo Firma.blueprint.json` | Recibe la firma del jefe de obra → sube `Documento Firmado` a Notion |
+| Envío cliente | `Envío del parte al cliente - botón enviar email.blueprint.json` | Botón "Enviar email" → entrega el parte firmado al cliente |
+
+Cuando se debuguee un fallo del lado Make (p. ej. `invalid_grant`, PDF no se genera, firma no aparece), comparar el escenario activo en Make.com contra el blueprint del repo permite detectar drift de configuración. Invocar `@notion-integration-inspector` para diagnosis cruzada Notion↔Make.
 
 ---
 
