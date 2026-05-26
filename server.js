@@ -801,8 +801,8 @@ app.post('/api/partes-trabajo', async (req, res) => {
 		let empleadosAsignadosObra = new Set()
 		try {
 			const obraInfo = await makeNotionRequest('GET', `/pages/${obraId}`)
-			const rel = extractPropertyValue(obraInfo.properties['Empleados']) || []
-			empleadosAsignadosObra = new Set(rel.map(r => r.id))
+			const rel = extractPropertyValue(obraInfo.properties['Empleados'])
+			if (Array.isArray(rel)) empleadosAsignadosObra = new Set(rel.map(r => r.id))
 		} catch (e) {
 			console.warn(JSON.stringify({ reqId: req.id, event: 'precarga_asignados_falla', obraId, error: e.message }))
 		}
@@ -1330,7 +1330,8 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 		const obraData = await makeNotionRequest('GET', `/pages/${obraId}`)
 		const nombreObra = extractPropertyValue(obraData.properties['Obra'])
 		// F1: lista de empleados ya asignados a la obra (para marcar "no asignados" en logs)
-		const asignadosObraSet = new Set((extractPropertyValue(obraData.properties['Empleados']) || []).map(r => r.id))
+		const relEmpleadosObra = extractPropertyValue(obraData.properties['Empleados'])
+		const asignadosObraSet = new Set(Array.isArray(relEmpleadosObra) ? relEmpleadosObra.map(r => r.id) : [])
 
 		// Preparar propiedades para actualizar
 		const propertiesToUpdate = {
