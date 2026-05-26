@@ -1,6 +1,6 @@
 # 🚀 Guía Completa de Despliegue - Copuno Gestión de Partes
 
-**Versión:** 1.0.1
+**Versión:** 1.0.2
 **Fecha:** 8 de Noviembre de 2025
 **Aplicación:** Copuno - Sistema de Gestión de Partes de Trabajo
 
