@@ -91,6 +91,15 @@ tmp/
 temp/
 
 # Recursos Pre desarrollo (archivos históricos)
-Recursos Pre desarrollo/ 
+Recursos Pre desarrollo/
 .gemini/
 gha-creds-*.json
+
+# Credenciales Vercel (nunca al repo)
+.env.vercel*
+
+# Configuración local de Claude Code (específica de la máquina)
+.claude/settings.local*.json
+
+# Copias de contexto para Claude app (uso manual, no van al repo)
+docs/Contexto para claude app/
