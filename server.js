@@ -446,12 +446,63 @@ app.get('/api/empleados', async (req, res) => {
 	}
 })
 
-// F5: búsqueda incremental de empleados (server-side, máx 20 resultados)
+// F2/F5: búsqueda de empleados. Acepta ?id=NNNN (por ID COPUNO) o ?q=texto (por nombre).
+// Si ambos se envían, prevalece id. Devuelve [] si no hay parámetros válidos.
+const mapEmpleadoPage = (page) => ({
+	id: page.id,
+	idCopuno: page.properties['ID COPUNO']?.number ?? null,
+	nombre: extractPropertyValue(page.properties['Nombre Completo']),
+	categoria: extractPropertyValue(page.properties['Categoría']),
+	provincia: extractPropertyValue(page.properties['Provincia']),
+	localidad: extractPropertyValue(page.properties['Localidad']),
+	telefono: extractPropertyValue(page.properties['Teléfono']),
+	dni: extractPropertyValue(page.properties['DNI']),
+	estado: extractPropertyValue(page.properties['Estado']),
+	delegado: extractPropertyValue(page.properties['Delegado'])
+})
+
 app.get('/api/empleados/buscar', async (req, res) => {
 	try {
-		const q = String(req.query.q || '').trim()
 		const limite = Math.min(Math.max(Number(req.query.limite) || 20, 1), 50)
 
+		// F2: búsqueda por ID Copuno
+		const idRaw = req.query.id
+		if (idRaw !== undefined && idRaw !== '') {
+			const idNum = Number(idRaw)
+			if (!Number.isInteger(idNum) || idNum <= 0) {
+				return res.status(400).json({ error: 'ID Copuno inválido', details: 'Debe ser un entero positivo' })
+			}
+
+			if (USE_MOCK_DATA) {
+				const matches = (mockStore.getEmpleados() || []).filter(e => e.idCopuno === idNum)
+				if (matches.length === 0) return res.status(404).json({ error: 'Empleado no encontrado', idCopuno: idNum })
+				return res.json(matches)
+			}
+
+			const data = await makeNotionRequest('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
+				filter: { property: 'ID COPUNO', number: { equals: idNum } },
+				page_size: limite
+			})
+
+			if (!data.results || data.results.length === 0) {
+				return res.status(404).json({ error: 'Empleado no encontrado', idCopuno: idNum })
+			}
+
+			if (data.results.length > 1) {
+				console.warn(JSON.stringify({
+					reqId: req.id,
+					event: 'id_copuno_duplicado',
+					idCopuno: idNum,
+					count: data.results.length,
+					empleadoIds: data.results.map(r => r.id)
+				}))
+			}
+
+			return res.json(data.results.map(mapEmpleadoPage))
+		}
+
+		// F5: búsqueda por nombre (comportamiento original)
+		const q = String(req.query.q || '').trim()
 		if (q.length < 3) {
 			return res.json([])
 		}
@@ -465,27 +516,11 @@ app.get('/api/empleados/buscar', async (req, res) => {
 		}
 
 		const data = await makeNotionRequest('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
-			filter: {
-				property: 'Nombre Completo',
-				title: { contains: q }
-			},
+			filter: { property: 'Nombre Completo', title: { contains: q } },
 			page_size: limite
 		})
 
-		const empleados = data.results.map(page => ({
-			id: page.id,
-			idCopuno: page.properties['ID COPUNO']?.number ?? null,
-			nombre: extractPropertyValue(page.properties['Nombre Completo']),
-			categoria: extractPropertyValue(page.properties['Categoría']),
-			provincia: extractPropertyValue(page.properties['Provincia']),
-			localidad: extractPropertyValue(page.properties['Localidad']),
-			telefono: extractPropertyValue(page.properties['Teléfono']),
-			dni: extractPropertyValue(page.properties['DNI']),
-			estado: extractPropertyValue(page.properties['Estado']),
-			delegado: extractPropertyValue(page.properties['Delegado'])
-		}))
-
-		res.json(empleados)
+		res.json(data.results.map(mapEmpleadoPage))
 	} catch (error) {
 		console.error('Error al buscar empleados:', error.message)
 		res.status(500).json({
@@ -762,13 +797,26 @@ app.post('/api/partes-trabajo', async (req, res) => {
 			}
 		})
 
+		// F1: precarga IDs de empleados asignados a la obra para marcar los "libres" en logs
+		let empleadosAsignadosObra = new Set()
+		try {
+			const obraInfo = await makeNotionRequest('GET', `/pages/${obraId}`)
+			const rel = extractPropertyValue(obraInfo.properties['Empleados']) || []
+			empleadosAsignadosObra = new Set(rel.map(r => r.id))
+		} catch (e) {
+			console.warn(JSON.stringify({ reqId: req.id, event: 'precarga_asignados_falla', obraId, error: e.message }))
+		}
+		const empleadosNoAsignados = (empleados || []).filter(id => !empleadosAsignadosObra.has(id))
+
 		console.log(JSON.stringify({
 			reqId: req.id,
 			event: 'parte_creado',
 			parteId: parteData.id,
 			nombrePretendido: `Parte ${obra}`,
 			nombreFinal,
-			empleadosPretendidos: empleados?.length || 0
+			empleadosPretendidos: empleados?.length || 0,
+			empleadosNoAsignadosObra: empleadosNoAsignados.length,
+			empleadosNoAsignadosIds: empleadosNoAsignados
 		}))
 
 		// Crear detalles de horas para cada empleado seleccionado
@@ -1281,6 +1329,8 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 		// Obtener la obra para el nombre
 		const obraData = await makeNotionRequest('GET', `/pages/${obraId}`)
 		const nombreObra = extractPropertyValue(obraData.properties['Obra'])
+		// F1: lista de empleados ya asignados a la obra (para marcar "no asignados" en logs)
+		const asignadosObraSet = new Set((extractPropertyValue(obraData.properties['Empleados']) || []).map(r => r.id))
 
 		// Preparar propiedades para actualizar
 		const propertiesToUpdate = {
@@ -1406,13 +1456,16 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 			}
 
 			// Log de resultados
+			const noAsignadosPut = empleados.filter(id => !asignadosObraSet.has(id))
 			console.log(JSON.stringify({
 				reqId: req.id,
 				event: 'detalles_actualizados',
 				parteId,
 				pretendidos: empleados.length,
 				creados: detallesCreados.length,
-				errores: erroresDetalles
+				errores: erroresDetalles,
+				empleadosNoAsignadosObra: noAsignadosPut.length,
+				empleadosNoAsignadosIds: noAsignadosPut
 			}))
 		}
 

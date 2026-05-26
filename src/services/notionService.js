@@ -170,7 +170,7 @@ export const getEmpleados = async () => {
 	}
 }
 
-// F5: búsqueda incremental de empleados (server-side)
+// F5: búsqueda incremental de empleados por nombre (server-side)
 export const buscarEmpleados = async (q, limite = 20) => {
 	try {
 		if (!q || q.length < 3) return []
@@ -178,6 +178,19 @@ export const buscarEmpleados = async (q, limite = 20) => {
 		return response.data
 	} catch (error) {
 		handleApiError(error, 'buscar empleados')
+	}
+}
+
+// F2: búsqueda por ID Copuno. Devuelve array (puede haber múltiples si hay duplicados en Notion) o [] si 404.
+export const buscarEmpleadoPorId = async (idCopuno) => {
+	try {
+		const idNum = Number(idCopuno)
+		if (!Number.isInteger(idNum) || idNum <= 0) return []
+		const response = await apiClient.get('/api/empleados/buscar', { params: { id: idNum } })
+		return response.data
+	} catch (error) {
+		if (error.response?.status === 404) return []
+		handleApiError(error, 'buscar empleado por ID Copuno')
 	}
 }
 
