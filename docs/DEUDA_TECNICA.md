@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-26
+- **Última edición:** 2026-05-26 (S1 añadido)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -380,6 +380,30 @@ Status real: `['Borrador', 'Listo para firmar', 'Datos Enviados', 'Firmado']`. L
 
 ---
 
+## Stoppers operativos
+
+Bloqueos externos al código que impiden completar el ciclo de despliegue normal.
+
+#### S1 — Sin acceso a Vercel por email notionvan@copuno.com no operativo
+
+- **Estado:** 🔴 Bloqueante activo
+- **Detectado:** 2026-05-26
+- **Qué:** La cuenta de Vercel está asociada a notionvan@copuno.com (tenant O365 Copuno).
+  Email no operativo actualmente, impide acceder al dashboard para reconectar la
+  integración GitHub tras el traslado del repo de javintnvn → NotionVan.
+- **Impacto:** Webhook GitHub↔Vercel roto. Pushes a master no disparan deploys.
+  PRs no generan preview deploys. Etapa 1 implementada pero pendiente de verificar
+  en preview hasta resolver.
+- **Dependencia:** Copuno debe restaurar acceso a notionvan@copuno.com
+  (Efrén / administrador O365 Copuno).
+- **Acción cuando se resuelva:** Vercel Dashboard → Settings → Git → Disconnect →
+  Connect → NotionVan/Copuno_Gestion_Partes → rama master. Verificar preview deploy
+  antes de mergear PR Etapa 1.
+- **Nota:** Este mismo email bloquea la configuración de Supabase para auth (H1).
+  Resolverlo desbloquea dos stoppers a la vez.
+
+---
+
 ## Cómo mantener este documento
 
 Cada modificación de este archivo lleva tres pasos obligatorios:
@@ -403,3 +427,4 @@ Reglas por tipo de cambio:
 |---|---|---|
 | 2026-05-11 | `@senior-architect-auditor` | Auditoría inicial — registrados 3 bloqueantes (H1-H3), 3 críticos (C1-C3), 5 importantes (I1-I5), 6 informativos. |
 | 2026-05-26 | `@senior-architect-auditor` | Auditoría de plan semanal (arranque 1 jun con Andrés Ríos). Añadidos N1-N5. Reclasificadas prioridades de C3, H2 (quick win) e I3. Verificaciones Notion (1.331 empleados, 27% con ID COPUNO; 55 obras activas; JEFE_OBRAS con 7 entradas mayormente de prueba; estados PARTES confirmados). |
+| 2026-05-26 | Javi Collado | Registrado stopper S1 (acceso Vercel bloqueado). |
