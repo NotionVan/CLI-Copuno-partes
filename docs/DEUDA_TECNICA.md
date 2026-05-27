@@ -25,7 +25,7 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [H1](#h1--ningún-endpoint-api-está-autenticado) | 🔴 | Auth en `/api/*` ausente | ⏳ | 4–8 h | Retainer **prioritario** |
 | [H2](#h2--creaciónedición-de-parte-no-es-atómica) | 🔴 | Parte sin atomicidad ni reconciliación | 🔧 (mitigado parcial) | 8–12 h | Retainer |
 | [H3](#h3--sse-sobre-vercel-serverless-incompatible) | 🔴 | SSE incompatible con Vercel serverless | ⏳ | 4–6 h | Retainer (próximo sprint) |
-| [C1](#c1--webhook-a-make-envía-payload-sin-sanear) | 🟠 | Webhook Make recibe payload sin sanear | ⏳ | 1–2 h | Retainer |
+| [C1](#c1--webhook-a-make-envía-payload-sin-sanear) | 🟠 | Webhook Make recibe payload sin sanear | ❌ | — | Descartado — plantilla Make filtra el output |
 | [C2](#c2--enviar-datos-orden-make--patch-vulnerable) | 🟠 | `enviar-datos`: ventana entre Make y PATCH estado | ⏳ | 3–4 h | Retainer (cuando haya hueco) |
 | [C3](#c3--n1-al-leer-empleados-de-una-obra) | 🟠 | N+1 al leer empleados de una obra | ✅ | — | Cerrado 2026-05-27 |
 | [I1](#i1--apidatos-completos-hace-http-a-sí-mismo) | 🟡 | `/api/datos-completos` hace HTTP loopback | ⏳ | 1–2 h | Retainer |
@@ -91,13 +91,11 @@ Informativos en sección [aparte](#informativos).
 
 #### C1 — Webhook a Make envía payload sin sanear
 
-- **Estado:** ⏳ Pendiente
+- **Estado:** ❌ Descartado (2026-05-27)
 - **Detectado:** 2026-05-11
 - **Dónde:** [server.js:1030-1049](../server.js#L1030-L1049).
-- **Qué:** `sanitizeEconomic` solo se aplica a `res.json` ([server.js:141-149](../server.js#L141-L149)). El `axios.post` al webhook envía el objeto Notion completo. Si la BD `Partes de trabajo` tiene propiedades económicas, Make las recibe.
-- **Coste de arreglar:** 1–2 h. Aplicar `sanitizeEconomic(payload)` antes del `axios.post`. Verificar primero qué espera Make.
-- **Coste de NO arreglar:** Inconsistencia con la promesa de saneado. Bajo si Make es cerrado/confiable; alto si en algún momento Make manda emails o expone el payload.
-- **Recomendación:** Retainer. Validar primero con qué campos trabaja Make.
+- **Qué:** `sanitizeEconomic` solo se aplica a `res.json`. El `axios.post` al webhook envía el objeto Notion completo con todas sus propiedades.
+- **Por qué se descarta:** La plantilla Make controla qué campos se renderizan en el PDF — solo muestra datos horarios, no económicos. El payload llega completo a Make pero nunca se expone al jefe de obra ni sale por ningún canal visible. Riesgo real: nulo en la configuración actual. Si Make cambia (email con payload raw, nuevo escenario), reevaluar.
 
 #### C2 — `enviar-datos`: orden Make → PATCH vulnerable
 
