@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-27 (Fase B + quick wins N5+I5 + smoke tests ampliados a 29/29)
+- **Última edición:** 2026-05-27 (C2 cerrado — estado Procesando + lock optimista pre-webhook)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -26,7 +26,7 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [H2](#h2--creaciónedición-de-parte-no-es-atómica) | 🔴 | Parte sin atomicidad ni reconciliación | 🔧 (mitigado parcial) | 8–12 h | Retainer |
 | [H3](#h3--sse-sobre-vercel-serverless-incompatible) | 🔴 | SSE incompatible con Vercel serverless | ⏳ | 4–6 h | Retainer (próximo sprint) |
 | [C1](#c1--webhook-a-make-envía-payload-sin-sanear) | 🟠 | Webhook Make recibe payload sin sanear | ❌ | — | Descartado — plantilla Make filtra el output |
-| [C2](#c2--enviar-datos-orden-make--patch-vulnerable) | 🟠 | `enviar-datos`: ventana entre Make y PATCH estado | ⏳ | 3–4 h | Retainer (cuando haya hueco) |
+| [C2](#c2--enviar-datos-orden-make--patch-vulnerable) | 🟠 | `enviar-datos`: ventana entre Make y PATCH estado | ✅ | — | Cerrado 2026-05-27 |
 | [C3](#c3--n1-al-leer-empleados-de-una-obra) | 🟠 | N+1 al leer empleados de una obra | ✅ | — | Cerrado 2026-05-27 |
 | [I1](#i1--apidatos-completos-hace-http-a-sí-mismo) | 🟡 | `/api/datos-completos` hace HTTP loopback | ⏳ | 1–2 h | Retainer |
 | [I2](#i2--cache-en-memoria--serverless--cache-inútil) | 🟡 | Cache en memoria inútil en serverless | ⏳ | 0 h (doc) | Ignorar / documentar |
@@ -99,13 +99,8 @@ Informativos en sección [aparte](#informativos).
 
 #### C2 — `enviar-datos`: orden Make → PATCH vulnerable
 
-- **Estado:** ⏳ Pendiente
-- **Detectado:** 2026-05-11
-- **Dónde:** [server.js:1058-1094](../server.js#L1058-L1094).
-- **Qué:** Flujo: (1) POST a Make → (2) PATCH estado a `Datos Enviados`. Si (1) ok y (2) falla, Make ya genera el PDF pero el parte sigue como `borrador`. Ventana vulnerable a reintento accidental → 2 PDFs, 2 entradas OneDrive, datos duplicados.
-- **Coste de arreglar:** 3–4 h. Patrón: marcar parte como "Procesando" *antes* del webhook (lock optimista), webhook, marcar `Datos Enviados` después. Requiere añadir estado en Notion.
-- **Coste de NO arreglar:** Incidente raro pero embarazoso.
-- **Recomendación:** Retainer, no urgente.
+- **Estado:** ✅ Cerrado 2026-05-27
+- **Solución:** Añadido estado `Procesando` (amarillo) en Notion. El flujo ahora es: (1) PATCH `Procesando` → (2) webhook Make → (3) PATCH `Datos Enviados`. Si (2) o (3) fallan, el parte queda en `Procesando` — bloqueado para edición y reenvío. La oficina reconcilia manualmente cambiando el estado en Notion. `PARTE_NO_EDITABLES` actualizado para incluir `'procesando'` en `notion.js` y `mockData.js`.
 
 #### C3 — N+1 al leer empleados de una obra
 

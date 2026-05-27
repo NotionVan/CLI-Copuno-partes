@@ -23,6 +23,7 @@ const PARTES_DATOS_WEBHOOK_URL = process.env.PARTES_DATOS_WEBHOOK_URL || process
 const PARTES_WEBHOOK_TIMEOUT_MS = Number(process.env.PARTES_WEBHOOK_TIMEOUT_MS || 10000)
 const PARTES_WEBHOOK_CONFIGURED = Boolean(PARTES_DATOS_WEBHOOK_URL)
 const PARTE_ESTADO_BORRADOR = 'borrador'
+const PARTE_ESTADO_PROCESANDO = 'Procesando'
 const PARTE_ESTADO_DATOS_ENVIADOS = 'Datos Enviados'
 
 // Middleware
@@ -647,6 +648,27 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 		}
 	}
 
+	// C2: marcar "Procesando" ANTES de llamar a Make para cerrar la ventana de reintento.
+	// Si el webhook falla, el parte sigue en "Procesando" (no en Borrador) — no se puede
+	// reenviar accidentalmente. La oficina lo reconcilia cambiando el estado a mano en Notion.
+	try {
+		await data.partesTrabajo.actualizarEstado(parteId, {
+			estadoProperty: parteData.properties['Estado'],
+			nuevoEstado: PARTE_ESTADO_PROCESANDO
+		})
+	} catch (error) {
+		console.error('Error al marcar parte como Procesando:', {
+			message: error.message,
+			status: error.status
+		})
+		// Fallo antes de tocar Make → el parte sigue en Borrador. Transitorio: liberar lock.
+		release()
+		return res.status(500).json({
+			error: 'No se pudo reservar el parte para el envío. Inténtalo de nuevo.',
+			details: error.response?.data?.message || error.message
+		})
+	}
+
 	if (PARTES_WEBHOOK_CONFIGURED) {
 		try {
 			console.info('[Webhook] Enviando payload partes:', JSON.stringify({
@@ -665,10 +687,13 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 			if (error.response?.data) {
 				console.error('Respuesta recibida del webhook:', error.response.data)
 			}
-			// Fallo de webhook: transitorio (Make caído, timeout). Liberar lock.
+			// Fallo de webhook (Make caído, timeout): el parte ya está en "Procesando",
+			// lo que impide reenvíos accidentales. La oficina reconcilia en Notion.
+			// Liberamos el lock idempotente para que el cliente pueda reintentar
+			// una vez que Make vuelva a estar disponible.
 			release()
 			return res.status(error.response?.status || 502).json({
-				error: 'No se pudo enviar los datos al webhook configurado',
+				error: 'No se pudo enviar los datos al webhook configurado. El parte queda en estado "Procesando" hasta que se resuelva.',
 				details: error.response?.data?.error || error.response?.data?.message || error.message
 			})
 		}
@@ -687,12 +712,11 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 			message: error.message,
 			status: error.status
 		})
-		// Importante: el webhook YA se disparó. Si releemos el lock, un reintento
-		// dispararía Make otra vez. Cacheamos el error como permanente para
-		// que reintentos del cliente devuelvan el mismo error sin reenviar Make.
-		// El cliente / oficina reconcilia manualmente el estado en Notion.
+		// El webhook YA se disparó y el parte está en "Procesando" — no en Borrador.
+		// Reintentar no reenviaría Make (bloqueado por PARTE_NO_EDITABLES).
+		// Cacheamos el error como permanente; la oficina cambia el estado a mano en Notion.
 		return respond(500, {
-			error: 'Datos enviados, pero falló la actualización del estado en Notion',
+			error: 'Datos enviados a Make, pero falló la actualización del estado en Notion. El parte queda en "Procesando" — cámbialo manualmente a "Datos Enviados" en Notion.',
 			details: error.response?.data?.message || error.message
 		})
 	}

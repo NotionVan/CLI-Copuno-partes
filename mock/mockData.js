@@ -181,7 +181,7 @@ const findJefe = (jefeId) => mockJefesObra.find((jefe) => jefe.id === jefeId)
 const findEmpleado = (empleadoId) => mockEmpleados.find((empleado) => empleado.id === empleadoId)
 const findParte = (parteId) => mockPartes.find((parte) => parte.id === parteId)
 
-const NON_EDITABLE_STATES = ['firmado', 'datos enviados', 'enviado']
+const NON_EDITABLE_STATES = ['firmado', 'datos enviados', 'procesando']
 
 const formatDateForName = (isoDate) => {
   try {
@@ -595,8 +595,10 @@ const sendParteDatos = (parteId) => {
     data
   }
 
-  parte.estado = 'Datos Enviados'
+  parte.estado = 'Procesando'
   parte.ultimaEdicion = new Date().toISOString()
+  // Simula el PATCH final a "Datos Enviados" (en live lo hace server.js tras el webhook)
+  parte.estado = 'Datos Enviados'
 
   return {
     parte: mapParte(parte),
