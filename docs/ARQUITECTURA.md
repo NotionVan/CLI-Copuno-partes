@@ -211,6 +211,8 @@ Si en algún momento alguno de estos cambia de estado, **se documenta vía nuevo
 - ✅ `services/notion.js` + `services/data.js` — todos los endpoints migrados.
 - ✅ Idempotencia en `enviar-datos` (ADR-004).
 - ✅ Fix N+1 `/api/obras/:id/empleados` (C3 cerrado).
+- ✅ Lock optimista pre-webhook con estado `Procesando` (C2 cerrado).
+- ✅ Quick wins N5 + I5 (estado inexistente eliminado, reload de página eliminado).
 - ✅ 29 smoke tests con supertest (cobertura completa de endpoints).
 
 ### Siguiente retainer (junio-julio 2026)

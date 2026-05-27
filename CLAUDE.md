@@ -116,13 +116,15 @@ Cualquier cambio que toque estos tres flujos requiere validación previa con `@r
 - En la app, el estado del parte transita a `firmado` (estado que **bloquea edición** — ver [server.js:1104+](server.js#L1104)).
 
 ### 2. Generación + almacenamiento del PDF
-- Trigger: `POST /api/partes-trabajo/:id/enviar-datos` ([server.js:979](server.js#L979)) → hace `axios.post(PARTES_DATOS_WEBHOOK_URL, payload)` con timeout `PARTES_WEBHOOK_TIMEOUT_MS`.
+- Trigger: `POST /api/partes-trabajo/:id/enviar-datos` ([server.js:979](server.js#L979)).
+- Flujo (C2 cerrado 2026-05-27): (1) PATCH estado → `Procesando` (lock optimista), (2) `axios.post(PARTES_DATOS_WEBHOOK_URL, payload)`, (3) PATCH estado → `Datos Enviados`.
+- Si el webhook falla, el parte queda en `Procesando` (bloqueado — no se puede reenviar accidentalmente). Reconciliación manual en Notion.
 - Si `PARTES_DATOS_WEBHOOK_URL` no está definida, **se simula** y se loguea (modo desarrollo).
 - Make persiste el PDF en OneDrive y graba `URL PDF` + `AUX ID PDF Onedrive` en Notion.
 
 ### 3. Sincronización con Notion
 - Toda escritura va vía servidor (nunca desde el cliente). El cliente lee con polling adaptativo (ver más abajo).
-- Estados que **bloquean edición** en PUT (lógica en [server.js:1104+](server.js#L1104)): `firmado`, `datos enviados`, `enviado`.
+- Estados que **bloquean edición** en PUT (lógica en [server.js:1104+](server.js#L1104)): `firmado`, `datos enviados`, `procesando`.
 
 ---
 
