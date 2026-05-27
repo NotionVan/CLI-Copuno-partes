@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-26 (Etapas 1, 2 y 3 implementadas — pendiente merge bloqueado por S1)
+- **Última edición:** 2026-05-27 (Fase A arquitectura: ADRs + services/data + idempotencia + tests smoke; C3 cerrado; H2 mitigado parcialmente)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -23,11 +23,11 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | ID | Sev | Título | Estado | Coste | Recomendación |
 |---|---|---|---|---|---|
 | [H1](#h1--ningún-endpoint-api-está-autenticado) | 🔴 | Auth en `/api/*` ausente | ⏳ | 4–8 h | Retainer **prioritario** |
-| [H2](#h2--creaciónedición-de-parte-no-es-atómica) | 🔴 | Parte sin atomicidad ni reconciliación | ⏳ | 8–12 h | Retainer |
+| [H2](#h2--creaciónedición-de-parte-no-es-atómica) | 🔴 | Parte sin atomicidad ni reconciliación | 🔧 (mitigado parcial) | 8–12 h | Retainer |
 | [H3](#h3--sse-sobre-vercel-serverless-incompatible) | 🔴 | SSE incompatible con Vercel serverless | ⏳ | 4–6 h | Retainer (próximo sprint) |
 | [C1](#c1--webhook-a-make-envía-payload-sin-sanear) | 🟠 | Webhook Make recibe payload sin sanear | ⏳ | 1–2 h | Retainer |
 | [C2](#c2--enviar-datos-orden-make--patch-vulnerable) | 🟠 | `enviar-datos`: ventana entre Make y PATCH estado | ⏳ | 3–4 h | Retainer (cuando haya hueco) |
-| [C3](#c3--n1-al-leer-empleados-de-una-obra) | 🟠 | N+1 al leer empleados de una obra | ⏳ | 2–3 h | Retainer |
+| [C3](#c3--n1-al-leer-empleados-de-una-obra) | 🟠 | N+1 al leer empleados de una obra | ✅ | — | Cerrado 2026-05-27 |
 | [I1](#i1--apidatos-completos-hace-http-a-sí-mismo) | 🟡 | `/api/datos-completos` hace HTTP loopback | ⏳ | 1–2 h | Retainer |
 | [I2](#i2--cache-en-memoria--serverless--cache-inútil) | 🟡 | Cache en memoria inútil en serverless | ⏳ | 0 h (doc) | Ignorar / documentar |
 | [I3](#i3--rate-limit-irrelevante-con-nat-compartido) | 🟡 | Rate limit revienta con NAT compartido | ⏳ | 1 h | Retainer (junto a H1) |
@@ -63,7 +63,9 @@ Informativos en sección [aparte](#informativos).
 
 #### H2 — Creación/edición de parte no es atómica
 
-- **Estado:** ⏳ Pendiente
+- **Estado:** 🔧 Mitigado parcialmente (2026-05-27) · pendiente solución estructural
+- **Mitigación 2026-05-27:** Idempotencia en `POST enviar-datos` ([src-server/lib/idempotency.js](../src-server/lib/idempotency.js)). Doble-click o reintentos del cliente ya no disparan Make dos veces ni causan PDFs duplicados. **No resuelve H2** (no garantiza atomicidad de las N escrituras de detalles), pero elimina la causa más frecuente de inconsistencias adyacentes. Test smoke verifica el replay.
+- **Lo que sigue pendiente:** los bucles `for empleados` en POST `/api/partes-trabajo` y PUT `/api/partes-trabajo/:id` siguen sin transacción ni reconciliación. Si Notion devuelve 5xx en mitad del bucle, el parte queda inconsistente. Solución estructural llega con la migración a Supabase (ADR-003) — Postgres da ACID gratis.
 - **Detectado:** 2026-05-11
 - **Dónde:** [server.js:580-752](../server.js#L580) (POST), [server.js:1104-1339](../server.js#L1104) (PUT). Bucle `for (const empleadoId of empleados)` con `await` secuencial y `try/catch` que **se traga errores y sigue**.
 - **Qué:** POST crea cabecera → PATCH nombre → N escrituras en `DETALLES_HORA`. Si la 3ª escritura falla por 429/red, el parte queda con 2 detalles y los otros desaparecen. Cliente recibe `200 OK` con `erroresDetalles.length > 0` pero **sin status code de error**. PUT es peor: **archiva** todos los detalles existentes antes de crear los nuevos — si Notion devuelve 5xx tras archivar, el parte queda **sin detalles**.
@@ -109,13 +111,11 @@ Informativos en sección [aparte](#informativos).
 
 #### C3 — N+1 al leer empleados de una obra
 
-- **Estado:** ⏳ Pendiente
+- **Estado:** ✅ Cerrado (2026-05-27)
 - **Detectado:** 2026-05-11
-- **Dónde:** [server.js:482-531](../server.js#L482-L531).
-- **Qué:** Por cada empleado relacionado: 1 GET a `/pages/:id`. Obra con 30 empleados = 31 requests secuenciales. A 3 req/s de Notion → ~10 s mínimo. Sin `Promise.all`, sin cache individual.
-- **Por qué importa:** Parte del "la app va lenta" subjetivo. Multiplica riesgo de 429 con varios usuarios concurrentes.
-- **Coste de arreglar:** 2–3 h. Query a `EMPLEADOS` filtrando por relación con la obra, o `Promise.all` con p-limit a 3 concurrencia.
-- **Recomendación:** Retainer.
+- **Resuelto en:** [server.js](../server.js) endpoint `GET /api/obras/:obraId/empleados` → ahora delega en [src-server/services/notion.js](../src-server/services/notion.js) `obras.empleadosDeObra()`, que hace **una sola query** filtrada por relación inversa `EMPLEADOS.Obras contains :obraId`.
+- **Validación:** test smoke en [src-server/tests/smoke/smoke.test.js](../src-server/tests/smoke/smoke.test.js) cubre el endpoint (modo mock). En live el comportamiento se verifica visualmente desde la app.
+- **Nota:** ya estaba implementado en código durante la Etapa 1 (commit anterior), pero seguía marcado como pendiente por descuido documental. El refactor a `data.js` (ADR-002) lo confirma como patrón.
 
 ---
 
@@ -527,3 +527,4 @@ Reglas por tipo de cambio:
 | 2026-05-26 | Claude Code | Etapa 1 implementada en rama `etapa1/deuda-tecnica-c3-h2-i3` (commit `1b4893c`, PR [#2](https://github.com/NotionVan/Copuno_Gestion_Partes/pull/2)). C3 + H2 quick win + I3. Regression-checker ÁMBAR. Merge bloqueado por S1. |
 | 2026-05-26 | Claude Code | Etapa 2 implementada en rama `etapa2/funcionalidades-minimo-viable-f4-f5-f6` (commit `8659f62`). F4 + F5 + F6 con edge cases. Sin PR hasta que merge de Etapa 1 desbloquee rebase sobre master. Regression-checker ÁMBAR. |
 | 2026-05-26 | Claude Code | Etapa 3 implementada en rama `etapa3/funcionalidades-extendidas-f1-f2-f3` (commits `aec81c5` + `38cf339`). F2 búsqueda por ID Copuno + manejo de duplicados (5848, 5760, 5917). F1 empleados libres con logging enriquecido. F3 verificado (Notion sin constraints UNIQUE). Sin PR hasta merge de Etapa 2. Regression-checker ÁMBAR cerrado con blindaje Array.isArray. |
+| 2026-05-27 | Claude Code | **Fase A consolidación arquitectónica.** Creados [docs/ARQUITECTURA.md](./ARQUITECTURA.md) + [ADR-001](./adr/ADR-001-notion-como-bbdd.md), [ADR-002](./adr/ADR-002-capa-abstraccion-datos.md), [ADR-003](./adr/ADR-003-supabase-destino-migracion.md). Introducida capa `src-server/services/{notion,data}.js` (ADR-002) — 6 endpoints piloto refactorizados (obras, jefes-obra, firmantes-autorizados, empleados, empleados/buscar, empleados/estado-opciones, obras/:id/empleados). Implementada **idempotencia** en `POST enviar-datos` ([src-server/lib/idempotency.js](../src-server/lib/idempotency.js)) — defensa frente a doble-click sin tocar frontend. Añadidos 9 **tests smoke** con supertest + `node:test` (`npm run test:smoke`, todos verdes). **C3 cerrado** (verificación + documentación), **H2 mitigado parcialmente**. |

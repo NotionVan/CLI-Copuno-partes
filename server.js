@@ -9,6 +9,8 @@ const cors = require('cors')
 const axios = require('axios')
 const path = require('path')
 const mockStore = require('./mock/mockData')
+const data = require('./src-server/services/data')
+const { createIdempotencyStore } = require('./src-server/lib/idempotency')
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -81,6 +83,19 @@ if (!NOTION_TOKEN && !USE_MOCK_DATA) {
 if (USE_MOCK_DATA) {
 	console.warn('⚠️  Ejecutando en modo MOCK: se utilizarán datos simulados para todas las peticiones.')
 }
+
+// Inicializar la capa de abstracción de datos (ADR-002).
+// Los endpoints piloto refactorizados consumen `data.*` en vez de axios directo.
+data.init({
+	notionToken: NOTION_TOKEN,
+	useMock: USE_MOCK_DATA,
+	mockStore,
+	timeoutMs: 10000
+})
+
+// Store de idempotencia para POST enviar-datos (futuro ADR-004).
+// Defensa contra doble-click y reintentos de red. TTL 10 min.
+const enviarDatosIdempotency = createIdempotencyStore({ ttlMs: 10 * 60 * 1000 })
 
 // Rate limiting para /api con valores configurables
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000) // 15 minutos
@@ -301,26 +316,12 @@ app.get('/api/health', (req, res) => {
 	})
 })
 
-// Obtener todas las obras
+// Obtener todas las obras — refactorizado a data.js (ADR-002)
 app.get('/api/obras', async (req, res) => {
 	try {
-		if (USE_MOCK_DATA) {
-			const obras = mockStore.getObras()
-			return res.json(obras)
-		}
 		const cached = getCache('obras')
 		if (cached) return res.json(cached)
-		const data = await makeNotionRequest('POST', `/databases/${DATABASES.OBRAS}/query`, {
-			page_size: 100
-		})
-
-		const obras = data.results.map(page => ({
-			id: page.id,
-			nombre: extractPropertyValue(page.properties['Obra - Codigo']),
-			provincia: extractPropertyValue(page.properties['Provincia']),
-			estado: extractPropertyValue(page.properties['Estado'])
-		}))
-
+		const obras = await data.obras.listar()
 		setCache('obras', obras)
 		res.json(obras)
 	} catch (error) {
@@ -332,24 +333,12 @@ app.get('/api/obras', async (req, res) => {
 	}
 })
 
-// Obtener todos los jefes de obra
+// Obtener todos los jefes de obra — refactorizado a data.js (ADR-002)
 app.get('/api/jefes-obra', async (req, res) => {
 	try {
-		if (USE_MOCK_DATA) {
-			return res.json(mockStore.getJefesObra())
-		}
 		const cached = getCache('jefes')
 		if (cached) return res.json(cached)
-		const data = await makeNotionRequest('POST', `/databases/${DATABASES.JEFE_OBRAS}/query`, {
-			page_size: 100
-		})
-
-		const jefesObra = data.results.map(page => ({
-			id: page.id,
-			nombre: extractPropertyValue(page.properties['Persona Autorizada']),
-			email: extractPropertyValue(page.properties[' Email'])
-		}))
-
+		const jefesObra = await data.jefesObra.listar()
 		setCache('jefes', jefesObra)
 		res.json(jefesObra)
 	} catch (error) {
@@ -361,47 +350,16 @@ app.get('/api/jefes-obra', async (req, res) => {
 	}
 })
 
-// F4: Firmantes autorizados para una obra concreta (lee relación OBRAS.Persona Autorizada)
+// F4: Firmantes autorizados para una obra concreta — refactorizado a data.js (ADR-002)
 app.get('/api/obras/:obraId/firmantes-autorizados', async (req, res) => {
 	try {
 		const { obraId } = req.params
-
-		if (USE_MOCK_DATA) {
-			return res.json(mockStore.getFirmantesPorObra ? mockStore.getFirmantesPorObra(obraId) : [])
-		}
-
-		let obraData
-		try {
-			obraData = await makeNotionRequest('GET', `/pages/${obraId}`)
-		} catch (e) {
-			if (e.response?.status === 404) {
-				return res.status(404).json({ error: 'Obra no encontrada' })
-			}
-			throw e
-		}
-
-		const relaciones = extractPropertyValue(obraData.properties['Persona Autorizada'])
-		if (!relaciones || relaciones.length === 0) {
-			return res.json([])
-		}
-
-		const firmantes = []
-		for (const ref of relaciones) {
-			try {
-				const jefe = await makeNotionRequest('GET', `/pages/${ref.id}`)
-				firmantes.push({
-					id: jefe.id,
-					nombre: extractPropertyValue(jefe.properties['Persona Autorizada']),
-					email: extractPropertyValue(jefe.properties[' Email']),
-					rol: extractPropertyValue(jefe.properties['Rol']) || 'Otros'
-				})
-			} catch (e) {
-				console.error(`Error al leer firmante ${ref.id}:`, e.message)
-			}
-		}
-
+		const firmantes = await data.obras.firmantesAutorizados(obraId)
 		res.json(firmantes)
 	} catch (error) {
+		if (error.status === 404) {
+			return res.status(404).json({ error: 'Obra no encontrada' })
+		}
 		console.error('Error al obtener firmantes autorizados:', error.message)
 		res.status(500).json({
 			error: 'Error al obtener firmantes autorizados',
@@ -410,31 +368,12 @@ app.get('/api/obras/:obraId/firmantes-autorizados', async (req, res) => {
 	}
 })
 
-// Obtener todos los empleados
+// Obtener todos los empleados — refactorizado a data.js (ADR-002)
 app.get('/api/empleados', async (req, res) => {
 	try {
-		if (USE_MOCK_DATA) {
-			return res.json(mockStore.getEmpleados())
-		}
 		const cached = getCache('empleados')
 		if (cached) return res.json(cached)
-		const data = await makeNotionRequest('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
-			page_size: 100
-		})
-
-		const empleados = data.results.map(page => ({
-			id: page.id,
-			idCopuno: page.properties['ID COPUNO']?.number ?? null,
-			nombre: extractPropertyValue(page.properties['Nombre Completo']),
-			categoria: extractPropertyValue(page.properties['Categoría']),
-			provincia: extractPropertyValue(page.properties['Provincia']),
-			localidad: extractPropertyValue(page.properties['Localidad']),
-			telefono: extractPropertyValue(page.properties['Teléfono']),
-			dni: extractPropertyValue(page.properties['DNI']),
-			estado: extractPropertyValue(page.properties['Estado']),
-			delegado: extractPropertyValue(page.properties['Delegado'])
-		}))
-
+		const empleados = await data.empleados.listar()
 		setCache('empleados', empleados)
 		res.json(empleados)
 	} catch (error) {
@@ -446,21 +385,8 @@ app.get('/api/empleados', async (req, res) => {
 	}
 })
 
-// F2/F5: búsqueda de empleados. Acepta ?id=NNNN (por ID COPUNO) o ?q=texto (por nombre).
-// Si ambos se envían, prevalece id. Devuelve [] si no hay parámetros válidos.
-const mapEmpleadoPage = (page) => ({
-	id: page.id,
-	idCopuno: page.properties['ID COPUNO']?.number ?? null,
-	nombre: extractPropertyValue(page.properties['Nombre Completo']),
-	categoria: extractPropertyValue(page.properties['Categoría']),
-	provincia: extractPropertyValue(page.properties['Provincia']),
-	localidad: extractPropertyValue(page.properties['Localidad']),
-	telefono: extractPropertyValue(page.properties['Teléfono']),
-	dni: extractPropertyValue(page.properties['DNI']),
-	estado: extractPropertyValue(page.properties['Estado']),
-	delegado: extractPropertyValue(page.properties['Delegado'])
-})
-
+// F2/F5: búsqueda de empleados — refactorizado a data.js (ADR-002).
+// Acepta ?id=NNNN (por ID COPUNO) o ?q=texto (por nombre). Si ambos, prevalece id.
 app.get('/api/empleados/buscar', async (req, res) => {
 	try {
 		const limite = Math.min(Math.max(Number(req.query.limite) || 20, 1), 50)
@@ -473,54 +399,33 @@ app.get('/api/empleados/buscar', async (req, res) => {
 				return res.status(400).json({ error: 'ID Copuno inválido', details: 'Debe ser un entero positivo' })
 			}
 
-			if (USE_MOCK_DATA) {
-				const matches = (mockStore.getEmpleados() || []).filter(e => e.idCopuno === idNum)
-				if (matches.length === 0) return res.status(404).json({ error: 'Empleado no encontrado', idCopuno: idNum })
-				return res.json(matches)
-			}
+			const { resultados, duplicado } = await data.empleados.buscarPorIdCopuno(idNum, { limite })
 
-			const data = await makeNotionRequest('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
-				filter: { property: 'ID COPUNO', number: { equals: idNum } },
-				page_size: limite
-			})
-
-			if (!data.results || data.results.length === 0) {
+			if (resultados.length === 0) {
 				return res.status(404).json({ error: 'Empleado no encontrado', idCopuno: idNum })
 			}
 
-			if (data.results.length > 1) {
+			if (duplicado) {
 				console.warn(JSON.stringify({
 					reqId: req.id,
 					event: 'id_copuno_duplicado',
 					idCopuno: idNum,
-					count: data.results.length,
-					empleadoIds: data.results.map(r => r.id)
+					count: resultados.length,
+					empleadoIds: resultados.map(r => r.id)
 				}))
 			}
 
-			return res.json(data.results.map(mapEmpleadoPage))
+			return res.json(resultados)
 		}
 
-		// F5: búsqueda por nombre (comportamiento original)
+		// F5: búsqueda por nombre (mínimo 3 chars)
 		const q = String(req.query.q || '').trim()
 		if (q.length < 3) {
 			return res.json([])
 		}
 
-		if (USE_MOCK_DATA) {
-			const todos = mockStore.getEmpleados()
-			const filtrados = todos
-				.filter(e => (e.nombre || '').toLowerCase().includes(q.toLowerCase()))
-				.slice(0, limite)
-			return res.json(filtrados)
-		}
-
-		const data = await makeNotionRequest('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
-			filter: { property: 'Nombre Completo', title: { contains: q } },
-			page_size: limite
-		})
-
-		res.json(data.results.map(mapEmpleadoPage))
+		const resultados = await data.empleados.buscarPorNombre(q, { limite })
+		res.json(resultados)
 	} catch (error) {
 		console.error('Error al buscar empleados:', error.message)
 		res.status(500).json({
@@ -530,32 +435,11 @@ app.get('/api/empleados/buscar', async (req, res) => {
 	}
 })
 
-// Obtener opciones válidas de la propiedad Estado de empleados (dinámico desde Notion)
+// Opciones válidas de Estado de empleados — refactorizado a data.js (ADR-002)
 app.get('/api/empleados/estado-opciones', async (req, res) => {
 	try {
-		if (USE_MOCK_DATA) {
-			return res.json(mockStore.getEstadoOpciones())
-		}
-		const db = await makeNotionRequest('GET', `/databases/${DATABASES.EMPLEADOS}`)
-		const prop = db.properties?.['Estado']
-		if (!prop) {
-			return res.json({ type: 'unknown', options: [] })
-		}
-
-		let options = []
-		let type = prop.type
-		if (prop.type === 'status') {
-			options = (prop.status?.options || []).map(o => ({ name: o.name, color: o.color }))
-		} else if (prop.type === 'select') {
-			options = (prop.select?.options || []).map(o => ({ name: o.name, color: o.color }))
-		} else if (prop.type === 'checkbox') {
-			options = [
-				{ name: 'true', color: 'green' },
-				{ name: 'false', color: 'red' }
-			]
-		}
-
-		res.json({ type, options })
+		const resultado = await data.empleados.opcionesEstado()
+		res.json(resultado)
 	} catch (error) {
 		console.error('Error al obtener opciones de Estado:', error.message)
 		res.status(500).json({ error: 'Error al obtener opciones de Estado', details: error.message })
@@ -612,37 +496,12 @@ app.put('/api/empleados/:empleadoId/estado', async (req, res) => {
 	}
 })
 
-// Obtener empleados de una obra específica
+// Empleados de una obra específica — refactorizado a data.js (ADR-002).
+// C3 ya resuelto: query filtrada por relación inversa (sin N+1).
 app.get('/api/obras/:obraId/empleados', async (req, res) => {
 	try {
 		const { obraId } = req.params
-
-		if (USE_MOCK_DATA) {
-			return res.json(mockStore.getEmpleadosPorObra(obraId))
-		}
-
-		// Query filtrada por la relación inversa "Obras" en EMPLEADOS — elimina N+1
-		const response = await makeNotionRequest('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
-			filter: {
-				property: 'Obras',
-				relation: { contains: obraId }
-			},
-			page_size: 100
-		})
-
-		const empleadosDetalles = response.results.map(emp => ({
-			id: emp.id,
-			idCopuno: emp.properties['ID COPUNO']?.number ?? null,
-			nombre: extractPropertyValue(emp.properties['Nombre Completo']),
-			categoria: extractPropertyValue(emp.properties['Categoría']),
-			provincia: extractPropertyValue(emp.properties['Provincia']),
-			localidad: extractPropertyValue(emp.properties['Localidad']),
-			telefono: extractPropertyValue(emp.properties['Teléfono']),
-			dni: extractPropertyValue(emp.properties['DNI']),
-			estado: extractPropertyValue(emp.properties['Estado']),
-			delegado: extractPropertyValue(emp.properties['Delegado'])
-		}))
-
+		const empleadosDetalles = await data.obras.empleadosDeObra(obraId)
 		res.json(empleadosDetalles)
 	} catch (error) {
 		console.error('Error al obtener empleados de la obra:', error.message)
@@ -1129,10 +988,38 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 		return res.status(400).json({ error: 'ID de parte requerido' })
 	}
 
+	// Idempotencia: header Idempotency-Key si lo envía el cliente,
+	// o `enviar-datos:${parteId}` por defecto (mata doble-click sin tocar frontend).
+	const idemKey = String(req.headers['idempotency-key'] || `enviar-datos:${parteId}`)
+	const cached = enviarDatosIdempotency.get(idemKey)
+	if (cached) {
+		if (cached.status === 'in_flight') {
+			return res.status(409).json({
+				error: 'Solicitud en curso para este parte. Espera unos segundos antes de reintentar.',
+				idempotencyKey: idemKey
+			})
+		}
+		// status === 'complete' — replay de la respuesta original
+		return res.status(cached.statusCode || 200).json({
+			...cached.body,
+			replayed: true,
+			idempotencyKey: idemKey
+		})
+	}
+	enviarDatosIdempotency.markInFlight(idemKey)
+
+	// Helper local para responder + cachear de forma uniforme.
+	const respond = (statusCode, body) => {
+		enviarDatosIdempotency.markComplete(idemKey, { statusCode, body })
+		return res.status(statusCode).json(body)
+	}
+	// Si algo lanza más abajo, hay que liberar el lock para que se pueda reintentar.
+	const release = () => enviarDatosIdempotency.delete(idemKey)
+
 	if (USE_MOCK_DATA) {
 		try {
 			const resultado = mockStore.sendParteDatos(parteId)
-			return res.json({
+			return respond(200, {
 				status: 'ok',
 				parteId,
 				nuevoEstado: resultado.parte.estado,
@@ -1140,7 +1027,7 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 			})
 		} catch (error) {
 			const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'INVALID_STATE' ? 409 : 400
-			return res.status(status).json({
+			return respond(status, {
 				error: error.message,
 				estado: error.meta?.estado
 			})
@@ -1156,19 +1043,27 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 			status: error.response?.status
 		})
 		const status = error.response?.status === 404 ? 404 : 500
-		return res.status(status).json({
+		// 404 es permanente (cachear); 5xx es transitorio (liberar para reintento).
+		if (status === 404) {
+			return respond(404, {
+				error: 'No se pudo recuperar el parte desde Notion',
+				details: error.response?.data?.message || error.message
+			})
+		}
+		release()
+		return res.status(500).json({
 			error: 'No se pudo recuperar el parte desde Notion',
 			details: error.response?.data?.message || error.message
 		})
 	}
 
 	if (!parteData || !parteData.properties) {
-		return res.status(404).json({ error: 'Parte no encontrado en Notion' })
+		return respond(404, { error: 'Parte no encontrado en Notion' })
 	}
 
 	const estadoActual = extractPropertyValue(parteData.properties['Estado']) || ''
 	if (String(estadoActual).toLowerCase() !== PARTE_ESTADO_BORRADOR) {
-		return res.status(409).json({
+		return respond(409, {
 			error: 'Solo los partes en estado Borrador pueden enviarse',
 			estado: estadoActual
 		})
@@ -1213,6 +1108,8 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 			if (error.response?.data) {
 				console.error('Respuesta recibida del webhook:', error.response.data)
 			}
+			// Fallo de webhook: transitorio (Make caído, timeout). Liberar lock.
+			release()
 			return res.status(error.response?.status || 502).json({
 				error: 'No se pudo enviar los datos al webhook configurado',
 				details: error.response?.data?.error || error.response?.data?.message || error.message
@@ -1234,13 +1131,17 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 			message: error.message,
 			status: error.response?.status
 		})
-		return res.status(500).json({
+		// Importante: el webhook YA se disparó. Si releemos el lock, un reintento
+		// dispararía Make otra vez. Cacheamos el error como permanente para
+		// que reintentos del cliente devuelvan el mismo error sin reenviar Make.
+		// El cliente / oficina reconcilia manualmente el estado en Notion.
+		return respond(500, {
 			error: 'Datos enviados, pero falló la actualización del estado en Notion',
 			details: error.response?.data?.message || error.message
 		})
 	}
 
-	res.json({
+	return respond(200, {
 		status: 'ok',
 		parteId,
 		nuevoEstado: PARTE_ESTADO_DATOS_ENVIADOS,
@@ -1534,12 +1435,19 @@ app.get(/^(?!\/api\/).*/, (req, res) => {
 	res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
-app.listen(PORT, () => {
-	console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT}`)
-	console.log(`📊 API disponible en http://localhost:${PORT}/api`)
-	console.log(`🔍 Health check: http://localhost:${PORT}/api/health`)
-	console.log(`🔑 Token de Notion: ${NOTION_TOKEN ? 'Configurado' : 'FALTANTE'}`)
-	if (USE_MOCK_DATA) {
-		console.log('🧪 Modo datos simulados ACTIVO (USE_MOCK_DATA)')
-	}
-}) 
+// Solo arrancar listen() si server.js se ejecuta directamente (node server.js).
+// Cuando se importa desde tests (require('../../server')), exporta la app sin escuchar.
+if (require.main === module) {
+	app.listen(PORT, () => {
+		console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT}`)
+		console.log(`📊 API disponible en http://localhost:${PORT}/api`)
+		console.log(`🔍 Health check: http://localhost:${PORT}/api/health`)
+		console.log(`🔑 Token de Notion: ${NOTION_TOKEN ? 'Configurado' : 'FALTANTE'}`)
+		if (USE_MOCK_DATA) {
+			console.log('🧪 Modo datos simulados ACTIVO (USE_MOCK_DATA)')
+		}
+	})
+}
+
+module.exports = app
+
