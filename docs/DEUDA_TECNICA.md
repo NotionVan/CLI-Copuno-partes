@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-27 (Fase B migración completa: todos los endpoints migrados a `data.js`, `server.js` 1453→830 líneas, dead code eliminado, ADR-004 creado, 9/9 smoke tests verdes)
+- **Última edición:** 2026-05-27 (Fase B + quick wins: N5 cerrado, I5 cerrado — `window.location.reload()` eliminado)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -32,13 +32,13 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [I2](#i2--cache-en-memoria--serverless--cache-inútil) | 🟡 | Cache en memoria inútil en serverless | ⏳ | 0 h (doc) | Ignorar / documentar |
 | [I3](#i3--rate-limit-irrelevante-con-nat-compartido) | 🟡 | Rate limit revienta con NAT compartido | ⏳ | 1 h | Retainer (junto a H1) |
 | [I4](#i4--sin-telemetría-útil) | 🟡 | Sin telemetría, logs Vercel se pierden | ⏳ | 3–5 h | Retainer |
-| [I5](#i5--reload-de-ventana-tras-editar) | 🟡 | `window.location.reload()` tras editar | ⏳ | 2 h | Retainer (oportunista) |
+| [I5](#i5--reload-de-ventana-tras-editar) | 🟡 | `window.location.reload()` tras editar | ✅ | — | Cerrado 2026-05-27 |
 
 | [N1](#n1--persona-autorizada-mezcla-modelo-cliente-y-modelo-interno) | 🟠 | Persona Autorizada — coexistencia legacy/interno | ⏳ | 3–5 h | Retainer (esta semana) |
 | [N2](#n2--asignación-libre-amplía-superficie-de-h2) | 🟠 | Asignación libre agrava H2 (creación no atómica) | ⏳ | 1–2 h (quick win) | Retainer (esta semana) |
 | [N3](#n3--búsqueda-por-id-copuno-con-cobertura-incompleta) | 🟠 | ID COPUNO solo cubre el 27% de empleados | ⏳ | — | Decisión de producto |
 | [N4](#n4--multiplicador-de-carga-notion-en-flujo-id-cross-obra) | 🟡 | Flujo "ID en varias obras" multiplica lecturas Notion | ⏳ | 2–4 h | Retainer (junto a C3) |
-| [N5](#n5--estados-hardcoded-divergentes-del-schema-real) | 🔵 | Lista `noEditables` hardcoded incluye `'enviado'` inexistente | ⏳ | 15 min | Retainer (oportunista) |
+| [N5](#n5--estados-hardcoded-divergentes-del-schema-real) | 🔵 | Lista `noEditables` hardcoded incluye `'enviado'` inexistente | ✅ | — | Cerrado 2026-05-27 |
 
 Informativos en sección [aparte](#informativos).
 
@@ -143,8 +143,7 @@ Informativos en sección [aparte](#informativos).
 
 #### I5 — Reload de ventana tras editar
 
-- **Estado:** ⏳ Pendiente · **Dónde:** [src/App.jsx:977](../src/App.jsx#L977) · **Coste:** 2 h.
-- `window.location.reload()` tras editar parte. Pierde estado UI, reabre todas las queries. Reemplazar por refresh del listado + cerrar modal.
+- **Estado:** ✅ Cerrado 2026-05-27 — reemplazado por `onRefrescarPartes()` que recarga solo la lista de partes vía `getPartesTrabajo()` sin recargar la página completa.
 
 ---
 
@@ -243,10 +242,7 @@ Cualquier petición tipo "queremos que vaya más rápido la sincronización" se 
 
 #### N5 — Estados hardcoded divergentes del schema real
 
-- **Estado:** ⏳ Pendiente · **Detectado:** 2026-05-26 · **Severidad:** 🔵
-- **Dónde:** [server.js:1149](../server.js#L1149).
-- **Qué:** El array `noEditables = ['firmado', 'datos enviados', 'enviado']`. El schema real de `Estado` en `PARTES_TRABAJO` es `['Borrador', 'Listo para firmar', 'Datos Enviados', 'Firmado']`. `'enviado'` no existe como estado y nunca se va a evaluar — código muerto. No es un bug funcional (los dos primeros sí coinciden tras `toLowerCase`) pero es ruido que confunde al próximo lector.
-- **Recomendación:** Limpieza oportunista (15 min) cuando se toque ese bloque por otra razón. No es prioridad.
+- **Estado:** ✅ Cerrado 2026-05-27 — eliminado `'enviado'` de `PARTE_NO_EDITABLES` en [src-server/services/notion.js](../src-server/services/notion.js). Array queda `['firmado', 'datos enviados']`, alineado con el schema real de Notion.
 
 ### (c) Orden de implementación recomendado para la semana
 
@@ -529,3 +525,4 @@ Reglas por tipo de cambio:
 | 2026-05-26 | Claude Code | Etapa 3 implementada en rama `etapa3/funcionalidades-extendidas-f1-f2-f3` (commits `aec81c5` + `38cf339`). F2 búsqueda por ID Copuno + manejo de duplicados (5848, 5760, 5917). F1 empleados libres con logging enriquecido. F3 verificado (Notion sin constraints UNIQUE). Sin PR hasta merge de Etapa 2. Regression-checker ÁMBAR cerrado con blindaje Array.isArray. |
 | 2026-05-27 | Claude Code | **Fase A consolidación arquitectónica.** Creados [docs/ARQUITECTURA.md](./ARQUITECTURA.md) + [ADR-001](./adr/ADR-001-notion-como-bbdd.md), [ADR-002](./adr/ADR-002-capa-abstraccion-datos.md), [ADR-003](./adr/ADR-003-supabase-destino-migracion.md). Introducida capa `src-server/services/{notion,data}.js` (ADR-002) — 6 endpoints piloto refactorizados (obras, jefes-obra, firmantes-autorizados, empleados, empleados/buscar, empleados/estado-opciones, obras/:id/empleados). Implementada **idempotencia** en `POST enviar-datos` ([src-server/lib/idempotency.js](../src-server/lib/idempotency.js)) — defensa frente a doble-click sin tocar frontend. Añadidos 9 **tests smoke** con supertest + `node:test` (`npm run test:smoke`, todos verdes). **C3 cerrado** (verificación + documentación), **H2 mitigado parcialmente**. |
 | 2026-05-27 | Claude Code | **Fase B migración completa ADR-002.** Migrados los 11 endpoints restantes a `data.*`: `empleados/actualizarEstado`, todos los de `partesTrabajo` (listar, estado, empleados, detalles, crear, actualizar, actualizarEstado, obtenerPagina), `datos-completos` (reemplazado self-HTTP por llamadas directas). Dead code eliminado de `server.js` (`makeNotionRequest`, `DATABASES`, `getNotionHeaders`, `validateNotionResponse`, `buildEstadoUpdatePayload`, `extractPropertyValue` local). `server.js`: 1.453 → **830 líneas**. Creado [ADR-004](./adr/ADR-004-idempotencia-enviar-datos.md). Docs actualizadas: [API_REFERENCIA.md](./API_REFERENCIA.md), [ARQUITECTURA.md](./ARQUITECTURA.md), CLAUDE.md, DEUDA_TECNICA.md. 9/9 smoke tests verdes. |
+| 2026-05-27 | Claude Code | **Quick wins N5 + I5.** N5: eliminado `'enviado'` de `PARTE_NO_EDITABLES` en `notion.js` — alineado con schema real Notion (`['firmado', 'datos enviados']`). I5: reemplazado `window.location.reload()` post-edición parte ([src/App.jsx](../src/App.jsx)) por `onRefrescarPartes()` — recarga solo la lista de partes sin recargar la página completa ni perder estado UI. |

@@ -433,7 +433,7 @@ const empleados = {
 	}
 }
 
-const PARTE_NO_EDITABLES = ['firmado', 'datos enviados', 'enviado']
+const PARTE_NO_EDITABLES = ['firmado', 'datos enviados']
 
 const partesTrabajo = {
 	async listar({ client }) {

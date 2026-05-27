@@ -1011,10 +1011,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			// Esperar un momento para que el usuario lea el mensaje antes de cerrar
 			await new Promise(resolve => setTimeout(resolve, resultado.estadoCambiado ? 4000 : 2000))
 
-			// Recargar datos para reflejar los cambios
-			if (onVolver) {
-				// Recargar datos en el componente padre
-				window.location.reload()
+			// Refrescar listado de partes sin recargar la página completa
+			if (onRefrescarPartes) {
+				await onRefrescarPartes()
 			}
 
 			// Cerrar modal de edición
