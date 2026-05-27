@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-27 (C2 cerrado — estado Procesando + lock optimista pre-webhook)
+- **Última edición:** 2026-05-27 (C2 cerrado, N2 verificado cerrado, I1 cerrado, I2 aplazado)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -28,8 +28,8 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [C1](#c1--webhook-a-make-envía-payload-sin-sanear) | 🟠 | Webhook Make recibe payload sin sanear | ❌ | — | Descartado — plantilla Make filtra el output |
 | [C2](#c2--enviar-datos-orden-make--patch-vulnerable) | 🟠 | `enviar-datos`: ventana entre Make y PATCH estado | ✅ | — | Cerrado 2026-05-27 |
 | [C3](#c3--n1-al-leer-empleados-de-una-obra) | 🟠 | N+1 al leer empleados de una obra | ✅ | — | Cerrado 2026-05-27 |
-| [I1](#i1--apidatos-completos-hace-http-a-sí-mismo) | 🟡 | `/api/datos-completos` hace HTTP loopback | ⏳ | 1–2 h | Retainer |
-| [I2](#i2--cache-en-memoria--serverless--cache-inútil) | 🟡 | Cache en memoria inútil en serverless | ⏳ | 0 h (doc) | Ignorar / documentar |
+| [I1](#i1--apidatos-completos-hace-http-a-sí-mismo) | 🟡 | `/api/datos-completos` hace HTTP loopback | ✅ | — | Cerrado — Fase B, llamadas directas a `data.*` |
+| [I2](#i2--cache-en-memoria--serverless--cache-inútil) | 🟡 | Cache en memoria inútil en serverless | ⏭️ | — | Aplazado — comportamiento documentado, sin ROI arreglarlo |
 | [I3](#i3--rate-limit-irrelevante-con-nat-compartido) | 🟡 | Rate limit revienta con NAT compartido | ⏳ | 1 h | Retainer (junto a H1) |
 | [I4](#i4--sin-telemetría-útil) | 🟡 | Sin telemetría, logs Vercel se pierden | ⏳ | 3–5 h | Retainer |
 | [I5](#i5--reload-de-ventana-tras-editar) | 🟡 | `window.location.reload()` tras editar | ✅ | — | Cerrado 2026-05-27 |
@@ -116,13 +116,12 @@ Informativos en sección [aparte](#informativos).
 
 #### I1 — `/api/datos-completos` hace HTTP a sí mismo
 
-- **Estado:** ⏳ Pendiente · **Dónde:** [server.js:1352-1357](../server.js#L1352-L1357) · **Coste:** 1–2 h.
-- `axios.get(\`${req.protocol}://${req.get('host')}/api/...\`)` × 4. En serverless = invocación de otras funciones × 4. Frágil ante cambios de host/protocolo. Refactor: extraer helpers `fetchObras()`, `fetchEmpleados()`, etc.
+- **Estado:** ✅ Cerrado (Fase B, 2026-05-27) — reemplazado por `Promise.all([data.obras.listar(), data.jefesObra.listar(), data.empleados.listar(), data.partesTrabajo.listar()])`. Sin HTTP loopback, sin fragilidad de host/protocolo, funciona en mock y live.
 
 #### I2 — Cache en memoria + serverless = cache inútil
 
-- **Estado:** ⏳ Pendiente · **Dónde:** [server.js:97-109](../server.js#L97-L109) · **Coste:** 0 h documentar.
-- `CACHE_TTL_MS` asume proceso long-lived. En serverless, cada invocación arranca con `cache = new Map()` o reutiliza si lambda caliente — comportamiento impredecible y contradice [docs/SMART_POLLING.md](SMART_POLLING.md). **Recomendación: ignorar / documentar.** No invertir en Vercel KV mientras el caso de uso sea pequeño.
+- **Estado:** ⏭️ Aplazado — comportamiento documentado, sin ROI arreglarlo ahora.
+- `CACHE_TTL_MS` asume proceso long-lived. En serverless, cada invocación puede arrancar con `cache = new Map()` vacío si la lambda está fría. El comportamiento es impredecible pero el impacto es bajo: en el peor caso simplemente no cachea nada y hace más llamadas a Notion. No invertir en Vercel KV mientras el volumen sea pequeño. Reevaluar si se detectan 429s frecuentes en producción.
 
 #### I3 — Rate limit irrelevante con NAT compartido
 
@@ -515,3 +514,4 @@ Reglas por tipo de cambio:
 | 2026-05-27 | Claude Code | **Fase B migración completa ADR-002.** Migrados los 11 endpoints restantes a `data.*`: `empleados/actualizarEstado`, todos los de `partesTrabajo` (listar, estado, empleados, detalles, crear, actualizar, actualizarEstado, obtenerPagina), `datos-completos` (reemplazado self-HTTP por llamadas directas). Dead code eliminado de `server.js` (`makeNotionRequest`, `DATABASES`, `getNotionHeaders`, `validateNotionResponse`, `buildEstadoUpdatePayload`, `extractPropertyValue` local). `server.js`: 1.453 → **830 líneas**. Creado [ADR-004](./adr/ADR-004-idempotencia-enviar-datos.md). Docs actualizadas: [API_REFERENCIA.md](./API_REFERENCIA.md), [ARQUITECTURA.md](./ARQUITECTURA.md), CLAUDE.md, DEUDA_TECNICA.md. 9/9 smoke tests verdes. |
 | 2026-05-27 | Claude Code | **Quick wins N5 + I5.** N5: eliminado `'enviado'` de `PARTE_NO_EDITABLES` en `notion.js` — alineado con schema real Notion (`['firmado', 'datos enviados']`). I5: reemplazado `window.location.reload()` post-edición parte ([src/App.jsx](../src/App.jsx)) por `onRefrescarPartes()` — recarga solo la lista de partes sin recargar la página completa ni perder estado UI. |
 | 2026-05-27 | Claude Code | **Smoke tests ampliados de 9 a 29.** Cobertura completa de todos los endpoints: catálogos (empleados, estado-opciones, datos-completos), obras/:id/empleados + firmantes-autorizados, búsqueda ?q= (hit/vacío/q<3), PUT empleados estado (ok+404), GET partes (listado, estado, detalles, empleados, 404s), PUT partes (ok, horas>24, bloqueo), enviar-datos con Idempotency-Key explícita + 404. 29/29 verdes. |
+| 2026-05-27 | Claude Code | **Cierre de hallazgos verificados.** C2 cerrado: lock optimista pre-webhook con estado `Procesando` — flujo `PATCH Procesando → webhook Make → PATCH Datos Enviados`. C1 descartado: plantilla Make filtra output. N2 verificado cerrado: logging `parte_creado`/`detalles_actualizados` ya presente con `reqId`. I1 cerrado: `datos-completos` ya usa `data.*` directamente (Fase B). I2 aplazado: documentado como comportamiento aceptable sin ROI de arreglar. |
