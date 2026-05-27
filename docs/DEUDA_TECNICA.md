@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-27 (C2 cerrado, N2 verificado cerrado, I1 cerrado, I2 aplazado)
+- **Última edición:** 2026-05-27 (I3 y I4 actualizados — Better Stack decidido para I4, bloqueado por email)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -125,13 +125,16 @@ Informativos en sección [aparte](#informativos).
 
 #### I3 — Rate limit irrelevante con NAT compartido
 
-- **Estado:** ⏳ Pendiente · **Dónde:** [server.js:86-95](../server.js#L86-L95) · **Coste:** 1 h.
-- Si los jefes están detrás del mismo NAT corporativo, todos comparten IP. 100 req/15min ≈ 6.6 req/min para *todo* el equipo. Smart Polling solo revienta el límite con 2 usuarios. Subir `RATE_LIMIT_MAX` a ~1000 o `keyGenerator` por sesión cuando se cierre [H1](#h1--ningún-endpoint-api-está-autenticado).
+- **Estado:** ⏳ Pendiente · **Dónde:** [server.js:86-95](../server.js#L86-L95) · **Coste:** 2 min (variable de entorno en Vercel).
+- Con Smart Polling (3 s/req en modo rápido), un solo usuario hace 300 req/15min — el triple del límite actual (100). Con varios usuarios en el mismo NAT corporativo, revienta con uso normal. Vercel Pro no resuelve esto — el rate limit sigue siendo por IP independientemente del plan.
+- **Solución temporal:** subir `RATE_LIMIT_MAX` a ~1000 en Vercel Dashboard en cuanto haya acceso. **Solución definitiva:** `keyGenerator` por usuario autenticado cuando se cierre [H1](#h1--ningún-endpoint-api-está-autenticado) — H1 lo resuelve del todo.
 
 #### I4 — Sin telemetría útil
 
 - **Estado:** ⏳ Pendiente · **Dónde:** todo [server.js](../server.js) · **Coste:** 3–5 h.
-- Solo `console.*` + morgan. Vercel mantiene logs ~24 h (Hobby) / 3 días (Pro). Para diagnosticar "se perdieron las horas del martes pasado" ya están borrados. `req.id` se genera pero no se propaga al webhook Make ni a respuestas críticas. Integrar Sentry/Axiom/Better Stack (planes gratuitos suficientes).
+- Solo `console.*` + morgan. Vercel mantiene logs 3 días (Pro). Para diagnosticar "se perdieron las horas del martes pasado" ya están borrados. `req.id` se genera pero no se propaga al webhook Make ni a respuestas de error al cliente — sin forma de correlacionar log del servidor con log de Make.
+- **Herramienta decidida: Better Stack** (logging pino + retención 30 días + alertas, plan free suficiente). Doble beneficio: instalar Better Stack = instalar pino, que es el logger del ADR-006 pendiente.
+- **Bloqueante:** alta en Better Stack pendiente de desbloquear email `javi@notionvan.com`. Una vez desbloqueado: crear cuenta, obtener token, instalar `pino` + transport Better Stack, propagar `req.id` a webhook Make y respuestas de error.
 
 #### I5 — Reload de ventana tras editar
 
