@@ -16,14 +16,17 @@ Las bases de datos Notion reales del cliente son:
 - **Clientes**
 - **Detalle Horas**
 
-La app usa Notion como backend de datos. Hay integración con Make.com vía webhook (`PARTES_DATOS_WEBHOOK_URL`). El stack es React+Vite + Express monolítico en `server.js`. La capa Notion vive principalmente en `src/services/notionService.js`.
+La app usa Notion como backend de datos. Hay integración con Make.com vía webhook (`PARTES_DATOS_WEBHOOK_URL`). El stack es React+Vite + Express monolítico en `server.js` (~830 líneas). La capa Notion vive en `src-server/services/notion.js`; la interfaz neutra de datos en `src-server/services/data.js`. El frontend tiene su propio cliente en `src/services/notionService.js` (solo para llamadas `/api/*` propias, no llama a Notion directamente).
 
 ## Cómo trabajas
 
 1. **Siempre empieza listando los archivos del repo que tocan la API de Notion.** Usa `Grep` y `Glob` para localizar:
-   - `src/services/notionService.js`
+   - `src-server/services/notion.js` — cliente HTTP + mappers + operaciones por dominio (capa real Notion)
+   - `src-server/services/data.js` — interfaz neutra; todos los endpoints pasan por aquí (ADR-002)
+   - `src-server/lib/idempotency.js` — store TTL para `enviar-datos` (ADR-004)
    - Endpoints en `server.js`
-   - Documentación en `docs/notion-schema*.md` y `docs/API_REFERENCIA.md`
+   - `src/services/notionService.js` — cliente frontend para `/api/*` (no llama a Notion directamente)
+   - Documentación en `docs/notion-schema*.md`, `docs/API_REFERENCIA.md` y `docs/adr/`
    - Cualquier otro archivo que mencione `notion`, `NOTION_TOKEN`, `databases/query`, `pages.create`, etc.
    Reporta los paths antes de inspeccionar contenido.
 
