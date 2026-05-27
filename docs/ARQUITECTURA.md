@@ -1,6 +1,6 @@
 # Arquitectura — Copuno Gestión de Partes
 
-**Última edición:** 2026-05-26
+**Última edición:** 2026-05-27
 **Versión app:** ver [package.json](../package.json) → `version`
 **Estado:** Documento vivo. Actualizar cuando se tomen nuevas decisiones (vía ADR).
 
@@ -47,13 +47,14 @@ Este contexto **manda sobre cualquier principio arquitectónico genérico**. Lo 
 └────────────────────────┬────────────────────────────────────┘
                          │ HTTP /api/*
 ┌────────────────────────▼────────────────────────────────────┐
-│  Backend: Node.js + Express 4 (server.js, ~1.545 líneas)    │
-│  - Monolito por capas implícitas (rutas + handlers inline)  │
-│  - Cache en memoria (TTL 5s)                                │
+│  Backend: Node.js + Express 4 (server.js, ~830 líneas)      │
+│  - Rutas + middlewares + lógica de negocio                  │
+│  - Cache en memoria (TTL configurable, default 30 s)        │
 │  - Rate limiting por IP (express-rate-limit)                │
 │  - SSE en /api/partes-trabajo/:id/estado/stream             │
+│  - Idempotencia en enviar-datos (ADR-004)                   │
 └──────┬──────────────────────────────────────┬───────────────┘
-       │ axios                                │ axios
+       │ data.js → notion.js                  │ axios
        ▼                                      ▼
 ┌──────────────────┐                ┌────────────────────────┐
 │  Notion API v1   │                │  Make.com (webhook)    │
@@ -65,16 +66,16 @@ Este contexto **manda sobre cualquier principio arquitectónico genérico**. Lo 
 Hosting: Vercel (región cdg1, plan Pro recomendado al cliente — pendiente de contratación)
 ```
 
-### Capas lógicas hoy (implícitas, no separadas en archivos)
+### Capas lógicas actuales
 
-1. **Rutas HTTP** — definición de endpoints `/api/*`.
-2. **Validación + saneado** — sanitización de inputs, redacción de datos económicos en outputs.
-3. **Lógica de negocio** — reglas de estado (`firmado` bloquea edición, etc.).
-4. **Integración Notion** — llamadas axios directas, mapeo properties ↔ objetos JS.
-5. **Integración Make** — webhook `POST` con timeout.
-6. **Cache + polling** — capa cross-cutting para reducir hits a Notion.
+1. **Rutas HTTP + lógica de negocio** — `server.js`: endpoints, validación inputs, reglas de estado, cache, rate limiting.
+2. **Interfaz de datos neutra** — `src-server/services/data.js`: abstracción que los endpoints consumen; branching live/mock transparente.
+3. **Integración Notion** — `src-server/services/notion.js`: cliente HTTP, mappers, operaciones por dominio. Ningún endpoint llama a Notion directamente.
+4. **Integración Make** — webhook `axios.post` desde `server.js` (único punto de llamada external distinto de Notion).
+5. **Idempotencia** — `src-server/lib/idempotency.js`: store TTL en memoria para `enviar-datos` (ADR-004).
+6. **Mock** — `mock/mockData.js`: store en memoria para desarrollo sin token Notion.
 
-Todas estas capas viven hoy **mezcladas en `server.js`**. Funciona pero limita la evolución (ver ADR-002).
+La separación en archivos es **explícita desde 2026-05-27** (ver ADR-002).
 
 ---
 
@@ -85,15 +86,15 @@ Cada decisión tiene su propio documento en [docs/adr/](./adr/). Resumen:
 | ADR | Decisión | Estado | Criterio de revisión |
 |---|---|---|---|
 | [ADR-001](./adr/ADR-001-notion-como-bbdd.md) | Notion como BBDD (no Postgres/Mongo desde el día 1) | Vigente | Migrar si: incidente de integridad H2 ocurre / >5.000 partes / cliente deja de editar en Notion |
-| [ADR-002](./adr/ADR-002-capa-abstraccion-datos.md) | Capa de abstracción de datos (`src-server/services/data.js`) | En implementación | Reevaluar si se introducen ≥2 fuentes de datos paralelas |
+| [ADR-002](./adr/ADR-002-capa-abstraccion-datos.md) | Capa de abstracción de datos (`src-server/services/data.js`) | **Completo** (todos los endpoints migrados, 2026-05-27) | Reevaluar si se introducen ≥2 fuentes de datos paralelas |
 | [ADR-003](./adr/ADR-003-supabase-destino-migracion.md) | Supabase como destino cuando se active el criterio de salida de Notion | Vigente (no ejecutado) | Reevaluar si Supabase cambia modelo de precios o cliente exige on-premise |
+| [ADR-004](./adr/ADR-004-idempotencia-enviar-datos.md) | Idempotencia en `POST /api/partes-trabajo/:id/enviar-datos` | **Implementado** (2026-05-27) | Reevaluar al escalar horizontalmente o migrar a Supabase |
 
 ADRs futuros previstos (no escritos aún):
 
-- **ADR-004** — Idempotencia en operaciones críticas (a redactar al implementar `enviar-datos` idempotente).
-- **ADR-005** — Estrategia de autenticación (a redactar en el siguiente retainer al abordar H1).
+- **ADR-005** — Estrategia de autenticación (a redactar al abordar H1).
 - **ADR-006** — Estrategia de observabilidad (logging estructurado + SLI/SLO mínimos).
-- **ADR-007** — Estrategia de testing (smoke tests con supertest + criterios de qué cubrir).
+- **ADR-007** — Estrategia de testing (cobertura y criterios de qué testear).
 
 ---
 
@@ -101,24 +102,22 @@ ADRs futuros previstos (no escritos aún):
 
 El objetivo **no es** reescribir el sistema. Es **prepararlo** para que la migración a Supabase, cuando llegue, no sea un rewrite.
 
-### 5.1 Estado al cerrar el sprint actual (mayo-junio 2026)
-
-Lo que **sí** se crea en este sprint:
+### 5.1 Estado alcanzado (mayo 2026) ✅
 
 ```
-server.js (sigue contiendo rutas + middlewares — refactor incremental)
+server.js (~830 líneas — rutas + middlewares + lógica de negocio)
    │
    └─► src-server/
         ├─ services/
-        │   ├─ data.js      ◄── Interfaz neutra que consumen los endpoints
-        │   └─ notion.js    ◄── Implementación actual (axios → Notion)
+        │   ├─ data.js      ◄── Interfaz neutra — todos los endpoints pasan por aquí
+        │   └─ notion.js    ◄── Implementación Notion (axios, mappers, operaciones dominio)
+        ├─ lib/
+        │   └─ idempotency.js  ◄── Store TTL en memoria (ADR-004)
         └─ tests/
-            └─ smoke/        ◄── supertest, 6-8 tests sobre flujos críticos
+            └─ smoke/        ◄── 9 tests supertest, 9/9 verdes
 ```
 
-Solo se refactorizan **5-6 endpoints piloto** a `data.js` este sprint. El resto se migra en sprints posteriores.
-
-**Regla de oro:** los endpoints que ya han sido refactorizados **nunca** llaman a `axios` directamente contra Notion. Pasan por `data.js`. Los aún-no-refactorizados se mantienen como están hasta que les toque.
+**Regla de oro cumplida:** ningún endpoint llama a `axios` directamente contra Notion. Todos pasan por `data.js` → `notion.js`. La función `makeNotionRequest` y sus helpers locales (`extractPropertyValue`, `buildEstadoUpdatePayload`, `DATABASES`) han sido eliminados de `server.js`.
 
 ### 5.2 Estado objetivo (varios sprints futuros)
 
@@ -207,17 +206,17 @@ Si en algún momento alguno de estos cambia de estado, **se documenta vía nuevo
 
 ## 9. Roadmap de evolución (orientativo)
 
-### Sprint actual (mayo-junio 2026)
-- ✅ Documentación arquitectónica (este doc + 3 ADRs).
-- 🔄 `services/notion.js` + `services/data.js` + refactor piloto.
-- 🔄 Idempotencia en `enviar-datos`.
-- 🔄 Fix N+1 (`/api/obras/:id/empleados`).
-- 🔄 Tests mínimos con supertest.
+### Sprint mayo 2026 — completado ✅
+- ✅ Documentación arquitectónica (este doc + ADR-001, 002, 003, 004).
+- ✅ `services/notion.js` + `services/data.js` — todos los endpoints migrados.
+- ✅ Idempotencia en `enviar-datos` (ADR-004).
+- ✅ Fix N+1 `/api/obras/:id/empleados` (C3 cerrado).
+- ✅ 9 smoke tests con supertest.
 
 ### Siguiente retainer (junio-julio 2026)
-- Auth real (H1 deuda técnica).
-- Logging estructurado (pino) + SLI medible.
-- Completar refactor a `data.js` del resto de endpoints.
+- Auth real (H1 deuda técnica) — ADR-005.
+- Logging estructurado (pino) + SLI medible — ADR-006.
+- Ampliar smoke tests (más endpoints cubiertos).
 
 ### Cuando se active criterio de migración (sin fecha)
 - Migración a Supabase (proyecto aparte, 1-2 semanas dedicadas).

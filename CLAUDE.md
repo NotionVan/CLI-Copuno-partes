@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-05-26 18:45 CEST (Etapas 1, 2 y 3 implementadas — ver [DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) sección "Etapas implementadas")
+- **Última edición:** 2026-05-27 (Fase B migración completa: todos los endpoints a `data.js`, `server.js` 1453→830 líneas, ADR-004 idempotencia; Etapas 1, 2 y 3 implementadas — ver [DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) sección "Etapas implementadas")
 
 ---
 
@@ -15,8 +15,8 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 | Capa | Tecnología |
 |---|---|
 | Frontend | React 18 + Vite 7 (`src/`) |
-| Backend | Node.js + Express 4 — **monolítico en [server.js](server.js)** (~1.400 líneas) |
-| BBDD | Notion API v1 (consumida con `axios` directamente, sin SDK) |
+| Backend | Node.js + Express 4 — **monolítico en [server.js](server.js)** (~830 líneas) |
+| BBDD | Notion API v1 (vía `src-server/services/notion.js`, sin SDK) |
 | PDF + firma | Make.com vía webhook (`PARTES_DATOS_WEBHOOK_URL`) |
 | Hosting | Vercel (config en [vercel.json](vercel.json), región `cdg1`) |
 | Cliente API frontend | [src/services/notionService.js](src/services/notionService.js) (axios contra `/api/*` same-origin) |

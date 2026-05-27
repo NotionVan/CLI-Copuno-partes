@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-27 (Fase A arquitectura: ADRs + services/data + idempotencia + tests smoke; C3 cerrado; H2 mitigado parcialmente)
+- **Última edición:** 2026-05-27 (Fase B migración completa: todos los endpoints migrados a `data.js`, `server.js` 1453→830 líneas, dead code eliminado, ADR-004 creado, 9/9 smoke tests verdes)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -12,7 +12,7 @@
 
 ## Resumen ejecutivo (estado actual)
 
-La arquitectura cumple para el caso de uso actual pero descansa sobre **tres apuestas frágiles**: (1) no hay autenticación en `/api/*`, (2) la creación/edición de un parte hace N+1 escrituras a Notion sin transacción ni reconciliación, (3) en Vercel cada SSE abierto cuenta como serverless function corriendo hasta timeout, lo que rompe Smart Polling tal como está. El monolito de [server.js](../server.js) (~1.400 líneas) está largo pero cohesivo: **no es el problema**. Riesgo real más alto hoy: **H1 (auth) + H3 (SSE)**.
+La arquitectura cumple para el caso de uso actual pero descansa sobre **tres apuestas frágiles**: (1) no hay autenticación en `/api/*`, (2) la creación/edición de un parte hace N+1 escrituras a Notion sin transacción ni reconciliación, (3) en Vercel cada SSE abierto cuenta como serverless function corriendo hasta timeout, lo que rompe Smart Polling tal como está. El monolito de [server.js](../server.js) (~830 líneas tras la migración ADR-002) está cohesivo: **no es el problema**. Riesgo real más alto hoy: **H1 (auth) + H3 (SSE)**.
 
 ---
 
@@ -150,9 +150,9 @@ Informativos en sección [aparte](#informativos).
 
 ### 🔵 Informativos
 
-- **[server.js](../server.js) ~1.400 líneas — largo pero cohesivo.** No urge partirlo. Si se hace, partir por dominio (obras, empleados, partes, detalles, webhook), no por capa.
+- **[server.js](../server.js) ~830 líneas — refactorizado (Fase B, 2026-05-27).** No urge partirlo. Si se hace, partir por dominio (obras, empleados, partes, detalles, webhook), no por capa.
 - **[src/App.jsx](../src/App.jsx) ~2.470 líneas — sí es un olor.** Formularios + listado + modal + polling + edición en uno. Refactor por componentes (`EdicionParte`, `DetallesParteModal`, `ListadoPartes`) es **proyecto aparte**, no entra en 20h/mes.
-- **`extractPropertyValue` duplicada** en [server.js:167](../server.js#L167) y [src/services/notionService.js:69](../src/services/notionService.js#L69) con divergencias menores. Aceptable al tamaño actual.
+- **`extractPropertyValue`** vive en [src-server/services/notion.js](../src-server/services/notion.js) y se importa en `server.js`. La copia de [src/services/notionService.js:69](../src/services/notionService.js#L69) (frontend) diverge ligeramente — aceptable al tamaño actual.
 - **Versiones:** React 18, Vite 7, Express 4. Todo soportado y al día. Helmet/compression/morgan correctos.
 - **Catch-all `/^(?!\/api\/).*/`** ([server.js:1376](../server.js#L1376)) es correcto, evita el bug clásico de capturar /api con regex laxas.
 - **IDs de BBDD Notion hardcoded** en [server.js:27-33](../server.js#L27-L33). Aceptable para 4 BBDDs estables; mover a env si se duplica en staging.
@@ -528,3 +528,4 @@ Reglas por tipo de cambio:
 | 2026-05-26 | Claude Code | Etapa 2 implementada en rama `etapa2/funcionalidades-minimo-viable-f4-f5-f6` (commit `8659f62`). F4 + F5 + F6 con edge cases. Sin PR hasta que merge de Etapa 1 desbloquee rebase sobre master. Regression-checker ÁMBAR. |
 | 2026-05-26 | Claude Code | Etapa 3 implementada en rama `etapa3/funcionalidades-extendidas-f1-f2-f3` (commits `aec81c5` + `38cf339`). F2 búsqueda por ID Copuno + manejo de duplicados (5848, 5760, 5917). F1 empleados libres con logging enriquecido. F3 verificado (Notion sin constraints UNIQUE). Sin PR hasta merge de Etapa 2. Regression-checker ÁMBAR cerrado con blindaje Array.isArray. |
 | 2026-05-27 | Claude Code | **Fase A consolidación arquitectónica.** Creados [docs/ARQUITECTURA.md](./ARQUITECTURA.md) + [ADR-001](./adr/ADR-001-notion-como-bbdd.md), [ADR-002](./adr/ADR-002-capa-abstraccion-datos.md), [ADR-003](./adr/ADR-003-supabase-destino-migracion.md). Introducida capa `src-server/services/{notion,data}.js` (ADR-002) — 6 endpoints piloto refactorizados (obras, jefes-obra, firmantes-autorizados, empleados, empleados/buscar, empleados/estado-opciones, obras/:id/empleados). Implementada **idempotencia** en `POST enviar-datos` ([src-server/lib/idempotency.js](../src-server/lib/idempotency.js)) — defensa frente a doble-click sin tocar frontend. Añadidos 9 **tests smoke** con supertest + `node:test` (`npm run test:smoke`, todos verdes). **C3 cerrado** (verificación + documentación), **H2 mitigado parcialmente**. |
+| 2026-05-27 | Claude Code | **Fase B migración completa ADR-002.** Migrados los 11 endpoints restantes a `data.*`: `empleados/actualizarEstado`, todos los de `partesTrabajo` (listar, estado, empleados, detalles, crear, actualizar, actualizarEstado, obtenerPagina), `datos-completos` (reemplazado self-HTTP por llamadas directas). Dead code eliminado de `server.js` (`makeNotionRequest`, `DATABASES`, `getNotionHeaders`, `validateNotionResponse`, `buildEstadoUpdatePayload`, `extractPropertyValue` local). `server.js`: 1.453 → **830 líneas**. Creado [ADR-004](./adr/ADR-004-idempotencia-enviar-datos.md). Docs actualizadas: [API_REFERENCIA.md](./API_REFERENCIA.md), [ARQUITECTURA.md](./ARQUITECTURA.md), CLAUDE.md, DEUDA_TECNICA.md. 9/9 smoke tests verdes. |
