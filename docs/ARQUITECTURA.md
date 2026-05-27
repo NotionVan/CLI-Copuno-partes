@@ -114,7 +114,7 @@ server.js (~830 líneas — rutas + middlewares + lógica de negocio)
         ├─ lib/
         │   └─ idempotency.js  ◄── Store TTL en memoria (ADR-004)
         └─ tests/
-            └─ smoke/        ◄── 9 tests supertest, 9/9 verdes
+            └─ smoke/        ◄── 29 tests supertest, 29/29 verdes
 ```
 
 **Regla de oro cumplida:** ningún endpoint llama a `axios` directamente contra Notion. Todos pasan por `data.js` → `notion.js`. La función `makeNotionRequest` y sus helpers locales (`extractPropertyValue`, `buildEstadoUpdatePayload`, `DATABASES`) han sido eliminados de `server.js`.
@@ -211,7 +211,7 @@ Si en algún momento alguno de estos cambia de estado, **se documenta vía nuevo
 - ✅ `services/notion.js` + `services/data.js` — todos los endpoints migrados.
 - ✅ Idempotencia en `enviar-datos` (ADR-004).
 - ✅ Fix N+1 `/api/obras/:id/empleados` (C3 cerrado).
-- ✅ 9 smoke tests con supertest.
+- ✅ 29 smoke tests con supertest (cobertura completa de endpoints).
 
 ### Siguiente retainer (junio-julio 2026)
 - Auth real (H1 deuda técnica) — ADR-005.
