@@ -35,7 +35,7 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [I5](#i5--reload-de-ventana-tras-editar) | 🟡 | `window.location.reload()` tras editar | ✅ | — | Cerrado 2026-05-27 |
 
 | [N1](#n1--persona-autorizada-mezcla-modelo-cliente-y-modelo-interno) | 🟠 | Persona Autorizada — coexistencia legacy/interno | ⏳ | 3–5 h | Retainer (esta semana) |
-| [N2](#n2--asignación-libre-amplía-superficie-de-h2) | 🟠 | Asignación libre agrava H2 (creación no atómica) | ⏳ | 1–2 h (quick win) | Retainer (esta semana) |
+| [N2](#n2--asignación-libre-amplía-superficie-de-h2) | 🟠 | Asignación libre agrava H2 (creación no atómica) | ✅ | — | Cerrado — logging ya presente en server.js |
 | [N3](#n3--búsqueda-por-id-copuno-con-cobertura-incompleta) | 🟠 | ID COPUNO solo cubre el 27% de empleados | ⏳ | — | Decisión de producto |
 | [N4](#n4--multiplicador-de-carga-notion-en-flujo-id-cross-obra) | 🟡 | Flujo "ID en varias obras" multiplica lecturas Notion | ⏳ | 2–4 h | Retainer (junto a C3) |
 | [N5](#n5--estados-hardcoded-divergentes-del-schema-real) | 🔵 | Lista `noEditables` hardcoded incluye `'enviado'` inexistente | ✅ | — | Cerrado 2026-05-27 |
@@ -205,13 +205,8 @@ Cualquier petición tipo "queremos que vaya más rápido la sincronización" se 
 
 #### N2 — Asignación libre + multi-obra amplían superficie de H2
 
-- **Estado:** ⏳ Pendiente · **Detectado:** 2026-05-26 · **Severidad:** 🟠
-- **Dónde:** [server.js:580-752](../server.js#L580) (POST), [server.js:1104-1339](../server.js#L1104) (PUT).
-- **Qué:** Funcionalidades 1 (asignar empleados sin asignación previa) y 3 (mismo empleado en varias obras vía ID) **aumentan el `N` del bucle N+1 de creación de `DETALLES_HORA`** y la probabilidad de que un mismo empleado aparezca en partes simultáneos del mismo día. H2 ya documenta que el bucle se traga errores y devuelve `200` con `erroresDetalles`. Con el plan, además: ¿qué pasa si dos partes del mismo día en obras distintas referencian al mismo empleado y uno falla? Hoy: nada detecta inconsistencia.
-- **Por qué importa:** El cliente lo notará antes (más volumen, más probabilidad). Sin el quick win de logging, debug imposible.
-- **Coste de arreglar (quick win, decisión ya tomada):** 1–2 h. Logging estructurado de "empleados pretendidos vs detalles creados OK vs fallidos" con `req.id`, en POST y PUT.
-- **Coste de NO arreglar:** Reapertura del antiguo dolor "se han perdido las horas" en pleno arranque con Andrés.
-- **Recomendación:** Retainer, esta semana, **antes del 1 jun**.
+- **Estado:** ✅ Cerrado (verificado 2026-05-27) — logging estructurado ya presente en `server.js`.
+- Los eventos `parte_creado` y `detalles_actualizados` incluyen `reqId`, `pretendidos`, `creados`, `errores` y `empleadosNoAsignadosIds`. Cruzable con logs de Vercel para reconstruir cualquier pérdida de horas. No requería código adicional.
 
 #### N3 — Búsqueda por ID COPUNO con cobertura incompleta
 
