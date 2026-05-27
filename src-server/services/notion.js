@@ -241,6 +241,40 @@ function mapEmpleado(page) {
 	}
 }
 
+function mapParte(page) {
+	return {
+		id: page.id,
+		nombre: extractPropertyValue(page.properties['Nombre']),
+		fecha: extractPropertyValue(page.properties['Fecha']),
+		ultimaEdicion: extractPropertyValue(page.properties['Última edición']),
+		estado: extractPropertyValue(page.properties['Estado']),
+		obra: extractPropertyValue(page.properties['AUX Obra']),
+		personaAutorizada: extractPropertyValue(page.properties['AUX Jefe de Obra']),
+		cliente: extractPropertyValue(page.properties['AUX Cliente - texto-']),
+		rpHorasTotales: extractPropertyValue(page.properties['RP Horas totales']),
+		horasOficial1: extractPropertyValue(page.properties['Horas Oficial 1ª']),
+		horasOficial2: extractPropertyValue(page.properties['Horas Oficial 2ª ']),
+		horasCapataz: extractPropertyValue(page.properties['Horas Capataz']),
+		horasEncargado: extractPropertyValue(page.properties['Horas Encargado ']),
+		urlPDF: extractPropertyValue(page.properties['URL PDF']),
+		enviadoCliente: extractPropertyValue(page.properties['Enviado a cliente']),
+		notas: extractPropertyValue(page.properties['Notas']),
+		firmarUrl: extractPropertyValue(page.properties['Firmar'])
+	}
+}
+
+function mapDetalle(page) {
+	return {
+		id: page.id,
+		empleadoId: extractPropertyValue(page.properties['Empleados']),
+		empleadoNombre: extractPropertyValue(page.properties['Aux Empleado']),
+		categoria: extractPropertyValue(page.properties['AUX_Categoria']),
+		horas: extractPropertyValue(page.properties['Cantidad Horas']),
+		fecha: extractPropertyValue(page.properties['Fecha']),
+		detalle: extractPropertyValue(page.properties['Detalle'])
+	}
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Operaciones por dominio
 //
@@ -363,6 +397,233 @@ const empleados = {
 			]
 		}
 		return { type, options }
+	},
+
+	/**
+	 * Lee la página del empleado, detecta el tipo real de la propiedad Estado
+	 * y aplica el PATCH correspondiente.
+	 * Lanza Error con .status = 400 si el tipo no es soportado o la prop no existe.
+	 */
+	async actualizarEstado({ client, empleadoId, estado }) {
+		const empleadoPage = await client.request('GET', `/pages/${empleadoId}`)
+		const propEstado = empleadoPage.properties?.['Estado']
+		if (!propEstado) {
+			const err = new Error('La propiedad "Estado" no existe en el empleado')
+			err.status = 400
+			throw err
+		}
+
+		let estadoPayload
+		if (propEstado.type === 'status') {
+			estadoPayload = { status: { name: estado } }
+		} else if (propEstado.type === 'select') {
+			estadoPayload = { select: { name: estado } }
+		} else if (propEstado.type === 'checkbox') {
+			estadoPayload = { checkbox: /^(on|activo|true|sí|si)$/i.test(estado) }
+		} else {
+			const err = new Error(`Tipo de propiedad Estado no soportado: ${propEstado.type}`)
+			err.status = 400
+			throw err
+		}
+
+		await client.request('PATCH', `/pages/${empleadoId}`, {
+			properties: { 'Estado': estadoPayload }
+		})
+		return { ok: true, empleadoId, estado }
+	}
+}
+
+const PARTE_NO_EDITABLES = ['firmado', 'datos enviados', 'enviado']
+
+const partesTrabajo = {
+	async listar({ client }) {
+		const data = await client.request('POST', `/databases/${DATABASES.PARTES_TRABAJO}/query`, {
+			page_size: 100,
+			sorts: [{ property: 'Fecha', direction: 'descending' }]
+		})
+		return data.results.map(mapParte)
+	},
+
+	/** Devuelve la página Notion cruda — necesario para enviar-datos que manda el payload completo a Make. */
+	async obtenerPagina({ client, parteId }) {
+		return client.request('GET', `/pages/${parteId}`)
+	},
+
+	async estado({ client, parteId }) {
+		const page = await client.request('GET', `/pages/${parteId}`)
+		return {
+			estado: extractPropertyValue(page.properties['Estado']),
+			ultimaEdicion: extractPropertyValue(page.properties['Última edición'])
+		}
+	},
+
+	async empleados({ client, parteId }) {
+		const data = await client.request('POST', `/databases/${DATABASES.DETALLES_HORA}/query`, {
+			filter: { property: 'Partes de trabajo', relation: { contains: parteId } },
+			page_size: 100
+		})
+		return data.results.map(mapDetalle)
+	},
+
+	async detalles({ client, parteId }) {
+		const [parteData, detallesData] = await Promise.all([
+			client.request('GET', `/pages/${parteId}`),
+			client.request('POST', `/databases/${DATABASES.DETALLES_HORA}/query`, {
+				filter: { property: 'Partes de trabajo', relation: { contains: parteId } },
+				page_size: 100
+			})
+		])
+		return {
+			parte: {
+				id: parteData.id,
+				nombre: extractPropertyValue(parteData.properties['Nombre']),
+				fecha: extractPropertyValue(parteData.properties['Fecha']),
+				obra: extractPropertyValue(parteData.properties['AUX Obra']),
+				estado: extractPropertyValue(parteData.properties['Estado']),
+				ultimaEdicion: extractPropertyValue(parteData.properties['Última edición']),
+				notas: extractPropertyValue(parteData.properties['Notas']),
+				personaAutorizada: extractPropertyValue(parteData.properties['Persona Autorizada']),
+				firmarUrl: extractPropertyValue(parteData.properties['Firmar']),
+				horasTotales: extractPropertyValue(parteData.properties['RP Horas totales'])
+			},
+			empleados: detallesData.results.map(mapDetalle)
+		}
+	},
+
+	async crear({ client, obra, obraId, fecha, jefeObraId, notas, empleados = [], empleadosHoras = {} }) {
+		const parteData = await client.request('POST', '/pages', {
+			parent: { database_id: DATABASES.PARTES_TRABAJO },
+			properties: {
+				'Nombre': { title: [{ text: { content: `Parte temporal - ${obra}` } }] },
+				'Fecha': { date: { start: fecha } },
+				'Obras': { relation: [{ id: obraId }] },
+				'Persona Autorizada': { relation: [{ id: jefeObraId }] },
+				'Notas': { rich_text: [{ text: { content: notas || '' } }] }
+			}
+		})
+
+		const parteCompleto = await client.request('GET', `/pages/${parteData.id}`)
+		const notionId = extractPropertyValue(parteCompleto.properties['ID'])
+		const nombreFinal = `Parte ${obra}${notionId}`
+
+		await client.request('PATCH', `/pages/${parteData.id}`, {
+			properties: { 'Nombre': { title: [{ text: { content: nombreFinal } }] } }
+		})
+
+		// F1: IDs asignados a la obra para diagnóstico en logs del endpoint
+		let asignadosObraIds = []
+		try {
+			const obraPage = await client.request('GET', `/pages/${obraId}`)
+			const rel = extractPropertyValue(obraPage.properties['Empleados'])
+			if (Array.isArray(rel)) asignadosObraIds = rel.map(r => r.id)
+		} catch (_) { /* no bloquear la creación si falla */ }
+
+		const detallesCreados = []
+		const erroresDetalles = []
+		for (const empleadoId of empleados) {
+			try {
+				const horas = empleadosHoras[empleadoId] || 8
+				const detalle = await client.request('POST', '/pages', {
+					parent: { database_id: DATABASES.DETALLES_HORA },
+					properties: {
+						'Detalle': { title: [{ text: { content: 'Detalle Horas' } }] },
+						'Partes de trabajo': { relation: [{ id: parteData.id }] },
+						'Empleados': { relation: [{ id: empleadoId }] },
+						'Cantidad Horas': { number: horas }
+					}
+				})
+				detallesCreados.push(detalle)
+				await new Promise(r => setTimeout(r, 100))
+			} catch (err) {
+				console.error(`Error al crear detalle para empleado ${empleadoId}:`, err.message)
+				erroresDetalles.push({ empleadoId, error: err.message })
+			}
+		}
+
+		return { parteData, nombreFinal, detallesCreados, erroresDetalles, asignadosObraIds }
+	},
+
+	async actualizar({ client, parteId, obraId, fecha, personaAutorizadaId, notas, empleados = [], empleadosHoras = {} }) {
+		const parteActual = await client.request('GET', `/pages/${parteId}`)
+		const estadoParte = extractPropertyValue(parteActual.properties['Estado'])
+
+		if (estadoParte && PARTE_NO_EDITABLES.includes(String(estadoParte).toLowerCase())) {
+			const err = new Error('El parte no es editable por su estado actual')
+			err.status = 409
+			err.meta = { estado: estadoParte }
+			throw err
+		}
+
+		const necesitaCambioEstado = estadoParte && String(estadoParte).toLowerCase() === 'listo para firmar'
+
+		const obraData = await client.request('GET', `/pages/${obraId}`)
+		const relEmpleadosObra = extractPropertyValue(obraData.properties['Empleados'])
+		const asignadosObraIds = Array.isArray(relEmpleadosObra) ? relEmpleadosObra.map(r => r.id) : []
+
+		const propertiesToUpdate = {
+			'Fecha': { date: { start: fecha } },
+			'Obras': { relation: [{ id: obraId }] },
+			'Persona Autorizada': { relation: [{ id: personaAutorizadaId }] },
+			'Notas': { rich_text: [{ text: { content: notas || '' } }] }
+		}
+		if (necesitaCambioEstado) {
+			propertiesToUpdate['Estado'] = { status: { name: 'Borrador' } }
+		}
+
+		const parteActualizado = await client.request('PATCH', `/pages/${parteId}`, {
+			properties: propertiesToUpdate
+		})
+
+		const detallesExistentes = await client.request('POST', `/databases/${DATABASES.DETALLES_HORA}/query`, {
+			filter: { property: 'Partes de trabajo', relation: { contains: parteId } },
+			page_size: 100
+		})
+		for (const detalle of detallesExistentes.results) {
+			try {
+				await client.request('PATCH', `/pages/${detalle.id}`, { archived: true })
+				await new Promise(r => setTimeout(r, 100))
+			} catch (err) {
+				console.error(`Error al archivar detalle ${detalle.id}:`, err.message)
+			}
+		}
+
+		const detallesCreados = []
+		const erroresDetalles = []
+		for (const empleadoId of empleados) {
+			try {
+				const horas = empleadosHoras[empleadoId] || 8
+				const detalle = await client.request('POST', '/pages', {
+					parent: { database_id: DATABASES.DETALLES_HORA },
+					properties: {
+						'Detalle': { title: [{ text: { content: 'Detalle Horas' } }] },
+						'Partes de trabajo': { relation: [{ id: parteId }] },
+						'Empleados': { relation: [{ id: empleadoId }] },
+						'Cantidad Horas': { number: horas }
+					}
+				})
+				detallesCreados.push(detalle)
+				await new Promise(r => setTimeout(r, 100))
+			} catch (err) {
+				console.error(`Error al crear detalle para empleado ${empleadoId}:`, err.message)
+				erroresDetalles.push({ empleadoId, error: err.message })
+			}
+		}
+
+		return {
+			parteActualizado,
+			estadoAnterior: estadoParte,
+			necesitaCambioEstado,
+			detallesCreados,
+			erroresDetalles,
+			asignadosObraIds
+		}
+	},
+
+	async actualizarEstado({ client, parteId, estadoProperty, nuevoEstado }) {
+		const payload = buildEstadoUpdatePayload(estadoProperty, nuevoEstado)
+		return client.request('PATCH', `/pages/${parteId}`, {
+			properties: { 'Estado': payload }
+		})
 	}
 }
 
@@ -380,14 +641,17 @@ module.exports = {
 	extractPropertyValue,
 	buildEstadoUpdatePayload,
 
-	// Mappers (expuestos por la misma razón)
+	// Mappers
 	mapObra,
 	mapJefeObra,
 	mapFirmanteAutorizado,
 	mapEmpleado,
+	mapParte,
+	mapDetalle,
 
 	// Operaciones por dominio
 	obras,
 	jefesObra,
-	empleados
+	empleados,
+	partesTrabajo
 }

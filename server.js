@@ -10,6 +10,7 @@ const axios = require('axios')
 const path = require('path')
 const mockStore = require('./mock/mockData')
 const data = require('./src-server/services/data')
+const { extractPropertyValue } = require('./src-server/services/notion')
 const { createIdempotencyStore } = require('./src-server/lib/idempotency')
 
 const app = express()
@@ -23,16 +24,6 @@ const PARTES_WEBHOOK_TIMEOUT_MS = Number(process.env.PARTES_WEBHOOK_TIMEOUT_MS |
 const PARTES_WEBHOOK_CONFIGURED = Boolean(PARTES_DATOS_WEBHOOK_URL)
 const PARTE_ESTADO_BORRADOR = 'borrador'
 const PARTE_ESTADO_DATOS_ENVIADOS = 'Datos Enviados'
-const NOTION_API = 'https://api.notion.com/v1'
-
-// Configuración de bases de datos corregida
-const DATABASES = {
-	OBRAS: '20882593a257810083d6dc8ec0a99d58',
-	JEFE_OBRAS: '20882593a25781b4a3b9e0ff5589ea4e',
-	EMPLEADOS: '20882593a257814db882c4b70cb0cbab',
-	PARTES_TRABAJO: '20882593a25781258595e15abb37e87a',
-	DETALLES_HORA: '20882593a25781838da1fe6741abcfd9'
-}
 
 // Middleware
 // Confiar en proxy para IP real (útil en despliegues detrás de CDN/Reverse Proxy)
@@ -70,9 +61,6 @@ app.use(morgan(logFormat, {
 app.use(express.json())
 app.use(express.static(path.join(__dirname, 'dist')))
 
-// Middleware de logging
-// (Se reemplaza el logging manual por morgan)
-
 // Verificar token al iniciar o activar modo mock
 if (!NOTION_TOKEN && !USE_MOCK_DATA) {
 	console.error('ERROR: Falta la variable de entorno NOTION_TOKEN. Configure su token de Notion antes de iniciar el servidor.')
@@ -85,7 +73,7 @@ if (USE_MOCK_DATA) {
 }
 
 // Inicializar la capa de abstracción de datos (ADR-002).
-// Los endpoints piloto refactorizados consumen `data.*` en vez de axios directo.
+// Todos los endpoints consumen `data.*` — ninguno llama a Notion directamente.
 data.init({
 	notionToken: NOTION_TOKEN,
 	useMock: USE_MOCK_DATA,
@@ -162,144 +150,6 @@ app.use((req, res, next) => {
 	}
 	next()
 })
-
-// Headers para Notion
-const getNotionHeaders = () => ({
-	'Authorization': `Bearer ${NOTION_TOKEN}`,
-	'Notion-Version': '2022-06-28',
-	'Content-Type': 'application/json'
-})
-
-// Función para validar respuesta de Notion
-const validateNotionResponse = (response) => {
-	if (!response || !response.data) {
-		throw new Error('Respuesta inválida de Notion API')
-	}
-	return response.data
-}
-
-// Función para extraer valores de propiedades de Notion
-const extractPropertyValue = (property) => {
-	if (!property || !property.type) {
-		return ''
-	}
-
-	switch (property.type) {
-		case 'title':
-			return property.title?.[0]?.plain_text || ''
-		case 'rich_text':
-			return property.rich_text?.[0]?.plain_text || ''
-		case 'number':
-			return property.number || 0
-		case 'select':
-			return property.select?.name || ''
-		case 'multi_select':
-			return property.multi_select?.map(opt => opt.name).join(', ') || ''
-		case 'date':
-			return property.date?.start || ''
-		case 'checkbox':
-			return property.checkbox || false
-		case 'url':
-			return property.url || ''
-		case 'email':
-			return property.email || ''
-		case 'phone_number':
-			return property.phone_number || ''
-		case 'relation':
-			return property.relation || []
-		case 'rollup':
-			// Manejar rollups de diferentes tipos
-			if (property.rollup?.type === 'array') {
-				const array = property.rollup.array
-				if (array && array.length > 0) {
-					const firstItem = array[0]
-					if (firstItem.type === 'title') {
-						return firstItem.title?.[0]?.plain_text || ''
-					} else if (firstItem.type === 'rich_text') {
-						return firstItem.rich_text?.[0]?.plain_text || ''
-					} else if (firstItem.type === 'date') {
-						return firstItem.date?.start || ''
-					} else if (firstItem.type === 'select') {
-						return firstItem.select?.name || ''
-					} else if (firstItem.type === 'number') {
-						return firstItem.number || 0
-					}
-				}
-			}
-			return ''
-		case 'formula':
-			return property.formula?.string || property.formula?.number || property.formula?.boolean || ''
-		case 'status':
-			return property.status?.name || ''
-		case 'unique_id':
-			return property.unique_id?.prefix + property.unique_id?.number || ''
-		case 'files':
-			return property.files || []
-		case 'created_time':
-			return property.created_time || ''
-		case 'last_edited_time':
-			return property.last_edited_time || ''
-		default:
-			return `[${property.type}]`
-	}
-}
-
-const buildEstadoUpdatePayload = (estadoProperty, nuevoEstado) => {
-	const estadoNombre = String(nuevoEstado || '').trim()
-	if (!estadoNombre) {
-		throw new Error('Nombre de estado inválido')
-	}
-	const tipo = estadoProperty?.type
-	if (tipo === 'select') {
-		return { select: { name: estadoNombre } }
-	}
-	if (tipo === 'multi_select') {
-		return { multi_select: [{ name: estadoNombre }] }
-	}
-	return { status: { name: estadoNombre } }
-}
-
-// Función para hacer requests a Notion con manejo de errores
-const makeNotionRequest = async (method, endpoint, data = null) => {
-	if (USE_MOCK_DATA) {
-		throw new Error(`Notion API no disponible en modo mock: ${method} ${endpoint}`)
-	}
-	try {
-		const config = {
-			method,
-			url: `${NOTION_API}${endpoint}`,
-			headers: getNotionHeaders(),
-			timeout: 10000
-		}
-
-		if (data) {
-			config.data = data
-		}
-
-		const response = await axios(config)
-		return validateNotionResponse(response)
-	} catch (error) {
-		console.error(`Error en request a Notion (${method} ${endpoint}):`, {
-			status: error.response?.status,
-			message: error.response?.data?.message || error.message,
-			code: error.response?.data?.code
-		})
-
-		if (error.response?.status === 401) {
-			throw new Error('Token de Notion inválido o expirado')
-		} else if (error.response?.status === 403) {
-			throw new Error('Sin permisos para acceder a la base de datos')
-		} else if (error.response?.status === 404) {
-			throw new Error('Base de datos no encontrada')
-		} else if (error.response?.status === 409) {
-			throw new Error('Conflicto al crear el registro. Puede ser un duplicado o problema de permisos.')
-		} else if (error.response?.status === 429) {
-			throw new Error('Límite de rate limit excedido')
-		} else {
-			throw new Error(`Error de conectividad con Notion: ${error.message}`)
-		}
-	}
-}
 
 // Rutas de la API
 
@@ -446,7 +296,7 @@ app.get('/api/empleados/estado-opciones', async (req, res) => {
 	}
 })
 
-// Actualizar estado de un empleado
+// Actualizar estado de un empleado — refactorizado a data.js (ADR-002)
 app.put('/api/empleados/:empleadoId/estado', async (req, res) => {
 	try {
 		const { empleadoId } = req.params
@@ -456,41 +306,11 @@ app.put('/api/empleados/:empleadoId/estado', async (req, res) => {
 			return res.status(400).json({ error: 'Parámetro "estado" requerido' })
 		}
 
-		if (USE_MOCK_DATA) {
-			try {
-				const empleado = mockStore.updateEmpleadoEstado(empleadoId, estado)
-				return res.json({ ok: true, empleadoId: empleado.id, estado: empleado.estado })
-			} catch (error) {
-				return res.status(404).json({ error: error.message })
-			}
-		}
-
-		// Obtener la página del empleado para detectar el tipo de la propiedad Estado
-		const empleadoPage = await makeNotionRequest('GET', `/pages/${empleadoId}`)
-		const propEstado = empleadoPage.properties?.['Estado']
-		if (!propEstado) {
-			return res.status(400).json({ error: 'La propiedad "Estado" no existe en el empleado' })
-		}
-
-		// Preparar payload según el tipo de la propiedad
-		let estadoPayload
-		if (propEstado.type === 'status') {
-			estadoPayload = { status: { name: estado } }
-		} else if (propEstado.type === 'select') {
-			estadoPayload = { select: { name: estado } }
-		} else if (propEstado.type === 'checkbox') {
-			const value = /^(on|activo|true|sí|si)$/i.test(estado)
-			estadoPayload = { checkbox: value }
-		} else {
-			return res.status(400).json({ error: `Tipo de propiedad Estado no soportado: ${propEstado.type}` })
-		}
-
-		const updated = await makeNotionRequest('PATCH', `/pages/${empleadoId}`, {
-			properties: { 'Estado': estadoPayload }
-		})
-
-		res.json({ ok: true, empleadoId, estado })
+		const result = await data.empleados.actualizarEstado(empleadoId, estado)
+		res.json(result)
 	} catch (error) {
+		if (error.status === 404) return res.status(404).json({ error: error.message })
+		if (error.status === 400) return res.status(400).json({ error: error.message })
 		console.error('Error al actualizar estado del empleado:', error.message)
 		res.status(500).json({ error: 'Error al actualizar estado del empleado', details: error.message })
 	}
@@ -512,42 +332,13 @@ app.get('/api/obras/:obraId/empleados', async (req, res) => {
 	}
 })
 
-// Obtener todos los partes de trabajo
+// Obtener todos los partes de trabajo — refactorizado a data.js (ADR-002)
 app.get('/api/partes-trabajo', async (req, res) => {
 	try {
-		if (USE_MOCK_DATA) {
-			return res.json(mockStore.getPartesTrabajo())
-		}
-		const data = await makeNotionRequest('POST', `/databases/${DATABASES.PARTES_TRABAJO}/query`, {
-			page_size: 100,
-			sorts: [
-				{
-					property: 'Fecha',
-					direction: 'descending'
-				}
-			]
-		})
-
-		const partesTrabajo = data.results.map(page => ({
-			id: page.id,
-			nombre: extractPropertyValue(page.properties['Nombre']),
-			fecha: extractPropertyValue(page.properties['Fecha']),
-			ultimaEdicion: extractPropertyValue(page.properties['Última edición']),
-			estado: extractPropertyValue(page.properties['Estado']),
-			obra: extractPropertyValue(page.properties['AUX Obra']),
-			personaAutorizada: extractPropertyValue(page.properties['AUX Jefe de Obra']),
-			cliente: extractPropertyValue(page.properties['AUX Cliente - texto-']),
-			rpHorasTotales: extractPropertyValue(page.properties['RP Horas totales']),
-			horasOficial1: extractPropertyValue(page.properties['Horas Oficial 1ª']),
-			horasOficial2: extractPropertyValue(page.properties['Horas Oficial 2ª ']),
-			horasCapataz: extractPropertyValue(page.properties['Horas Capataz']),
-			horasEncargado: extractPropertyValue(page.properties['Horas Encargado ']),
-			urlPDF: extractPropertyValue(page.properties['URL PDF']),
-			enviadoCliente: extractPropertyValue(page.properties['Enviado a cliente']),
-			notas: extractPropertyValue(page.properties['Notas']),
-			firmarUrl: extractPropertyValue(page.properties['Firmar'])
-		}))
-
+		const cached = getCache('partes-trabajo')
+		if (cached) return res.json(cached)
+		const partesTrabajo = await data.partesTrabajo.listar()
+		setCache('partes-trabajo', partesTrabajo)
 		res.json(partesTrabajo)
 	} catch (error) {
 		console.error('Error al obtener partes de trabajo:', error.message)
@@ -558,7 +349,7 @@ app.get('/api/partes-trabajo', async (req, res) => {
 	}
 })
 
-// Crear un nuevo parte de trabajo
+// Crear un nuevo parte de trabajo — refactorizado a data.js (ADR-002)
 app.post('/api/partes-trabajo', async (req, res) => {
 	try {
 		const { obra, obraId, fecha, jefeObraId, notas, empleados, empleadosHoras } = req.body
@@ -570,176 +361,27 @@ app.post('/api/partes-trabajo', async (req, res) => {
 			})
 		}
 
+		const result = await data.partesTrabajo.crear({ obra, obraId, fecha, jefeObraId, notas, empleados, empleadosHoras })
+
+		// Mock devuelve una página Notion-like directamente; live devuelve { parteData, ... }
 		if (USE_MOCK_DATA) {
-			try {
-				const parte = mockStore.createParteTrabajo({
-					obra,
-					obraId,
-					fecha,
-					jefeObraId,
-					notas,
-					empleados,
-					empleadosHoras
-				})
-				return res.json(parte)
-			} catch (error) {
-				return res.status(400).json({
-					error: 'Error al crear parte de trabajo',
-					details: error.message
-				})
-			}
+			return res.json(result)
 		}
 
-		// Crear el parte de trabajo con nombre temporal
-		const parteData = await makeNotionRequest('POST', '/pages', {
-			parent: { database_id: DATABASES.PARTES_TRABAJO },
-			properties: {
-				'Nombre': {
-					title: [
-						{
-							text: {
-								content: `Parte temporal - ${obra}`
-							}
-						}
-					]
-				},
-				'Fecha': {
-					date: {
-						start: fecha
-					}
-				},
-				'Obras': {
-					relation: [
-						{
-							id: obraId
-						}
-					]
-				},
-				'Persona Autorizada': {
-					relation: [
-						{
-							id: jefeObraId
-						}
-					]
-				},
-				'Notas': {
-					rich_text: [
-						{
-							text: {
-								content: notas || ''
-							}
-						}
-					]
-				}
-			}
-		})
-
-		// Obtener el ID único de Notion del parte recién creado
-		const parteCompleto = await makeNotionRequest('GET', `/pages/${parteData.id}`)
-		const notionId = extractPropertyValue(parteCompleto.properties['ID'])
-
-		// Construir el nombre final: Parte + espacio + NombreObra + ID
-		const nombreFinal = `Parte ${obra}${notionId}`
-
-		// Actualizar el nombre del parte con el formato correcto
-		await makeNotionRequest('PATCH', `/pages/${parteData.id}`, {
-			properties: {
-				'Nombre': {
-					title: [
-						{
-							text: {
-								content: nombreFinal
-							}
-						}
-					]
-				}
-			}
-		})
-
-		// F1: precarga IDs de empleados asignados a la obra para marcar los "libres" en logs
-		let empleadosAsignadosObra = new Set()
-		try {
-			const obraInfo = await makeNotionRequest('GET', `/pages/${obraId}`)
-			const rel = extractPropertyValue(obraInfo.properties['Empleados'])
-			if (Array.isArray(rel)) empleadosAsignadosObra = new Set(rel.map(r => r.id))
-		} catch (e) {
-			console.warn(JSON.stringify({ reqId: req.id, event: 'precarga_asignados_falla', obraId, error: e.message }))
-		}
-		const empleadosNoAsignados = (empleados || []).filter(id => !empleadosAsignadosObra.has(id))
+		const { parteData, nombreFinal, detallesCreados, erroresDetalles, asignadosObraIds } = result
+		const empleadosNoAsignados = (empleados || []).filter(id => !asignadosObraIds.includes(id))
 
 		console.log(JSON.stringify({
 			reqId: req.id,
 			event: 'parte_creado',
 			parteId: parteData.id,
-			nombrePretendido: `Parte ${obra}`,
 			nombreFinal,
 			empleadosPretendidos: empleados?.length || 0,
 			empleadosNoAsignadosObra: empleadosNoAsignados.length,
-			empleadosNoAsignadosIds: empleadosNoAsignados
+			empleadosNoAsignadosIds: empleadosNoAsignados,
+			detallesCreados: detallesCreados.length,
+			errores: erroresDetalles
 		}))
-
-		// Crear detalles de horas para cada empleado seleccionado
-		let detallesCreados = []
-		let erroresDetalles = []
-
-		if (empleados && empleados.length > 0) {
-			for (const empleadoId of empleados) {
-				try {
-					const horas = empleadosHoras[empleadoId] || 8
-
-					const detalleData = await makeNotionRequest('POST', '/pages', {
-						parent: { database_id: DATABASES.DETALLES_HORA },
-						properties: {
-							'Detalle': {
-								title: [
-									{
-										text: {
-											content: `Detalle Horas`
-										}
-									}
-								]
-							},
-							'Partes de trabajo': {
-								relation: [
-									{
-										id: parteData.id
-									}
-								]
-							},
-							'Empleados': {
-								relation: [
-									{
-										id: empleadoId
-									}
-								]
-							},
-							'Cantidad Horas': {
-								number: horas
-							}
-						}
-					})
-
-					detallesCreados.push(detalleData)
-
-					// Pausa entre requests para evitar rate limiting
-					await new Promise(resolve => setTimeout(resolve, 100))
-
-				} catch (error) {
-					console.error(`Error al crear detalle para empleado ${empleadoId}:`, error.message)
-					erroresDetalles.push({ empleadoId, error: error.message })
-				}
-			}
-
-			// Log de resultados
-			console.log(JSON.stringify({
-				reqId: req.id,
-				event: 'detalles_creados',
-				parteId: parteData.id,
-				pretendidos: empleados.length,
-				creados: detallesCreados.length,
-				errores: erroresDetalles
-			}))
-		}
 
 		res.json({
 			...parteData,
@@ -757,37 +399,12 @@ app.post('/api/partes-trabajo', async (req, res) => {
 	}
 })
 
-// Obtener detalles de empleados de un parte específico
+// Obtener detalles de empleados de un parte específico — refactorizado a data.js (ADR-002)
 app.get('/api/partes-trabajo/:parteId/empleados', async (req, res) => {
 	try {
 		const { parteId } = req.params
-
-		if (USE_MOCK_DATA) {
-			return res.json(mockStore.getDetallesEmpleados(parteId))
-		}
-
-		// Obtener detalles de horas para este parte
-		const data = await makeNotionRequest('POST', `/databases/${DATABASES.DETALLES_HORA}/query`, {
-			filter: {
-				property: 'Partes de trabajo',
-				relation: {
-					contains: parteId
-				}
-			},
-			page_size: 100
-		})
-
-		const detallesEmpleados = data.results.map(detalle => ({
-			id: detalle.id,
-			empleadoId: extractPropertyValue(detalle.properties['Empleados']),
-			empleadoNombre: extractPropertyValue(detalle.properties['Aux Empleado']),
-			categoria: extractPropertyValue(detalle.properties['AUX_Categoria']),
-			horas: extractPropertyValue(detalle.properties['Cantidad Horas']),
-			fecha: extractPropertyValue(detalle.properties['Fecha']),
-			detalle: extractPropertyValue(detalle.properties['Detalle'])
-		}))
-
-		res.json(detallesEmpleados)
+		const empleados = await data.partesTrabajo.empleados(parteId)
+		res.json(empleados)
 	} catch (error) {
 		console.error('Error al obtener detalles de empleados del parte:', error.message)
 		res.status(500).json({
@@ -797,62 +414,14 @@ app.get('/api/partes-trabajo/:parteId/empleados', async (req, res) => {
 	}
 })
 
-// Obtener detalles completos de un parte específico
+// Obtener detalles completos de un parte específico — refactorizado a data.js (ADR-002)
 app.get('/api/partes-trabajo/:parteId/detalles', async (req, res) => {
 	try {
 		const { parteId } = req.params
-
-		if (USE_MOCK_DATA) {
-			try {
-				return res.json(mockStore.getParteDetallesCompletos(parteId))
-			} catch (error) {
-				return res.status(404).json({ error: error.message })
-			}
-		}
-
-		// Obtener el parte específico
-		const parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
-
-		// Extraer la Persona Autorizada
-		const personaAutorizada = extractPropertyValue(parteData.properties['Persona Autorizada'])
-
-		// Obtener detalles de empleados
-		const detallesData = await makeNotionRequest('POST', `/databases/${DATABASES.DETALLES_HORA}/query`, {
-			filter: {
-				property: 'Partes de trabajo',
-				relation: {
-					contains: parteId
-				}
-			},
-			page_size: 100
-		})
-
-		const detallesEmpleados = detallesData.results.map(detalle => ({
-			id: detalle.id,
-			empleadoId: extractPropertyValue(detalle.properties['Empleados']),
-			empleadoNombre: extractPropertyValue(detalle.properties['Aux Empleado']),
-			categoria: extractPropertyValue(detalle.properties['AUX_Categoria']),
-			horas: extractPropertyValue(detalle.properties['Cantidad Horas']),
-			fecha: extractPropertyValue(detalle.properties['Fecha']),
-			detalle: extractPropertyValue(detalle.properties['Detalle'])
-		}))
-
-		res.json({
-			parte: {
-				id: parteData.id,
-				nombre: extractPropertyValue(parteData.properties['Nombre']),
-				fecha: extractPropertyValue(parteData.properties['Fecha']),
-				obra: extractPropertyValue(parteData.properties['AUX Obra']),
-				estado: extractPropertyValue(parteData.properties['Estado']),
-				ultimaEdicion: extractPropertyValue(parteData.properties['Última edición']),
-				notas: extractPropertyValue(parteData.properties['Notas']),
-				personaAutorizada: personaAutorizada,
-				firmarUrl: extractPropertyValue(parteData.properties['Firmar']),
-				horasTotales: extractPropertyValue(parteData.properties['RP Horas totales'])
-			},
-			empleados: detallesEmpleados
-		})
+		const resultado = await data.partesTrabajo.detalles(parteId)
+		res.json(resultado)
 	} catch (error) {
+		if (error.status === 404) return res.status(404).json({ error: error.message })
 		console.error('Error al obtener detalles completos del parte:', error.message)
 		res.status(500).json({
 			error: 'Error al obtener detalles completos del parte',
@@ -861,23 +430,14 @@ app.get('/api/partes-trabajo/:parteId/detalles', async (req, res) => {
 	}
 })
 
-// Obtener solo el estado y última edición de un parte (consulta puntual)
+// Obtener solo el estado y última edición de un parte — refactorizado a data.js (ADR-002)
 app.get('/api/partes-trabajo/:parteId/estado', async (req, res) => {
 	try {
 		const { parteId } = req.params
-		if (USE_MOCK_DATA) {
-			try {
-				return res.json(mockStore.getParteEstado(parteId))
-			} catch (error) {
-				return res.status(404).json({ error: error.message })
-			}
-		}
-		const parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
-		res.json({
-			estado: extractPropertyValue(parteData.properties['Estado']),
-			ultimaEdicion: extractPropertyValue(parteData.properties['Última edición'])
-		})
+		const resultado = await data.partesTrabajo.estado(parteId)
+		res.json(resultado)
 	} catch (error) {
+		if (error.status === 404) return res.status(404).json({ error: error.message })
 		console.error('Error al obtener estado del parte:', error.message)
 		res.status(500).json({ error: 'Error al obtener estado del parte', details: error.message })
 	}
@@ -933,12 +493,10 @@ app.get('/api/partes-trabajo/:parteId/estado/stream', async (req, res) => {
 		return 15000 // Modo lento: sin cambios >2min
 	}
 
-	// Función de sondeo
+	// Función de sondeo — refactorizado a data.js (ADR-002)
 	const poll = async () => {
 		try {
-			const parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
-			const estado = extractPropertyValue(parteData.properties['Estado'])
-			const ultimaEdicion = extractPropertyValue(parteData.properties['Última edición'])
+			const { estado, ultimaEdicion } = await data.partesTrabajo.estado(parteId)
 
 			if (estado !== lastEstado || ultimaEdicion !== lastEdit) {
 				lastEstado = estado
@@ -1036,24 +594,23 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 
 	let parteData
 	try {
-		parteData = await makeNotionRequest('GET', `/pages/${parteId}`)
+		parteData = await data.partesTrabajo.obtenerPagina(parteId)
 	} catch (error) {
 		console.error('Error al recuperar parte antes de enviar datos:', {
 			message: error.message,
-			status: error.response?.status
+			status: error.status
 		})
-		const status = error.response?.status === 404 ? 404 : 500
-		// 404 es permanente (cachear); 5xx es transitorio (liberar para reintento).
-		if (status === 404) {
+		// 404 es permanente (cachear); otros son transitorios (liberar para reintento).
+		if (error.status === 404) {
 			return respond(404, {
 				error: 'No se pudo recuperar el parte desde Notion',
-				details: error.response?.data?.message || error.message
+				details: error.message
 			})
 		}
 		release()
 		return res.status(500).json({
 			error: 'No se pudo recuperar el parte desde Notion',
-			details: error.response?.data?.message || error.message
+			details: error.message
 		})
 	}
 
@@ -1121,15 +678,14 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 	}
 
 	try {
-		await makeNotionRequest('PATCH', `/pages/${parteId}`, {
-			properties: {
-				'Estado': buildEstadoUpdatePayload(parteData.properties['Estado'], PARTE_ESTADO_DATOS_ENVIADOS)
-			}
+		await data.partesTrabajo.actualizarEstado(parteId, {
+			estadoProperty: parteData.properties['Estado'],
+			nuevoEstado: PARTE_ESTADO_DATOS_ENVIADOS
 		})
 	} catch (error) {
 		console.error('Error al actualizar estado del parte tras enviar datos:', {
 			message: error.message,
-			status: error.response?.status
+			status: error.status
 		})
 		// Importante: el webhook YA se disparó. Si releemos el lock, un reintento
 		// dispararía Make otra vez. Cacheamos el error como permanente para
@@ -1148,7 +704,7 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 		modo: PARTES_WEBHOOK_CONFIGURED ? 'webhook' : 'simulado'
 	})
 })
-// Actualizar un parte de trabajo existente
+// Actualizar un parte de trabajo existente — refactorizado a data.js (ADR-002)
 app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 	try {
 		const { parteId } = req.params
@@ -1161,57 +717,7 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 			})
 		}
 
-		if (USE_MOCK_DATA) {
-			try {
-				const parte = mockStore.updateParteTrabajo(parteId, {
-					obraId,
-					fecha,
-					personaAutorizadaId,
-					notas,
-					empleados,
-					empleadosHoras
-				})
-				return res.json(parte)
-			} catch (error) {
-				if (error.code === 'NOT_EDITABLE') {
-					return res.status(409).json({
-						error: error.message,
-						estado: error.meta?.estado
-					})
-				}
-				return res.status(400).json({
-					error: 'Error al actualizar parte de trabajo',
-					details: error.message
-				})
-			}
-		}
-
-		// Validar que el parte sea editable según su estado actual
-		let estadoAnterior = null
-		let necesitaCambioEstado = false
-		try {
-			const parteActual = await makeNotionRequest('GET', `/pages/${parteId}`)
-			const estadoParte = extractPropertyValue(parteActual.properties['Estado'])
-			estadoAnterior = estadoParte
-
-			const noEditables = ['firmado', 'datos enviados', 'enviado']
-			if (estadoParte && noEditables.includes(String(estadoParte).toLowerCase())) {
-				return res.status(409).json({
-					error: 'El parte no es editable por su estado actual',
-					estado: estadoParte
-				})
-			}
-
-			// Si el estado es "Listo para firmar", marcar que necesita cambio a "Borrador"
-			if (estadoParte && String(estadoParte).toLowerCase() === 'listo para firmar') {
-				necesitaCambioEstado = true
-				console.log(`⚠️ Parte ${parteId} está en "Listo para firmar", se cambiará a "Borrador" al editar`)
-			}
-		} catch (e) {
-			console.warn('Aviso: no se pudo validar el estado del parte antes de editar:', e.message)
-		}
-
-		// Validar horas por empleado si vienen definidas
+		// Validar horas antes de tocar Notion
 		if (empleados && empleadosHoras) {
 			for (const empId of empleados) {
 				const horasVal = empleadosHoras[empId]
@@ -1227,151 +733,32 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 			}
 		}
 
-		// Obtener la obra para el nombre
-		const obraData = await makeNotionRequest('GET', `/pages/${obraId}`)
-		const nombreObra = extractPropertyValue(obraData.properties['Obra'])
-		// F1: lista de empleados ya asignados a la obra (para marcar "no asignados" en logs)
-		const relEmpleadosObra = extractPropertyValue(obraData.properties['Empleados'])
-		const asignadosObraSet = new Set(Array.isArray(relEmpleadosObra) ? relEmpleadosObra.map(r => r.id) : [])
+		const result = await data.partesTrabajo.actualizar(parteId, {
+			obraId, fecha, personaAutorizadaId, notas, empleados, empleadosHoras
+		})
 
-		// Preparar propiedades para actualizar
-		const propertiesToUpdate = {
-			'Fecha': {
-				date: {
-					start: fecha
-				}
-			},
-			'Obras': {
-				relation: [
-					{
-						id: obraId
-					}
-				]
-			},
-			'Persona Autorizada': {
-				relation: [
-					{
-						id: personaAutorizadaId
-					}
-				]
-			},
-			'Notas': {
-				rich_text: [
-					{
-						text: {
-							content: notas || ''
-						}
-					}
-				]
-			}
+		// Mock devuelve una página Notion-like directamente
+		if (USE_MOCK_DATA) {
+			return res.json(result)
 		}
 
-		// Si el parte estaba en "Listo para firmar", cambiar el estado a "Borrador"
+		const { parteActualizado, estadoAnterior, necesitaCambioEstado, detallesCreados, erroresDetalles, asignadosObraIds } = result
+
 		if (necesitaCambioEstado) {
-			propertiesToUpdate['Estado'] = {
-				status: {
-					name: 'Borrador'
-				}
-			}
-			console.log(`✅ Cambiando estado del parte ${parteId} de "${estadoAnterior}" a "Borrador"`)
+			console.log(JSON.stringify({ reqId: req.id, event: 'parte_estado_borrador', parteId, estadoAnterior }))
 		}
+		const noAsignados = (empleados || []).filter(id => !asignadosObraIds.includes(id))
+		console.log(JSON.stringify({
+			reqId: req.id,
+			event: 'detalles_actualizados',
+			parteId,
+			pretendidos: empleados?.length || 0,
+			creados: detallesCreados.length,
+			errores: erroresDetalles,
+			empleadosNoAsignadosObra: noAsignados.length,
+			empleadosNoAsignadosIds: noAsignados
+		}))
 
-		// Actualizar el parte de trabajo
-		const parteActualizado = await makeNotionRequest('PATCH', `/pages/${parteId}`, {
-			properties: propertiesToUpdate
-		})
-
-		// Obtener detalles existentes para este parte
-		const detallesExistentes = await makeNotionRequest('POST', `/databases/${DATABASES.DETALLES_HORA}/query`, {
-			filter: {
-				property: 'Partes de trabajo',
-				relation: {
-					contains: parteId
-				}
-			},
-			page_size: 100
-		})
-
-		// Archivar detalles existentes (en lugar de eliminarlos)
-		for (const detalle of detallesExistentes.results) {
-			try {
-				await makeNotionRequest('PATCH', `/pages/${detalle.id}`, {
-					archived: true
-				})
-				// Pausa entre requests para evitar rate limiting
-				await new Promise(resolve => setTimeout(resolve, 100))
-			} catch (error) {
-				console.error(`Error al archivar detalle ${detalle.id}:`, error.message)
-			}
-		}
-
-		// Crear nuevos detalles de horas para cada empleado seleccionado
-		let detallesCreados = []
-		let erroresDetalles = []
-
-		if (empleados && empleados.length > 0) {
-			for (const empleadoId of empleados) {
-				try {
-					const horas = empleadosHoras[empleadoId] || 8
-
-					const detalleData = await makeNotionRequest('POST', '/pages', {
-						parent: { database_id: DATABASES.DETALLES_HORA },
-						properties: {
-							'Detalle': {
-								title: [
-									{
-										text: {
-											content: `Detalle Horas`
-										}
-									}
-								]
-							},
-							'Partes de trabajo': {
-								relation: [
-									{
-										id: parteId
-									}
-								]
-							},
-							'Empleados': {
-								relation: [
-									{
-										id: empleadoId
-									}
-								]
-							},
-							'Cantidad Horas': {
-								number: horas
-							}
-						}
-					})
-
-					detallesCreados.push(detalleData)
-
-					// Pausa entre requests para evitar rate limiting
-					await new Promise(resolve => setTimeout(resolve, 100))
-
-				} catch (error) {
-					console.error(`Error al crear detalle para empleado ${empleadoId}:`, error.message)
-					erroresDetalles.push({ empleadoId, error: error.message })
-				}
-			}
-
-			// Log de resultados
-			const noAsignadosPut = empleados.filter(id => !asignadosObraSet.has(id))
-			console.log(JSON.stringify({
-				reqId: req.id,
-				event: 'detalles_actualizados',
-				parteId,
-				pretendidos: empleados.length,
-				creados: detallesCreados.length,
-				errores: erroresDetalles,
-				empleadosNoAsignadosObra: noAsignadosPut.length,
-				empleadosNoAsignadosIds: noAsignadosPut
-			}))
-		}
-
-		// Construir mensaje de respuesta
 		let mensaje = `Parte actualizado exitosamente. ${detallesCreados.length} empleados asignados.`
 		if (necesitaCambioEstado) {
 			mensaje += ` ⚠️ El estado ha cambiado de "${estadoAnterior}" a "Borrador". Deberás enviar los datos nuevamente.`
@@ -1385,9 +772,12 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 			estadoCambiado: necesitaCambioEstado,
 			estadoAnterior: necesitaCambioEstado ? estadoAnterior : null,
 			estadoNuevo: necesitaCambioEstado ? 'Borrador' : null,
-			mensaje: mensaje
+			mensaje
 		})
 	} catch (error) {
+		if (error.status === 409) {
+			return res.status(409).json({ error: error.message, estado: error.meta?.estado })
+		}
 		console.error('Error al actualizar parte de trabajo:', error.message)
 		res.status(500).json({
 			error: 'Error al actualizar parte de trabajo',
@@ -1396,30 +786,17 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 	}
 })
 
-// Obtener datos completos
+// Obtener datos completos — refactorizado a data.js (ADR-002).
+// Usa data.* directamente en vez de llamadas HTTP internas a sí mismo.
 app.get('/api/datos-completos', async (req, res) => {
 	try {
-		if (USE_MOCK_DATA) {
-			return res.json({
-				obras: mockStore.getObras(),
-				jefesObra: mockStore.getJefesObra(),
-				empleados: mockStore.getEmpleados(),
-				partesTrabajo: mockStore.getPartesTrabajo()
-			})
-		}
-		const [obrasRes, jefesObraRes, empleadosRes, partesTrabajoRes] = await Promise.all([
-			axios.get(`${req.protocol}://${req.get('host')}/api/obras`),
-			axios.get(`${req.protocol}://${req.get('host')}/api/jefes-obra`),
-			axios.get(`${req.protocol}://${req.get('host')}/api/empleados`),
-			axios.get(`${req.protocol}://${req.get('host')}/api/partes-trabajo`)
+		const [obras, jefesObra, empleados, partesTrabajo] = await Promise.all([
+			data.obras.listar(),
+			data.jefesObra.listar(),
+			data.empleados.listar(),
+			data.partesTrabajo.listar()
 		])
-
-		res.json({
-			obras: obrasRes.data,
-			jefesObra: jefesObraRes.data,
-			empleados: empleadosRes.data,
-			partesTrabajo: partesTrabajoRes.data
-		})
+		res.json({ obras, jefesObra, empleados, partesTrabajo })
 	} catch (error) {
 		console.error('Error al obtener datos completos:', error.message)
 		res.status(500).json({

@@ -164,6 +164,134 @@ const empleados = {
 		requireInit()
 		if (state.mode === 'mock') return state.mockStore.getEstadoOpciones()
 		return notion.empleados.opcionesEstado({ client: state.notionClient })
+	},
+
+	/**
+	 * Lee la página del empleado, detecta el tipo real de la propiedad Estado y la actualiza.
+	 * Devuelve { ok, empleadoId, estado }.
+	 * Lanza Error con .status = 404 si el empleado no existe en mock,
+	 * o .status = 400 si el tipo de propiedad no es soportado.
+	 */
+	async actualizarEstado(empleadoId, estado) {
+		requireInit()
+		if (state.mode === 'mock') {
+			try {
+				const emp = state.mockStore.updateEmpleadoEstado(empleadoId, estado)
+				return { ok: true, empleadoId: emp.id, estado: emp.estado }
+			} catch (e) {
+				const err = new Error(e.message)
+				err.status = 404
+				throw err
+			}
+		}
+		return notion.empleados.actualizarEstado({ client: state.notionClient, empleadoId, estado })
+	}
+}
+
+const partesTrabajo = {
+	async listar() {
+		requireInit()
+		if (state.mode === 'mock') return state.mockStore.getPartesTrabajo()
+		return notion.partesTrabajo.listar({ client: state.notionClient })
+	},
+
+	/**
+	 * Devuelve la página Notion cruda del parte.
+	 * Solo tiene implementación live — el mock path en enviar-datos se maneja en server.js.
+	 */
+	async obtenerPagina(parteId) {
+		requireInit()
+		return notion.partesTrabajo.obtenerPagina({ client: state.notionClient, parteId })
+	},
+
+	/**
+	 * Devuelve { estado, ultimaEdicion } del parte.
+	 * Lanza Error con .status = 404 si no existe (mock) o Notion devuelve 404 (live).
+	 */
+	async estado(parteId) {
+		requireInit()
+		if (state.mode === 'mock') {
+			try {
+				return state.mockStore.getParteEstado(parteId)
+			} catch (e) {
+				const err = new Error(e.message)
+				err.status = 404
+				throw err
+			}
+		}
+		return notion.partesTrabajo.estado({ client: state.notionClient, parteId })
+	},
+
+	/** Devuelve array de detalles de empleados (DetallesHora) del parte. */
+	async empleados(parteId) {
+		requireInit()
+		if (state.mode === 'mock') return state.mockStore.getDetallesEmpleados(parteId)
+		return notion.partesTrabajo.empleados({ client: state.notionClient, parteId })
+	},
+
+	/**
+	 * Devuelve { parte, empleados } con todo el detalle del parte.
+	 * Lanza Error con .status = 404 si no existe.
+	 */
+	async detalles(parteId) {
+		requireInit()
+		if (state.mode === 'mock') {
+			try {
+				return state.mockStore.getParteDetallesCompletos(parteId)
+			} catch (e) {
+				const err = new Error(e.message)
+				err.status = 404
+				throw err
+			}
+		}
+		return notion.partesTrabajo.detalles({ client: state.notionClient, parteId })
+	},
+
+	/**
+	 * Crea un nuevo parte con sus detalles de horas.
+	 * Devuelve { parteData, nombreFinal, detallesCreados, erroresDetalles, asignadosObraIds }.
+	 */
+	async crear(params) {
+		requireInit()
+		if (state.mode === 'mock') return state.mockStore.createParteTrabajo(params)
+		return notion.partesTrabajo.crear({ client: state.notionClient, ...params })
+	},
+
+	/**
+	 * Actualiza un parte existente, archivando los detalles anteriores y creando los nuevos.
+	 * Devuelve { parteActualizado, estadoAnterior, necesitaCambioEstado, detallesCreados, erroresDetalles, asignadosObraIds }.
+	 * Lanza Error con .status = 409 si el parte no es editable.
+	 */
+	async actualizar(parteId, params) {
+		requireInit()
+		if (state.mode === 'mock') {
+			try {
+				return state.mockStore.updateParteTrabajo(parteId, params)
+			} catch (e) {
+				if (e.code === 'NOT_EDITABLE') {
+					const err = new Error(e.message)
+					err.status = 409
+					err.meta = e.meta
+					throw err
+				}
+				throw e
+			}
+		}
+		return notion.partesTrabajo.actualizar({ client: state.notionClient, parteId, ...params })
+	},
+
+	/**
+	 * Actualiza solo el Estado del parte.
+	 * `estadoProperty` es el objeto property Notion (necesario para detectar tipo status/select/multi_select).
+	 */
+	async actualizarEstado(parteId, { estadoProperty, nuevoEstado }) {
+		requireInit()
+		return notion.partesTrabajo.actualizarEstado({
+			client: state.notionClient,
+			parteId,
+			estadoProperty,
+			nuevoEstado
+		})
 	}
 }
 
@@ -172,5 +300,6 @@ module.exports = {
 	getMode,
 	obras,
 	jefesObra,
-	empleados
+	empleados,
+	partesTrabajo
 }
