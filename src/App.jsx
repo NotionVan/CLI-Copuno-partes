@@ -2692,7 +2692,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 
 function Footer() {
 	const [showDate, setShowDate] = useState(false)
-	const version = '1.0.2' // Actualiza esto con cada nueva versión
+	const version = __APP_VERSION__
 	const deployDate = new Date(__BUILD_TIMESTAMP__) // Fecha automática del último build
 
 	return (
