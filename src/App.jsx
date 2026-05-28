@@ -2537,8 +2537,8 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 																		{emp.idCopuno != null ? `${emp.idCopuno} · ` : '— · '}
 																		{emp.nombre}
 																	</strong>
+																	<span className="categoria">{emp.categoria || '—'}</span>
 																</div>
-																<span className="categoria">{emp.categoria || '—'}</span>
 															</span>
 															<div className="empleado-horas-input">
 																<label className="horas-label">Horas:</label>
@@ -2629,13 +2629,13 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 																{empleado.idCopuno != null ? `${empleado.idCopuno} · ` : '— · '}
 																{empleado.nombre}
 															</strong>
+															<span className="categoria">{empleado.categoria || '—'}</span>
 															{empleado.estado && (
 																<span className={`estado-empleado ${empleado.estado?.toLowerCase() || 'sin-estado'}`}>
 																	{empleado.estado}
 																</span>
 															)}
 														</div>
-														<span className="categoria">{empleado.categoria || '—'}</span>
 													</span>
 													<button
 														type="button"
