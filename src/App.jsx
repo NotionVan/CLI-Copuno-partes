@@ -1019,7 +1019,16 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 		} catch (error) {
 			console.error('Error al actualizar parte:', error)
-			setMensajeUI({ tipo: 'error', texto: `No se pudo actualizar el parte: ${error.message}` })
+			if (error.status === 409) {
+				setMensajeUI({ tipo: 'error', texto: error.message })
+				// Cerrar edición y refrescar para mostrar el estado real del parte
+				setTimeout(() => {
+					cancelarEdicion()
+					if (onRefrescarPartes) onRefrescarPartes()
+				}, 2500)
+			} else {
+				setMensajeUI({ tipo: 'error', texto: `No se pudo actualizar el parte: ${error.message}` })
+			}
 		} finally {
 			setGuardandoCambios(false)
 		}
@@ -2250,6 +2259,23 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 
 			if (!obraSeleccionada || !personaAutorizadaSeleccionada) {
 				throw new Error('Selecciona una obra y una Persona Autorizada válidos')
+			}
+
+			if (formData.empleados.length === 0) {
+				const confirmar = window.confirm('No hay empleados asignados al parte. ¿Crear el parte sin empleados?')
+				if (!confirmar) {
+					setLoading(false)
+					return
+				}
+			}
+
+			const horasTotales = Object.values(formData.empleadosHoras).reduce((sum, h) => sum + (Number(h) || 0), 0)
+			if (formData.empleados.length > 0 && horasTotales === 0) {
+				const confirmar = window.confirm('Todos los empleados tienen 0 horas asignadas. ¿Crear el parte igualmente?')
+				if (!confirmar) {
+					setLoading(false)
+					return
+				}
 			}
 
 			const parteCreado = await crearParteTrabajo({

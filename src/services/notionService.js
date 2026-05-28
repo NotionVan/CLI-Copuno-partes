@@ -122,6 +122,14 @@ const handleApiError = (error, operation) => {
 		throw new Error('No se puede conectar con el servidor. Verifica que el servidor esté ejecutándose.')
 	} else if (error.response?.status === 404) {
 		throw new Error('El servicio no está disponible. Contacta al administrador.')
+	} else if (error.response?.status === 409) {
+		const estado = error.response?.data?.estado
+		const msg = estado
+			? `Este parte está en estado "${estado}" y no se puede editar. Recarga la página para ver el estado actual.`
+			: 'Este parte ya no se puede editar. Puede que otro usuario haya cambiado su estado. Recarga la página.'
+		const err = new Error(msg)
+		err.status = 409
+		throw err
 	} else if (error.response?.status === 500) {
 		throw new Error(`Error del servidor: ${errorMessage}`)
 	} else {
