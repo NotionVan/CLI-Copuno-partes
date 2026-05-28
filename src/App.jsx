@@ -171,8 +171,6 @@ function App() {
 			if (document.visibilityState === 'hidden') {
 				stopPartesPolling()
 				stopEstadoPolling()
-				// cerrar stream si está abierto
-				if (estadoStreamRef.current) { estadoStreamRef.current.close(); estadoStreamRef.current = null }
 			} else {
 				// refresco inmediato al volver y reanudar
 				getPartesTrabajo().then(partes => setDatos(prev => ({ ...prev, partesTrabajo: partes }))).catch(() => { })
