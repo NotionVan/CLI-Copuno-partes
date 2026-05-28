@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw, X } from 'lucide-react'
-import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, enviarDatosParte } from './services/notionService'
+import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, enviarDatosParte, getFirmantesAutorizados, buscarEmpleados } from './services/notionService'
+
+// F4: helpers para agrupar firmantes por rol en el selector
+const ROLES_ORDEN = ['Encargado', 'Jefe de Obra', 'Jefe de Producción', 'Otros']
+
+const agruparFirmantesPorRol = (firmantes) => {
+	const grupos = {}
+	for (const rol of ROLES_ORDEN) grupos[rol] = []
+	for (const f of firmantes) {
+		const rol = ROLES_ORDEN.includes(f.rol) ? f.rol : 'Otros'
+		grupos[rol].push(f)
+	}
+	return grupos
+}
 import './App.css'
 
 const formatearHorasTexto = (valor) => {
@@ -506,6 +519,12 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	const [loadingEmpleados, setLoadingEmpleados] = useState(false)
 	const [mostrarEmpleadosObra, setMostrarEmpleadosObra] = useState(false)
 	const [loadingEmpleadosParte, setLoadingEmpleadosParte] = useState(false)
+	// F4: firmantes autorizados de la obra del parte en edición + toggle búsqueda libre
+	const [firmantesObra, setFirmantesObra] = useState([])
+	const [loadingFirmantes, setLoadingFirmantes] = useState(false)
+	const [busquedaLibreJefesEdicion, setBusquedaLibreJefesEdicion] = useState(false)
+	// F5: toggle búsqueda libre de empleados en edición
+	const [busquedaLibreEmpleadosEdicion, setBusquedaLibreEmpleadosEdicion] = useState(false)
 	const [guardandoCambios, setGuardandoCambios] = useState(false)
 	const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
 	// Estado local para reflejar selección de estado inmediatamente en UI
@@ -736,6 +755,24 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		}
 	}
 
+	// F4: cargar firmantes autorizados de una obra
+	const cargarFirmantesObra = async (obraId) => {
+		if (!obraId) {
+			setFirmantesObra([])
+			return
+		}
+		setLoadingFirmantes(true)
+		try {
+			const firmantes = await getFirmantesAutorizados(obraId)
+			setFirmantesObra(firmantes || [])
+		} catch (e) {
+			console.error('Error al cargar firmantes de la obra:', e)
+			setFirmantesObra([])
+		} finally {
+			setLoadingFirmantes(false)
+		}
+	}
+
 	// Función para iniciar edición de un parte
 	const iniciarEdicion = async (parte) => {
 		// Encontrar la obra correspondiente
@@ -817,9 +854,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				empleadosHoras: horasActuales
 			})
 
-			// Cargar empleados de la obra
+			// Cargar empleados y firmantes de la obra (F4)
 			if (obraId) {
-				await cargarEmpleadosObra(obraId)
+				await Promise.all([cargarEmpleadosObra(obraId), cargarFirmantesObra(obraId)])
 			}
 		} catch (error) {
 			console.error('Error al cargar detalles completos del parte:', error)
@@ -838,9 +875,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				empleadosHoras: {}
 			})
 
-			// Cargar empleados de la obra
+			// Cargar empleados y firmantes de la obra (F4)
 			if (obraId) {
-				await cargarEmpleadosObra(obraId)
+				await Promise.all([cargarEmpleadosObra(obraId), cargarFirmantesObra(obraId)])
 			}
 		} finally {
 			setLoadingEmpleadosParte(false)
@@ -922,6 +959,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		setEditandoParte(null)
 		setEmpleadosObra([])
 		setMostrarEmpleadosObra(false)
+		setFirmantesObra([])
+		setBusquedaLibreJefesEdicion(false)
+		setBusquedaLibreEmpleadosEdicion(false)
 	}
 
 	// Función para guardar cambios
@@ -1008,15 +1048,23 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		setEmpleadosObra([])
 	}
 
-	// Función para manejar cambio de obra en edición
+	// Función para manejar cambio de obra en edición (confirma si había datos)
 	const handleObraChangeEdicion = async (obraId) => {
+		const habiaDatos = editandoParte?.personaAutorizadaId || (editandoParte?.empleados && editandoParte.empleados.length > 0)
+		if (habiaDatos) {
+			const confirmar = window.confirm('Cambiar de obra limpiará los empleados y el firmante seleccionados. ¿Continuar?')
+			if (!confirmar) return
+		}
 		setEditandoParte(prev => ({
 			...prev,
 			obraId: obraId,
+			personaAutorizadaId: '',
 			empleados: [],
 			empleadosHoras: {}
 		}))
-		await cargarEmpleadosObra(obraId)
+		setBusquedaLibreJefesEdicion(false)
+		setBusquedaLibreEmpleadosEdicion(false)
+		await Promise.all([cargarEmpleadosObra(obraId), cargarFirmantesObra(obraId)])
 	}
 
 	// Función para agregar/quitar empleado del parte
@@ -1255,18 +1303,64 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 							<div className="form-group">
 								<label className="form-label">Persona Autorizada:</label>
-								<select
-									className="form-select"
-									value={editandoParte.personaAutorizadaId}
-									onChange={(e) => handleEdicionChange('personaAutorizadaId', e.target.value)}
-								>
-									<option value="">Selecciona una Persona Autorizada</option>
-									{datos.jefesObra.map(jefe => (
-										<option key={jefe.id} value={jefe.id}>
-											{jefe.nombre} ({jefe.email})
-										</option>
-									))}
-								</select>
+								<label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: '0.9em' }}>
+									<input
+										type="checkbox"
+										checked={busquedaLibreJefesEdicion}
+										onChange={(e) => setBusquedaLibreJefesEdicion(e.target.checked)}
+									/>
+									Buscar en toda la base
+								</label>
+								{loadingFirmantes ? (
+									<div className="empleados-loading"><Loader2 size={16} className="loading-spinner" /> Cargando firmantes…</div>
+								) : (
+									<>
+										{!busquedaLibreJefesEdicion && firmantesObra.length === 0 && (
+											<div className="empleados-empty" style={{ marginBottom: 6 }}>
+												Esta obra no tiene firmantes asignados. Activa búsqueda libre para elegir uno de la base completa.
+											</div>
+										)}
+										<select
+											className="form-select"
+											value={editandoParte.personaAutorizadaId}
+											onChange={(e) => handleEdicionChange('personaAutorizadaId', e.target.value)}
+										>
+											<option value="">Selecciona una Persona Autorizada</option>
+											{busquedaLibreJefesEdicion
+												? datos.jefesObra.map(jefe => {
+													const enLista = firmantesObra.some(f => f.id === jefe.id)
+													return (
+														<option key={jefe.id} value={jefe.id}>
+															{jefe.nombre} ({jefe.email}){!enLista && editandoParte.obraId ? ' (no asignado a esta obra)' : ''}
+														</option>
+													)
+												})
+												: Object.entries(agruparFirmantesPorRol(firmantesObra)).map(([rol, lista]) => (
+													lista.length > 0 && (
+														<optgroup key={rol} label={rol}>
+															{lista.map(f => (
+																<option key={f.id} value={f.id}>
+																	{f.nombre}{f.email ? ` (${f.email})` : ''}
+																</option>
+															))}
+														</optgroup>
+													)
+												))
+											}
+											{/* Si el firmante guardado no está en la lista filtrada, mostrarlo como fallback */}
+											{!busquedaLibreJefesEdicion && editandoParte.personaAutorizadaId &&
+												!firmantesObra.some(f => f.id === editandoParte.personaAutorizadaId) && (() => {
+													const fallback = datos.jefesObra.find(j => j.id === editandoParte.personaAutorizadaId)
+													return fallback ? (
+														<option key={fallback.id} value={fallback.id}>
+															{fallback.nombre} (no asignado a esta obra)
+														</option>
+													) : null
+												})()
+											}
+										</select>
+									</>
+								)}
 							</div>
 
 							<div className="form-group">
@@ -1329,7 +1423,10 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 																onChange={() => toggleEmpleado(empleado.id)}
 															/>
 															<span className="empleado-nombre-edicion">
-																<strong>{empleado.nombre}</strong>
+																<strong>
+																	{empleado.idCopuno != null ? `${empleado.idCopuno} · ` : '— · '}
+																	{empleado.nombre}
+																</strong>
 																<span className="categoria-empleado">{empleado.categoria}</span>
 															</span>
 														</label>
@@ -1405,7 +1502,10 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 																	onChange={() => toggleEmpleado(empleado.id)}
 																/>
 																<span className="empleado-nombre-disponible">
-																	<strong>{empleado.nombre}</strong>
+																	<strong>
+																		{empleado.idCopuno != null ? `${empleado.idCopuno} · ` : '— · '}
+																		{empleado.nombre}
+																	</strong>
 																	<span className="categoria-empleado">{empleado.categoria}</span>
 																</span>
 															</label>
@@ -1550,12 +1650,23 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 									</div>
 								) : detallesEmpleados.length > 0 ? (
 									<div className="empleados-lista-detalles">
-										{detallesEmpleados.map((detalle, index) => (
+										{detallesEmpleados.map((detalle, index) => {
+											// F6: enriquecer con ID Copuno cruzando contra empleados globales
+											let empId = null
+											if (Array.isArray(detalle.empleadoId) && detalle.empleadoId.length > 0) empId = detalle.empleadoId[0].id
+											else if (detalle.empleadoId && typeof detalle.empleadoId === 'object' && detalle.empleadoId.id) empId = detalle.empleadoId.id
+											else if (typeof detalle.empleadoId === 'string') empId = detalle.empleadoId
+											const empGlobal = empId ? datos.empleados.find(e => e.id === empId) : null
+											const idCopuno = empGlobal?.idCopuno
+											return (
 											<div key={detalle.id || index} className="empleado-detalle">
 												<div className="empleado-info-detalle">
 													<div className="empleado-nombre">
 														<User size={16} />
-														<span>{detalle.empleadoNombre || 'Empleado sin nombre'}</span>
+														<span>
+															{idCopuno != null ? `${idCopuno} · ` : '— · '}
+															{detalle.empleadoNombre || 'Empleado sin nombre'}
+														</span>
 													</div>
 													<div className="empleado-categoria">
 														<span className="categoria-badge">{detalle.categoria || 'Sin categoría'}</span>
@@ -1572,7 +1683,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 													</div>
 												)}
 											</div>
-										))}
+											)
+										})}
 									</div>
 								) : (
 									<div className="no-empleados">
@@ -1915,11 +2027,73 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	const [showOpciones, setShowOpciones] = useState(false)
 	const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
 	const [busquedaEmpleado, setBusquedaEmpleado] = useState('')
+	// F4: firmantes de la obra + toggle búsqueda libre de jefes
+	const [firmantesObra, setFirmantesObra] = useState([])
+	const [loadingFirmantes, setLoadingFirmantes] = useState(false)
+	const [busquedaLibreJefes, setBusquedaLibreJefes] = useState(false)
+	// F5: toggle búsqueda libre de empleados + resultados de búsqueda incremental
+	const [busquedaLibreEmpleados, setBusquedaLibreEmpleados] = useState(false)
+	const [resultadosBusquedaLibre, setResultadosBusquedaLibre] = useState([])
+	const [buscandoLibre, setBuscandoLibre] = useState(false)
+	// EDGE CASE 4: caché de detalles de empleados añadidos al parte (sobrevive a cambio de toggle)
+	const [empleadosAñadidosDetalle, setEmpleadosAñadidosDetalle] = useState({})
 
-	// Filtrar empleados por nombre de búsqueda
+	// Helper: añadir empleado al parte y memorizar su detalle
+	const añadirEmpleadoAlParte = (empleado) => {
+		setFormData(prev => ({
+			...prev,
+			empleados: [...prev.empleados, empleado.id],
+			empleadosHoras: { ...prev.empleadosHoras, [empleado.id]: 8 }
+		}))
+		setEmpleadosAñadidosDetalle(prev => ({ ...prev, [empleado.id]: empleado }))
+	}
+
+	// Helper: quitar empleado del parte
+	const quitarEmpleadoDelParte = (empleadoId) => {
+		setFormData(prev => {
+			const newHoras = { ...prev.empleadosHoras }
+			delete newHoras[empleadoId]
+			return {
+				...prev,
+				empleados: prev.empleados.filter(id => id !== empleadoId),
+				empleadosHoras: newHoras
+			}
+		})
+		setEmpleadosAñadidosDetalle(prev => {
+			const next = { ...prev }
+			delete next[empleadoId]
+			return next
+		})
+	}
+
+	// Empleados disponibles a mostrar en el selector (excluye ya añadidos)
+	const candidatosVisibles = (busquedaLibreEmpleados ? resultadosBusquedaLibre : empleadosFiltrados)
+		.filter(e => !formData.empleados.includes(e.id))
+
+	// Filtrar empleados por nombre de búsqueda (modo filtrado por obra)
 	const empleadosFiltrados = empleadosObra.filter(empleado =>
 		empleado.nombre.toLowerCase().includes(busquedaEmpleado.toLowerCase())
 	)
+
+	// F5: búsqueda incremental con debounce cuando está activa la búsqueda libre
+	useEffect(() => {
+		if (!busquedaLibreEmpleados || busquedaEmpleado.length < 3) {
+			setResultadosBusquedaLibre([])
+			return
+		}
+		setBuscandoLibre(true)
+		const t = setTimeout(async () => {
+			try {
+				const r = await buscarEmpleados(busquedaEmpleado, 20)
+				setResultadosBusquedaLibre(r || [])
+			} catch (e) {
+				setResultadosBusquedaLibre([])
+			} finally {
+				setBuscandoLibre(false)
+			}
+		}, 300)
+		return () => clearTimeout(t)
+	}, [busquedaEmpleado, busquedaLibreEmpleados])
 
 	// Helpers tolerantes para horas: limitar 0-24 y redondear a 0.5
 	const clampRoundHoras = (val) => {
@@ -1978,6 +2152,18 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 			setLoadingEmpleados(false)
 		}
 
+		// F4: cargar firmantes de la obra en paralelo
+		setLoadingFirmantes(true)
+		try {
+			const firmantes = await getFirmantesAutorizados(obraId)
+			setFirmantesObra(firmantes || [])
+		} catch (e) {
+			console.error('Error al cargar firmantes de la obra:', e)
+			setFirmantesObra([])
+		} finally {
+			setLoadingFirmantes(false)
+		}
+
 		const cambiarEstadoEmpleadoObra = async (empleadoId, nuevoEstado) => {
 			setEstadoLocal(prev => ({ ...prev, [empleadoId]: nuevoEstado }))
 			try {
@@ -2011,20 +2197,33 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 			...formData,
 			provinciaSeleccionada: provincia,
 			obraId: '', // Resetear obra seleccionada
+			personaAutorizadaId: '',
 			empleados: [], // Limpiar empleados seleccionados
 			empleadosHoras: {} // Limpiar horas
 		})
-		setEmpleadosObra([]) // Limpiar lista de empleados de obra
+		setEmpleadosObra([])
+		setFirmantesObra([])
+		setBusquedaLibreJefes(false)
+		setBusquedaLibreEmpleados(false)
 	}
 
-	// Función para manejar el cambio de obra
+	// Función para manejar el cambio de obra (limpia firmante + empleados + toggles; confirma si había datos)
 	const handleObraChange = (obraId) => {
+		const habiaDatos = formData.personaAutorizadaId || (formData.empleados && formData.empleados.length > 0)
+		if (habiaDatos) {
+			const confirmar = window.confirm('Cambiar de obra limpiará los empleados y el firmante seleccionados. ¿Continuar?')
+			if (!confirmar) return
+		}
 		setFormData({
 			...formData,
 			obraId,
-			empleados: [], // Limpiar empleados seleccionados al cambiar obra
-			empleadosHoras: {} // Limpiar horas al cambiar obra
+			personaAutorizadaId: '',
+			empleados: [],
+			empleadosHoras: {}
 		})
+		setBusquedaLibreJefes(false)
+		setBusquedaLibreEmpleados(false)
+		setBusquedaEmpleado('')
 		cargarEmpleadosObra(obraId)
 	}
 
@@ -2085,6 +2284,11 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 			notas: ''
 		})
 		setEmpleadosObra([])
+		setFirmantesObra([])
+		setBusquedaLibreJefes(false)
+		setBusquedaLibreEmpleados(false)
+		setBusquedaEmpleado('')
+		setResultadosBusquedaLibre([])
 		setParteCreado(null)
 		setShowOpciones(false)
 		setMessage('')
@@ -2220,23 +2424,58 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 
 						<div className="form-group">
 							<label className="form-label">Persona Autorizada:</label>
-							<select
-								className="form-select"
-								value={formData.personaAutorizadaId}
-								onChange={(e) => setFormData({ ...formData, personaAutorizadaId: e.target.value })}
-								required
-							>
-								<option value="">Selecciona una Persona Autorizada</option>
-								{datos.jefesObra.map(jefe => (
-									<option key={jefe.id} value={jefe.id}>
-										{jefe.nombre} ({jefe.email})
-									</option>
-								))}
-							</select>
+							<label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: '0.9em' }}>
+								<input
+									type="checkbox"
+									checked={busquedaLibreJefes}
+									onChange={(e) => setBusquedaLibreJefes(e.target.checked)}
+								/>
+								Buscar en toda la base
+							</label>
+							{loadingFirmantes ? (
+								<div className="empleados-loading"><Loader2 size={16} className="loading-spinner" /> Cargando firmantes…</div>
+							) : (
+								<>
+									{!busquedaLibreJefes && formData.obraId && firmantesObra.length === 0 && (
+										<div className="empleados-empty" style={{ marginBottom: 6 }}>
+											Esta obra no tiene firmantes asignados. Activa búsqueda libre para elegir uno de la base completa.
+										</div>
+									)}
+									<select
+										className="form-select"
+										value={formData.personaAutorizadaId}
+										onChange={(e) => setFormData({ ...formData, personaAutorizadaId: e.target.value })}
+										required
+									>
+										<option value="">Selecciona una Persona Autorizada</option>
+										{busquedaLibreJefes
+											? datos.jefesObra.map(jefe => {
+												const enLista = firmantesObra.some(f => f.id === jefe.id)
+												return (
+													<option key={jefe.id} value={jefe.id}>
+														{jefe.nombre} ({jefe.email}){!enLista && formData.obraId ? ' (no asignado a esta obra)' : ''}
+													</option>
+												)
+											})
+											: Object.entries(agruparFirmantesPorRol(firmantesObra)).map(([rol, lista]) => (
+												lista.length > 0 && (
+													<optgroup key={rol} label={rol}>
+														{lista.map(f => (
+															<option key={f.id} value={f.id}>
+																{f.nombre}{f.email ? ` (${f.email})` : ''}
+															</option>
+														))}
+													</optgroup>
+												)
+											))
+										}
+									</select>
+								</>
+							)}
 						</div>
 
 						<div className="form-group">
-							<label className="form-label">Empleados asignados a la obra:</label>
+							<label className="form-label">Empleados:</label>
 							{!formData.obraId ? (
 								<div className="empleados-placeholder">
 									<p>Selecciona una obra para ver los empleados asignados</p>
@@ -2246,153 +2485,149 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 									<Loader2 size={20} className="loading-spinner" />
 									<p>Cargando empleados de la obra...</p>
 								</div>
-							) : empleadosObra.length === 0 ? (
-								<div className="empleados-empty">
-									<p>No hay empleados asignados a esta obra</p>
-								</div>
 							) : (
 								<>
-									{/* Buscador de empleados */}
-									<div className="empleados-search">
-										<Search size={18} />
+									{/* F5 toggle */}
+									<label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: '0.9em' }}>
 										<input
-											type="text"
-											placeholder="Buscar empleado por nombre..."
-											value={busquedaEmpleado}
-											onChange={(e) => setBusquedaEmpleado(e.target.value)}
-											className="empleados-search-input"
+											type="checkbox"
+											checked={!busquedaLibreEmpleados}
+											onChange={(e) => {
+												const marcado = e.target.checked
+												setBusquedaLibreEmpleados(!marcado)
+												setBusquedaEmpleado('')
+												setResultadosBusquedaLibre([])
+											}}
 										/>
-										{busquedaEmpleado && (
-											<button
-												type="button"
-												onClick={() => setBusquedaEmpleado('')}
-												className="search-clear"
-											>
-												<X size={16} />
-											</button>
-										)}
-									</div>
-									{empleadosFiltrados.length === 0 ? (
-										<div className="empleados-empty">
-											<p>No se encontraron empleados con "{busquedaEmpleado}"</p>
+										Mostrar solo empleados asignados a esta obra
+									</label>
+
+									{/* EDGE CASE 3 — obra sin empleados en modo filtrado */}
+									{!busquedaLibreEmpleados && empleadosObra.length === 0 && (
+										<div className="empleados-empty" style={{ marginBottom: 8 }}>
+											Esta obra no tiene empleados asignados. Activa búsqueda libre para añadir empleados.
 										</div>
-									) : (
-										<div className="empleados-lista empleados-lista-compacta">
-											{empleadosFiltrados.map(empleado => (
-												<div key={empleado.id} className="empleado-item">
-													<label className="empleado-checkbox">
-														<input
-															type="checkbox"
-															checked={formData.empleados.includes(empleado.id)}
-															onChange={(e) => {
-																if (e.target.checked) {
-																	setFormData({
-																		...formData,
-																		empleados: [...formData.empleados, empleado.id],
-																		empleadosHoras: {
-																			...formData.empleadosHoras,
-																			[empleado.id]: 8
-																		}
-																	})
-																} else {
-																	const newEmpleadosHoras = { ...formData.empleadosHoras }
-																	delete newEmpleadosHoras[empleado.id]
-																	setFormData({
-																		...formData,
-																		empleados: formData.empleados.filter(id => id !== empleado.id),
-																		empleadosHoras: newEmpleadosHoras
-																	})
-																}
-															}}
-														/>
-														<span className="empleado-info">
-															<div className="empleado-nombre-estado">
-																<strong>{empleado.nombre}</strong>
-																<span className={`estado-empleado ${empleado.estado?.toLowerCase() || 'sin-estado'}`}>
-																	{empleado.estado || 'Sin estado'}
-																</span>
-															</div>
-															<span className="categoria">{empleado.categoria}</span>
-														</span>
-													</label>
-													{/* Bloque de horas solo si está seleccionado */}
-													{formData.empleados.includes(empleado.id) && (
-														<>
+									)}
+
+									{/* EDGE CASE 4 — Empleados ya añadidos al parte: bloque persistente */}
+									{formData.empleados.length > 0 && (
+										<div style={{ marginBottom: 12 }}>
+											<h4 style={{ marginBottom: 6 }}>Empleados añadidos al parte ({formData.empleados.length}):</h4>
+											<div className="empleados-lista empleados-lista-compacta">
+												{formData.empleados.map(empId => {
+													const emp = empleadosAñadidosDetalle[empId]
+														|| empleadosObra.find(e => e.id === empId)
+														|| resultadosBusquedaLibre.find(e => e.id === empId)
+														|| { id: empId, nombre: '(empleado)', categoria: '', idCopuno: null }
+													return (
+														<div key={empId} className="empleado-item">
+															<span className="empleado-info">
+																<div className="empleado-nombre-estado">
+																	<strong>
+																		{emp.idCopuno != null ? `${emp.idCopuno} · ` : '— · '}
+																		{emp.nombre}
+																	</strong>
+																</div>
+																<span className="categoria">{emp.categoria || '—'}</span>
+															</span>
 															<div className="empleado-horas-input">
-																<label className="horas-label">Horas trabajadas:</label>
+																<label className="horas-label">Horas:</label>
 																<button
 																	type="button"
 																	className="horas-btn horas-btn-minus"
 																	onClick={() => {
-																		const currentHoras = formData.empleadosHoras[empleado.id] || 0
-																		const newHoras = Math.max(0, currentHoras - 1)
-																		setFormData({
-																			...formData,
-																			empleadosHoras: {
-																				...formData.empleadosHoras,
-																				[empleado.id]: newHoras
-																			}
-																		})
+																		const cur = formData.empleadosHoras[empId] || 0
+																		setFormData({ ...formData, empleadosHoras: { ...formData.empleadosHoras, [empId]: Math.max(0, cur - 1) } })
 																	}}
-																>
-																	−
-																</button>
+																>−</button>
 																<input
 																	type="number"
 																	className="horas-input"
-																	min="0"
-																	max="24"
-																	step="0.5"
-																	value={formData.empleadosHoras[empleado.id] ?? ''}
+																	min="0" max="24" step="0.5"
+																	value={formData.empleadosHoras[empId] ?? ''}
 																	onFocus={(e) => e.target.select()}
-																	onChange={(e) => {
-																		const horas = clampRoundHoras(e.target.value)
-																		setFormData({
-																			...formData,
-																			empleadosHoras: {
-																				...formData.empleadosHoras,
-																				[empleado.id]: horas
-																			}
-																		})
-																	}}
+																	onChange={(e) => setFormData({ ...formData, empleadosHoras: { ...formData.empleadosHoras, [empId]: clampRoundHoras(e.target.value) } })}
 																/>
 																<button
 																	type="button"
 																	className="horas-btn horas-btn-plus"
 																	onClick={() => {
-																		const currentHoras = formData.empleadosHoras[empleado.id] || 0
-																		const newHoras = Math.min(24, currentHoras + 1)
-																		setFormData({
-																			...formData,
-																			empleadosHoras: {
-																				...formData.empleadosHoras,
-																				[empleado.id]: newHoras
-																			}
-																		})
+																		const cur = formData.empleadosHoras[empId] || 0
+																		setFormData({ ...formData, empleadosHoras: { ...formData.empleadosHoras, [empId]: Math.min(24, cur + 1) } })
 																	}}
-																>
-																	+
-																</button>
+																>+</button>
 																<span className="horas-unidad">h</span>
 															</div>
-														</>
-													)}
-													{/* Selector de estado SIEMPRE visible para permitir cambios en asignación */}
-													<div className="empleado-estado-edicion">
-														<label className="horas-label">Estado:</label>
-														<select
-															className="form-select"
-															onChange={(e) => cambiarEstadoEmpleadoObra(empleado.id, e.target.value)}
-															defaultValue={estadoLocal[empleado.id] || empleado.estado || ''}
-														>
-															<option value="">{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
-															{(estadoOptions.options || []).map(opt => (
-																<option key={opt.name} value={opt.name}>
-																	{opt.name}
-																</option>
-															))}
-														</select>
-													</div>
+															<button
+																type="button"
+																className="btn btn-secondary"
+																style={{ marginLeft: 8 }}
+																onClick={() => quitarEmpleadoDelParte(empId)}
+															>
+																<X size={14} /> Quitar
+															</button>
+														</div>
+													)
+												})}
+											</div>
+										</div>
+									)}
+
+									{/* Selector / buscador */}
+									<div className="empleados-search">
+										<Search size={18} />
+										<input
+											type="text"
+											placeholder={busquedaLibreEmpleados ? "Escribe al menos 3 letras para buscar..." : "Buscar empleado por nombre..."}
+											value={busquedaEmpleado}
+											onChange={(e) => setBusquedaEmpleado(e.target.value)}
+											className="empleados-search-input"
+										/>
+										{busquedaEmpleado && (
+											<button type="button" onClick={() => setBusquedaEmpleado('')} className="search-clear">
+												<X size={16} />
+											</button>
+										)}
+									</div>
+
+									{busquedaLibreEmpleados && busquedaEmpleado.length > 0 && busquedaEmpleado.length < 3 && (
+										<div className="empleados-empty"><p>Escribe al menos 3 letras para buscar.</p></div>
+									)}
+									{busquedaLibreEmpleados && buscandoLibre && (
+										<div className="empleados-loading"><Loader2 size={16} className="loading-spinner" /> Buscando…</div>
+									)}
+
+									{candidatosVisibles.length === 0 ? (
+										(busquedaLibreEmpleados ? (busquedaEmpleado.length >= 3 && !buscandoLibre) : true) && (
+											<div className="empleados-empty">
+												<p>{busquedaEmpleado ? `No se encontraron empleados con "${busquedaEmpleado}"` : 'No hay candidatos disponibles para añadir.'}</p>
+											</div>
+										)
+									) : (
+										<div className="empleados-lista empleados-lista-compacta">
+											{candidatosVisibles.map(empleado => (
+												<div key={empleado.id} className="empleado-item">
+													<span className="empleado-info">
+														<div className="empleado-nombre-estado">
+															<strong>
+																{empleado.idCopuno != null ? `${empleado.idCopuno} · ` : '— · '}
+																{empleado.nombre}
+															</strong>
+															{empleado.estado && (
+																<span className={`estado-empleado ${empleado.estado?.toLowerCase() || 'sin-estado'}`}>
+																	{empleado.estado}
+																</span>
+															)}
+														</div>
+														<span className="categoria">{empleado.categoria || '—'}</span>
+													</span>
+													<button
+														type="button"
+														className="btn btn-success"
+														onClick={() => añadirEmpleadoAlParte(empleado)}
+													>
+														<Plus size={14} /> Añadir
+													</button>
 												</div>
 											))}
 										</div>

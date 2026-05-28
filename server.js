@@ -361,6 +361,55 @@ app.get('/api/jefes-obra', async (req, res) => {
 	}
 })
 
+// F4: Firmantes autorizados para una obra concreta (lee relación OBRAS.Persona Autorizada)
+app.get('/api/obras/:obraId/firmantes-autorizados', async (req, res) => {
+	try {
+		const { obraId } = req.params
+
+		if (USE_MOCK_DATA) {
+			return res.json(mockStore.getFirmantesPorObra ? mockStore.getFirmantesPorObra(obraId) : [])
+		}
+
+		let obraData
+		try {
+			obraData = await makeNotionRequest('GET', `/pages/${obraId}`)
+		} catch (e) {
+			if (e.response?.status === 404) {
+				return res.status(404).json({ error: 'Obra no encontrada' })
+			}
+			throw e
+		}
+
+		const relaciones = extractPropertyValue(obraData.properties['Persona Autorizada'])
+		if (!relaciones || relaciones.length === 0) {
+			return res.json([])
+		}
+
+		const firmantes = []
+		for (const ref of relaciones) {
+			try {
+				const jefe = await makeNotionRequest('GET', `/pages/${ref.id}`)
+				firmantes.push({
+					id: jefe.id,
+					nombre: extractPropertyValue(jefe.properties['Persona Autorizada']),
+					email: extractPropertyValue(jefe.properties[' Email']),
+					rol: extractPropertyValue(jefe.properties['Rol']) || 'Otros'
+				})
+			} catch (e) {
+				console.error(`Error al leer firmante ${ref.id}:`, e.message)
+			}
+		}
+
+		res.json(firmantes)
+	} catch (error) {
+		console.error('Error al obtener firmantes autorizados:', error.message)
+		res.status(500).json({
+			error: 'Error al obtener firmantes autorizados',
+			details: error.message
+		})
+	}
+})
+
 // Obtener todos los empleados
 app.get('/api/empleados', async (req, res) => {
 	try {
@@ -375,6 +424,7 @@ app.get('/api/empleados', async (req, res) => {
 
 		const empleados = data.results.map(page => ({
 			id: page.id,
+			idCopuno: page.properties['ID COPUNO']?.number ?? null,
 			nombre: extractPropertyValue(page.properties['Nombre Completo']),
 			categoria: extractPropertyValue(page.properties['Categoría']),
 			provincia: extractPropertyValue(page.properties['Provincia']),
@@ -391,6 +441,55 @@ app.get('/api/empleados', async (req, res) => {
 		console.error('Error al obtener empleados:', error.message)
 		res.status(500).json({
 			error: 'Error al obtener empleados',
+			details: error.message
+		})
+	}
+})
+
+// F5: búsqueda incremental de empleados (server-side, máx 20 resultados)
+app.get('/api/empleados/buscar', async (req, res) => {
+	try {
+		const q = String(req.query.q || '').trim()
+		const limite = Math.min(Math.max(Number(req.query.limite) || 20, 1), 50)
+
+		if (q.length < 3) {
+			return res.json([])
+		}
+
+		if (USE_MOCK_DATA) {
+			const todos = mockStore.getEmpleados()
+			const filtrados = todos
+				.filter(e => (e.nombre || '').toLowerCase().includes(q.toLowerCase()))
+				.slice(0, limite)
+			return res.json(filtrados)
+		}
+
+		const data = await makeNotionRequest('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
+			filter: {
+				property: 'Nombre Completo',
+				title: { contains: q }
+			},
+			page_size: limite
+		})
+
+		const empleados = data.results.map(page => ({
+			id: page.id,
+			idCopuno: page.properties['ID COPUNO']?.number ?? null,
+			nombre: extractPropertyValue(page.properties['Nombre Completo']),
+			categoria: extractPropertyValue(page.properties['Categoría']),
+			provincia: extractPropertyValue(page.properties['Provincia']),
+			localidad: extractPropertyValue(page.properties['Localidad']),
+			telefono: extractPropertyValue(page.properties['Teléfono']),
+			dni: extractPropertyValue(page.properties['DNI']),
+			estado: extractPropertyValue(page.properties['Estado']),
+			delegado: extractPropertyValue(page.properties['Delegado'])
+		}))
+
+		res.json(empleados)
+	} catch (error) {
+		console.error('Error al buscar empleados:', error.message)
+		res.status(500).json({
+			error: 'Error al buscar empleados',
 			details: error.message
 		})
 	}
@@ -498,6 +597,7 @@ app.get('/api/obras/:obraId/empleados', async (req, res) => {
 
 		const empleadosDetalles = response.results.map(emp => ({
 			id: emp.id,
+			idCopuno: emp.properties['ID COPUNO']?.number ?? null,
 			nombre: extractPropertyValue(emp.properties['Nombre Completo']),
 			categoria: extractPropertyValue(emp.properties['Categoría']),
 			provincia: extractPropertyValue(emp.properties['Provincia']),
