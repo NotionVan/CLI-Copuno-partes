@@ -272,6 +272,16 @@ export const enviarDatosParte = async (parteId) => {
   }
 }
 
+// Crear un parte rectificativo a partir de uno firmado
+export const rectificarParte = async (parteId) => {
+  try {
+    const response = await apiClient.post(`/api/partes-trabajo/${parteId}/rectificar`)
+    return response.data
+  } catch (error) {
+    handleApiError(error, 'rectificar parte de trabajo')
+  }
+}
+
 // Crear un nuevo parte de trabajo
 export const crearParteTrabajo = async (datos) => {
 	try {
