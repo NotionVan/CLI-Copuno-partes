@@ -84,7 +84,7 @@ if (USE_MOCK_DATA) {
 
 // Rate limiting para /api con valores configurables
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000) // 15 minutos
-const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 100) // 100 req por ventana
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 1000) // 1000 req por ventana (NAT compartido)
 const apiLimiter = rateLimit({
 	windowMs: RATE_LIMIT_WINDOW_MS,
 	max: RATE_LIMIT_MAX,
@@ -487,38 +487,26 @@ app.get('/api/obras/:obraId/empleados', async (req, res) => {
 			return res.json(mockStore.getEmpleadosPorObra(obraId))
 		}
 
-		// Obtener la obra específica para ver sus empleados relacionados
-		const obraData = await makeNotionRequest('GET', `/pages/${obraId}`)
+		// Query filtrada por la relación inversa "Obras" en EMPLEADOS — elimina N+1
+		const response = await makeNotionRequest('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
+			filter: {
+				property: 'Obras',
+				relation: { contains: obraId }
+			},
+			page_size: 100
+		})
 
-		// Extraer los IDs de empleados relacionados
-		const empleadosRelacionados = extractPropertyValue(obraData.properties['Empleados'])
-
-		if (!empleadosRelacionados || empleadosRelacionados.length === 0) {
-			return res.json([])
-		}
-
-		// Obtener los detalles de cada empleado relacionado
-		const empleadosDetalles = []
-
-		for (const empleadoRef of empleadosRelacionados) {
-			try {
-				const empleadoData = await makeNotionRequest('GET', `/pages/${empleadoRef.id}`)
-
-				empleadosDetalles.push({
-					id: empleadoData.id,
-					nombre: extractPropertyValue(empleadoData.properties['Nombre Completo']),
-					categoria: extractPropertyValue(empleadoData.properties['Categoría']),
-					provincia: extractPropertyValue(empleadoData.properties['Provincia']),
-					localidad: extractPropertyValue(empleadoData.properties['Localidad']),
-					telefono: extractPropertyValue(empleadoData.properties['Teléfono']),
-					dni: extractPropertyValue(empleadoData.properties['DNI']),
-					estado: extractPropertyValue(empleadoData.properties['Estado']),
-					delegado: extractPropertyValue(empleadoData.properties['Delegado'])
-				})
-			} catch (error) {
-				console.error(`Error al obtener empleado ${empleadoRef.id}:`, error.message)
-			}
-		}
+		const empleadosDetalles = response.results.map(emp => ({
+			id: emp.id,
+			nombre: extractPropertyValue(emp.properties['Nombre Completo']),
+			categoria: extractPropertyValue(emp.properties['Categoría']),
+			provincia: extractPropertyValue(emp.properties['Provincia']),
+			localidad: extractPropertyValue(emp.properties['Localidad']),
+			telefono: extractPropertyValue(emp.properties['Teléfono']),
+			dni: extractPropertyValue(emp.properties['DNI']),
+			estado: extractPropertyValue(emp.properties['Estado']),
+			delegado: extractPropertyValue(emp.properties['Delegado'])
+		}))
 
 		res.json(empleadosDetalles)
 	} catch (error) {
@@ -674,7 +662,14 @@ app.post('/api/partes-trabajo', async (req, res) => {
 			}
 		})
 
-		console.log(`✅ Parte creado con nombre: ${nombreFinal}`)
+		console.log(JSON.stringify({
+			reqId: req.id,
+			event: 'parte_creado',
+			parteId: parteData.id,
+			nombrePretendido: `Parte ${obra}`,
+			nombreFinal,
+			empleadosPretendidos: empleados?.length || 0
+		}))
 
 		// Crear detalles de horas para cada empleado seleccionado
 		let detallesCreados = []
@@ -729,10 +724,14 @@ app.post('/api/partes-trabajo', async (req, res) => {
 			}
 
 			// Log de resultados
-			console.log(`✅ Detalles creados: ${detallesCreados.length}/${empleados.length}`)
-			if (erroresDetalles.length > 0) {
-				console.log(`❌ Errores en detalles:`, erroresDetalles)
-			}
+			console.log(JSON.stringify({
+				reqId: req.id,
+				event: 'detalles_creados',
+				parteId: parteData.id,
+				pretendidos: empleados.length,
+				creados: detallesCreados.length,
+				errores: erroresDetalles
+			}))
 		}
 
 		res.json({
@@ -1307,10 +1306,14 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 			}
 
 			// Log de resultados
-			console.log(`✅ Detalles actualizados: ${detallesCreados.length}/${empleados.length}`)
-			if (erroresDetalles.length > 0) {
-				console.log(`❌ Errores en detalles:`, erroresDetalles)
-			}
+			console.log(JSON.stringify({
+				reqId: req.id,
+				event: 'detalles_actualizados',
+				parteId,
+				pretendidos: empleados.length,
+				creados: detallesCreados.length,
+				errores: erroresDetalles
+			}))
 		}
 
 		// Construir mensaje de respuesta
