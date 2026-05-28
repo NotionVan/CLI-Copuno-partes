@@ -6,6 +6,13 @@
 
 ## Cambios
 
+### Guard de duplicados y no duplicar prefijo en notas
+
+Incluye también los fixes del commit `5a59f90`:
+
+- **Guard de duplicados (backend + mock):** `POST /api/partes-trabajo/:id/rectificar` devuelve `409 "Este parte ya tiene un rectificativo asociado"` si el original ya tiene `Rectificado por ` poblado. Protege contra doble click, dos pestañas simultáneas o estado de UI desactualizado. Smoke test dedicado (33/33).
+- **No duplicar prefijo en notas:** si el original ya era a su vez un rectificativo (notas empezando por `PARTE RECTIFICATIVO`), el nuevo no añade el prefijo de nuevo.
+
 ### Rectificativos también desde "Datos Enviados"
 
 - El botón "Rectificar" del listado ahora aparece en partes en estado **`Firmado`** y **`Datos Enviados`** (antes solo `Firmado`).
@@ -28,8 +35,11 @@
 
 ## Verificación
 
-- Smoke tests: 32/32 verdes.
-- QA manual en producción (Chrome) sobre un parte en `Datos Enviados` ("Parte Llano Amarillo Puerto Algeciras230"): botón "Rectificar" visible → modal → parte nuevo en Borrador con badge "RECTIFICATIVO" y notas "PARTE RECTIFICATIVO" → original marcado "RECTIFICADO" → apertura automática en edición. `window.__APP_VERSION__` = "1.2.2". Sin errores de consola.
+- Smoke tests: 33/33 verdes (incluye test de guard de duplicados).
+- QA manual en producción (Chrome) v1.2.2:
+  - Parte `Datos Enviados` ("Llano Amarillo Puerto Algeciras230"): botón visible → modal → rectificativo creado en Borrador → original marcado "RECTIFICADO" → apertura en edición → notas "PARTE RECTIFICATIVO". Sin errores. ✅
+  - Guard de duplicados: parte con badge "RECTIFICADO" no muestra botón "Rectificar" (solo "Ver Detalles"). ✅
+  - Check B (no duplicar prefijo en cadena): pendiente de verificar cuando un rectificativo alcance estado `Firmado` o `Datos Enviados`.
 
 ## Migración
 
