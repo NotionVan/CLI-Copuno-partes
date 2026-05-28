@@ -330,7 +330,11 @@ Respuesta `200`: página Notion actualizada + `{ empleadosActualizados, detalles
 |--------|------|
 | POST | `/api/partes-trabajo/:parteId/rectificar` |
 
-Crea un **parte rectificativo** a partir de uno firmado: un parte nuevo en estado `Borrador` que copia cabecera (obra, fecha, persona autorizada, notas) y todos los `Detalle Horas` del original, enlazado a este vía la relación reflexiva `Rectifica a` en Notion. El original queda referenciado por la relación inversa `Rectificado por` y **se conserva intacto** (su PDF firmado no se toca).
+Crea un **parte rectificativo** a partir de uno firmado: un parte nuevo en estado `Borrador` que copia cabecera (obra, fecha, persona autorizada, notas) y todos los `Detalle Horas` del original, enlazado a este vía la relación reflexiva `Rectifica a ` en Notion. El original queda referenciado por la relación inversa `Rectificado por ` y **se conserva intacto** (su PDF firmado no se toca).
+
+El campo `Notas` del rectificativo lleva siempre el prefijo `PARTE RECTIFICATIVO` (más las notas originales si las había), para identificarlo en Notion.
+
+> **Nombres de propiedad con espacio final:** `Rectifica a ` y `Rectificado por ` tienen un espacio al final tal como están creadas en Notion. El código las referencia con ese espacio exacto.
 
 El rectificativo sigue después el flujo normal: el usuario lo corrige → `enviar-datos` → Make genera el PDF (marcado como rectificativo) → el jefe firma de nuevo.
 

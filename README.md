@@ -2,8 +2,10 @@
 
 Aplicación web moderna para la gestión de partes de trabajo con backend en Notion. Diseñada con una interfaz minimalista y elegante, optimizada para usuarios de todos los niveles.
 
-> **Versión actual:** `1.0.2`
-> **Release:** 9 de diciembre de 2025 · [Changelog](./CHANGELOG_V1.0.2.md)
+> **Versión actual:** `1.2.1`
+> **Release:** 28 de mayo de 2026 · [Changelog](./CHANGELOG_V1.2.1.md)
+>
+> _(El historial de versiones más abajo es heredado y puede no reflejar el orden real; la fuente de verdad del versionado es `package.json` + los `CHANGELOG_V*.md`.)_
 
 ## ✨ Características
 
@@ -300,7 +302,14 @@ NODE_ENV=production
 
 ## 📝 Changelog
 
-### v1.4.2 - Botón de Restablecer Filtros ⭐ **ACTUAL**
+### v1.2.1 - Partes rectificativos + banner de actualización ⭐ **ACTUAL**
+- ✅ **Partes rectificativos** - Corregir un parte firmado creando uno nuevo enlazado al original (el firmado se conserva intacto). Botón "Rectificar", badges y prefijo "PARTE RECTIFICATIVO" en notas.
+- ✅ **Banner de actualización** - Aviso automático en la app cuando hay una versión nueva desplegada (comprueba cada 1 min).
+- 📄 **Changelogs**: [CHANGELOG_V1.2.0.md](CHANGELOG_V1.2.0.md) · [CHANGELOG_V1.2.1.md](CHANGELOG_V1.2.1.md)
+
+> El historial siguiente es heredado (numeración previa no lineal). Versión real en `package.json`.
+
+### v1.4.2 - Botón de Restablecer Filtros
 - ✅ **Botón "Limpiar"** - Restablecer todos los filtros con un solo clic
 - ✅ **Visibilidad contextual** - Solo aparece cuando hay filtros activos
 - ✅ **Diseño touch-friendly** - Optimizado para tablets

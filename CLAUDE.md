@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-05-28 (v1.2.0 — banner de actualización disponible: compara versión embebida en build con `/api/health` cada 5 min; convención SemVer de bump por peso de cambio documentada en CLAUDE.md)
+- **Última edición:** 2026-05-28 (v1.2.1 — partes rectificativos (endpoint + UI + prefijo "PARTE RECTIFICATIVO" en notas) y banner de actualización (comprueba `/api/health` cada 1 min). Changelogs: [CHANGELOG_V1.2.0.md](CHANGELOG_V1.2.0.md), [CHANGELOG_V1.2.1.md](CHANGELOG_V1.2.1.md))
 
 ---
 
@@ -129,8 +129,10 @@ Cualquier cambio que toque estos flujos requiere validación previa con `@regres
 
 ### 4. Partes rectificativos
 - `POST /api/partes-trabajo/:id/rectificar` crea un **parte nuevo** (Borrador) a partir de uno **Firmado**, copiando cabecera + `Detalle Horas`, y lo enlaza al original mediante la relación reflexiva `Rectifica a` (inversa `Rectificado por`). El original **no se modifica**.
+- El campo `Notas` del rectificativo lleva siempre el prefijo `PARTE RECTIFICATIVO` (seguido de las notas originales si las había) — sirve para identificarlo de un vistazo en Notion además de por la relación.
 - El rectificativo reutiliza íntegro el pipeline existente (flujos 1 y 2): el usuario corrige → `enviar-datos` → PDF → firma. Como tiene su propio `ID` único, su URL de firma y su fichero OneDrive no colisionan con el original.
-- **Dependencia manual (Notion):** requiere las propiedades `Rectifica a` / `Rectificado por` (relación reflexiva dual) y la fórmula `Es Rectificativo` en la BD `Partes de trabajo`. **Dependencia manual (Make):** marcar el PDF como "RECTIFICATIVO" propagando `Es Rectificativo` por PARTES1-4→2-4→3-4 y añadiendo la variable a `Plantilla Parte.docx`. Sin estos pasos funciona en mock pero no en live. Detalle en [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md).
+- En la UI: botón "Rectificar" solo en partes `Firmado` no rectificados → modal de confirmación propio → al confirmar abre el rectificativo en edición. Badges "Rectificativo"/"Rectificado" en el listado.
+- **Dependencia manual (Notion):** requiere las propiedades `Rectifica a ` / `Rectificado por ` (relación reflexiva dual; **OJO: ambas tienen un espacio al final del nombre** — así están creadas en Notion y así las referencia el código) y la fórmula `Es Rectificativo` en la BD `Partes de trabajo`. **Dependencia manual (Make):** marcar el PDF como "RECTIFICATIVO" propagando `Es Rectificativo` por PARTES1-4→2-4→3-4 y añadiendo la variable a `Plantilla Parte.docx`. Sin el paso de Make el flujo funciona pero el PDF no lleva la marca visual. Detalle en [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md).
 
 ---
 
@@ -157,7 +159,7 @@ Detalle completo en [docs/SMART_POLLING.md](docs/SMART_POLLING.md). Resumen:
 - Tres modos adaptativos: **Rápido 3 s** (cambios recientes), **Normal 8 s** (30 s-2 min), **Lento 15 s** (>2 min sin cambios).
 - Detección de cambios mediante hash `id-estado-ultimaEdicion`.
 - Implementado en frontend ([src/App.jsx](src/App.jsx)) y backend (SSE en [server.js](server.js) endpoint `/api/partes-trabajo/:id/estado/stream`).
-- `CACHE_TTL_MS` (env, default 5 s) gobierna el cache del servidor.
+- `CACHE_TTL_MS` (env, default 30 s) gobierna el cache de catálogos del servidor.
 
 **Queja recurrente del cliente:** "la app no actualiza, hay que refrescar manual". Si toca debugear esto, invoca `@notion-integration-inspector` antes.
 
@@ -188,7 +190,7 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 | `NOTION_TOKEN` | — | **Requerida** (o `USE_MOCK_DATA=true`). Integración interna Notion. |
 | `PARTES_DATOS_WEBHOOK_URL` | — | Webhook Make. Sin él, `enviar-datos` se simula. |
 | `PORT` | `3001` | En Vercel se asigna automáticamente. |
-| `CACHE_TTL_MS` | `5000` | TTL del cache del servidor (alineado con Smart Polling). |
+| `CACHE_TTL_MS` | `30000` | TTL del cache de catálogos del servidor (30 s). En tests se fuerza a `0`. |
 | `ALLOWED_ORIGINS` | (vacío = permitir todos) | CSV. En producción configurar a `https://partesobra.copuno.com`. |
 | `RATE_LIMIT_WINDOW_MS` | `900000` | 15 min. |
 | `RATE_LIMIT_MAX` | `100` | Peticiones por ventana e IP. |
@@ -208,6 +210,8 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 - **El `Documento Firmado` lo sube Make, no el frontend.** Si ves que falta, mira el escenario Make.
 - **Errores `invalid_grant` en Make** suelen ser token Notion expirado/rotado o conexión OAuth de Make caducada. Diagnóstico: `@notion-integration-inspector`.
 - **`server.js` es un monolito de ~1.400 líneas.** No es bonito pero funciona. Refactor mayor está fuera del retainer (proyecto aparte).
+- **Nombres de propiedad Notion con espacios al final:** algunas propiedades tienen un espacio final en su nombre (`'Rectifica a '`, `'Rectificado por '`, `' Email'`, `'Horas Encargado '`, `'Horas Oficial 2ª '`). Hay que referenciarlas **exactamente** así o la lectura/escritura falla en silencio. Verificar siempre el nombre real vía API antes de usarlo.
+- **Banner de actualización:** la app compara `__APP_VERSION__` (embebida en build) con `version` de `/api/health` cada **1 minuto**; si difieren, muestra el banner. Por eso **cada deploy necesita un bump de versión** en `package.json` (ver Convenciones).
 
 ---
 
