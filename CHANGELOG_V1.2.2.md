@@ -29,6 +29,7 @@
 ## Verificación
 
 - Smoke tests: 32/32 verdes.
+- QA manual en producción (Chrome) sobre un parte en `Datos Enviados` ("Parte Llano Amarillo Puerto Algeciras230"): botón "Rectificar" visible → modal → parte nuevo en Borrador con badge "RECTIFICATIVO" y notas "PARTE RECTIFICATIVO" → original marcado "RECTIFICADO" → apertura automática en edición. `window.__APP_VERSION__` = "1.2.2". Sin errores de consola.
 
 ## Migración
 
