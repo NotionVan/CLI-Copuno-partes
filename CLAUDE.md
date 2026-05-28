@@ -101,7 +101,7 @@ Todos en [server.js](server.js), prefijo `/api/*`. Referencia completa en [docs/
 | GET | `/api/partes-trabajo/:id/estado` | [server.js:859](server.js#L859) |
 | GET (SSE) | `/api/partes-trabajo/:id/estado/stream` | [server.js:881](server.js#L881) |
 | POST | `/api/partes-trabajo/:id/enviar-datos` | [server.js:979](server.js#L979) — **dispara webhook Make** |
-| POST | `/api/partes-trabajo/:id/rectificar` | **Rectificativos.** Crea parte nuevo (Borrador) a partir de uno **Firmado**: copia cabecera + detalles, enlaza vía relación reflexiva `Rectifica a`. |
+| POST | `/api/partes-trabajo/:id/rectificar` | **Rectificativos.** Crea parte nuevo (Borrador) a partir de uno **Firmado** o **Datos Enviados**: copia cabecera + detalles, enlaza vía relación reflexiva `Rectifica a`. |
 | PUT | `/api/partes-trabajo/:id` | [server.js:1104](server.js#L1104) |
 | GET | `/api/datos-completos` | [server.js:1342](server.js#L1342) |
 | GET | `/*` (catch-all SPA) | [server.js:1376](server.js#L1376) |
@@ -128,10 +128,10 @@ Cualquier cambio que toque estos flujos requiere validación previa con `@regres
 - Estados que **bloquean edición** en PUT (lógica en [server.js:1104+](server.js#L1104)): `firmado`, `datos enviados`, `procesando`.
 
 ### 4. Partes rectificativos
-- `POST /api/partes-trabajo/:id/rectificar` crea un **parte nuevo** (Borrador) a partir de uno **Firmado**, copiando cabecera + `Detalle Horas`, y lo enlaza al original mediante la relación reflexiva `Rectifica a` (inversa `Rectificado por`). El original **no se modifica**.
+- `POST /api/partes-trabajo/:id/rectificar` crea un **parte nuevo** (Borrador) a partir de uno **Firmado** o **Datos Enviados** (constante `PARTE_RECTIFICABLES`), copiando cabecera + `Detalle Horas`, y lo enlaza al original mediante la relación reflexiva `Rectifica a ` (inversa `Rectificado por `). El original **no se modifica**.
 - El campo `Notas` del rectificativo lleva siempre el prefijo `PARTE RECTIFICATIVO` (seguido de las notas originales si las había) — sirve para identificarlo de un vistazo en Notion además de por la relación.
 - El rectificativo reutiliza íntegro el pipeline existente (flujos 1 y 2): el usuario corrige → `enviar-datos` → PDF → firma. Como tiene su propio `ID` único, su URL de firma y su fichero OneDrive no colisionan con el original.
-- En la UI: botón "Rectificar" solo en partes `Firmado` no rectificados → modal de confirmación propio → al confirmar abre el rectificativo en edición. Badges "Rectificativo"/"Rectificado" en el listado.
+- En la UI: botón "Rectificar" en el listado, en partes `Firmado` o `Datos Enviados` no rectificados → modal de confirmación propio → al confirmar abre el rectificativo en edición. Badges "Rectificativo"/"Rectificado" en el listado.
 - **Dependencia manual (Notion):** requiere las propiedades `Rectifica a ` / `Rectificado por ` (relación reflexiva dual; **OJO: ambas tienen un espacio al final del nombre** — así están creadas en Notion y así las referencia el código) y la fórmula `Es Rectificativo` en la BD `Partes de trabajo`. **Dependencia manual (Make):** marcar el PDF como "RECTIFICATIVO" propagando `Es Rectificativo` por PARTES1-4→2-4→3-4 y añadiendo la variable a `Plantilla Parte.docx`. Sin el paso de Make el flujo funciona pero el PDF no lleva la marca visual. Detalle en [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md).
 
 ---

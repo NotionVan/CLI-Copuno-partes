@@ -339,12 +339,12 @@ El campo `Notas` del rectificativo lleva siempre el prefijo `PARTE RECTIFICATIVO
 El rectificativo sigue después el flujo normal: el usuario lo corrige → `enviar-datos` → Make genera el PDF (marcado como rectificativo) → el jefe firma de nuevo.
 
 **Reglas:**
-- Solo partes en estado `Firmado` son rectificables → `409` en otro caso.
+- Solo partes en estado `Firmado` o `Datos Enviados` son rectificables → `409` en otro caso.
 
 Respuesta `200`: página Notion del parte nuevo + `{ parteOriginalId, detallesCopiados, erroresDetalles, mensaje }`.
 
 Errores:
-- `409` — el parte no está firmado (`{ error, estado }`).
+- `409` — el parte no es rectificable (no está en `Firmado` ni `Datos Enviados`) (`{ error, estado }`).
 - `404` — parte no encontrado.
 
 > **Dependencia Notion (manual):** requiere la relación reflexiva `Rectifica a` / `Rectificado por` en la BD `Partes de trabajo`. Sin ella, la creación falla en live (funciona en mock). Ver [DEUDA_TECNICA.md](DEUDA_TECNICA.md).

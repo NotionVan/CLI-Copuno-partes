@@ -398,8 +398,8 @@ test('POST rectificar: crea parte Borrador copiando detalles del firmado', async
 	assert.ok(original.rectificadoPorIds.includes(res.body.id))
 })
 
-test('POST rectificar devuelve 409 si el parte no está firmado', async () => {
-	// parte-1 está en Borrador en el mock → no rectificable.
+test('POST rectificar devuelve 409 si el parte no es rectificable', async () => {
+	// parte-1 está en Borrador en el mock → no rectificable (solo Firmado/Datos Enviados).
 	const res = await request(app).post('/api/partes-trabajo/parte-1/rectificar')
 	assert.equal(res.status, 409)
 	assert.ok(res.body.estado)

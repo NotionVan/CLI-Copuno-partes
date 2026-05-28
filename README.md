@@ -2,8 +2,8 @@
 
 Aplicación web moderna para la gestión de partes de trabajo con backend en Notion. Diseñada con una interfaz minimalista y elegante, optimizada para usuarios de todos los niveles.
 
-> **Versión actual:** `1.2.1`
-> **Release:** 28 de mayo de 2026 · [Changelog](./CHANGELOG_V1.2.1.md)
+> **Versión actual:** `1.2.2`
+> **Release:** 28 de mayo de 2026 · [Changelog](./CHANGELOG_V1.2.2.md)
 >
 > _(El historial de versiones más abajo es heredado y puede no reflejar el orden real; la fuente de verdad del versionado es `package.json` + los `CHANGELOG_V*.md`.)_
 

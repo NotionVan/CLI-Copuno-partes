@@ -446,8 +446,9 @@ const empleados = {
 const PARTE_NO_EDITABLES = ['firmado', 'datos enviados', 'procesando']
 
 // Estados desde los que se puede emitir un parte rectificativo.
-// Solo el documento ya firmado (artefacto inmutable) es rectificable.
-const PARTE_RECTIFICABLES = ['firmado']
+// Los dos estados "cerrados" (bloqueados para edición directa): el firmado
+// y el que ya tiene datos enviados/PDF generado.
+const PARTE_RECTIFICABLES = ['firmado', 'datos enviados']
 
 const partesTrabajo = {
 	async listar({ client }) {

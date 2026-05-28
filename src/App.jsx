@@ -759,7 +759,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		}
 	}
 
-	const esEstadoFirmado = (estado) => String(estado || '').toLowerCase() === 'firmado'
+	const esRectificable = (estado) => ['firmado', 'datos enviados'].includes(String(estado || '').toLowerCase())
 
 	// Paso 1: mostrar modal de confirmación antes de rectificar.
 	const handleRectificar = (parte) => {
@@ -2100,7 +2100,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 												)}
 
 												{/* Rectificar: solo partes firmados y aún no rectificados */}
-												{esEstadoFirmado(parte.estado) && (!parte.rectificadoPorIds || parte.rectificadoPorIds.length === 0) && (
+												{esRectificable(parte.estado) && (!parte.rectificadoPorIds || parte.rectificadoPorIds.length === 0) && (
 													<button
 														className="btn btn-warning"
 														onClick={() => handleRectificar(parte)}

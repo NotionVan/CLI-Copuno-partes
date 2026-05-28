@@ -572,8 +572,8 @@ const rectificarParte = (parteOriginalId) => {
     error.code = 'NOT_FOUND'
     throw error
   }
-  if (String(original.estado || '').toLowerCase() !== 'firmado') {
-    const error = new Error('Solo los partes firmados pueden rectificarse')
+  if (!['firmado', 'datos enviados'].includes(String(original.estado || '').toLowerCase())) {
+    const error = new Error('Solo los partes firmados o con datos enviados pueden rectificarse')
     error.code = 'NOT_RECTIFICABLE'
     error.meta = { estado: original.estado }
     throw error
