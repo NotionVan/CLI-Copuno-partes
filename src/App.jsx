@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw, X } from 'lucide-react'
-import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, enviarDatosParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId } from './services/notionService'
+import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId } from './services/notionService'
 
 // F4: helpers para agrupar firmantes por rol en el selector
 const ROLES_ORDEN = ['Encargado', 'Jefe de Obra', 'Jefe de Producción', 'Otros']
@@ -528,6 +528,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	// Estado local para reflejar selección de estado inmediatamente en UI
 	const [estadoLocal, setEstadoLocal] = useState({})
 	const [enviandoParteId, setEnviandoParteId] = useState(null)
+	const [rectificandoParteId, setRectificandoParteId] = useState(null)
 
 	// Función para limpiar todos los filtros
 	const limpiarFiltros = () => {
@@ -711,6 +712,44 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			setMensajeUI({ tipo: 'error', texto: error.message || 'No se pudo enviar los datos del parte.' })
 		} finally {
 			setEnviandoParteId(null)
+		}
+	}
+
+	const esEstadoFirmado = (estado) => String(estado || '').toLowerCase() === 'firmado'
+
+	// Crear un parte rectificativo a partir de uno firmado y abrirlo en edición.
+	const handleRectificar = async (parte) => {
+		if (!parte || rectificandoParteId) return
+		const confirmar = window.confirm(
+			`¿Crear un parte rectificativo de "${parte.nombre}"?\n\nSe creará un parte nuevo en Borrador con los mismos empleados y horas para que lo corrijas. El parte firmado original se conserva intacto.`
+		)
+		if (!confirmar) return
+
+		setRectificandoParteId(parte.id)
+		try {
+			const nuevo = await rectificarParte(parte.id)
+			setMensajeUI({ tipo: 'success', texto: 'Parte rectificativo creado. Corrige los datos y vuelve a enviarlo a firmar.' })
+
+			let partesActualizados = null
+			if (typeof onRefrescarPartes === 'function') {
+				try {
+					partesActualizados = await onRefrescarPartes()
+				} catch (refreshError) {
+					console.error('Error al refrescar partes tras rectificar:', refreshError)
+				}
+			}
+
+			// Abrir el rectificativo recién creado en modo edición.
+			const parteNuevo = partesActualizados?.find((p) => p.id === nuevo.id)
+			setParteSeleccionado(null)
+			if (parteNuevo) {
+				await iniciarEdicion(parteNuevo)
+			}
+		} catch (error) {
+			console.error('Error al rectificar el parte:', error)
+			setMensajeUI({ tipo: 'error', texto: error.message || 'No se pudo crear el parte rectificativo.' })
+		} finally {
+			setRectificandoParteId(null)
 		}
 	}
 
@@ -1920,6 +1959,19 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 												<span className={`estado-badge ${parte.estado?.toLowerCase() || 'pendiente'}`}>
 													{parte.estado || 'Pendiente'}
 												</span>
+												{parte.esRectificativo && (() => {
+													const original = datos.partesTrabajo.find((p) => p.id === parte.rectificaAId)
+													return (
+														<span className="estado-badge rectificativo" title={original ? `Rectifica a ${original.nombre}` : 'Parte rectificativo'}>
+															Rectificativo
+														</span>
+													)
+												})()}
+												{Array.isArray(parte.rectificadoPorIds) && parte.rectificadoPorIds.length > 0 && (
+													<span className="estado-badge rectificado" title="Este parte tiene un rectificativo asociado">
+														Rectificado
+													</span>
+												)}
 											</div>
 											<div className="parte-info">
 												<div className="info-item">
@@ -1987,6 +2039,27 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 													<button className="btn btn-success" onClick={() => iniciarEdicion(parte)}>
 														<FileText size={20} />
 														Editar
+													</button>
+												)}
+
+												{/* Rectificar: solo partes firmados y aún no rectificados */}
+												{esEstadoFirmado(parte.estado) && (!parte.rectificadoPorIds || parte.rectificadoPorIds.length === 0) && (
+													<button
+														className="btn btn-warning"
+														onClick={() => handleRectificar(parte)}
+														disabled={rectificandoParteId === parte.id}
+													>
+														{rectificandoParteId === parte.id ? (
+															<>
+																<Loader2 size={18} className="spinner-inline" />
+																Rectificando...
+															</>
+														) : (
+															<>
+																<RotateCcw size={18} />
+																Rectificar
+															</>
+														)}
 													</button>
 												)}
 											</div>
@@ -2272,6 +2345,19 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 			const horasTotales = Object.values(formData.empleadosHoras).reduce((sum, h) => sum + (Number(h) || 0), 0)
 			if (formData.empleados.length > 0 && horasTotales === 0) {
 				const confirmar = window.confirm('Todos los empleados tienen 0 horas asignadas. ¿Crear el parte igualmente?')
+				if (!confirmar) {
+					setLoading(false)
+					return
+				}
+			}
+
+			const parteExistente = (datos.partesTrabajo || []).find(p =>
+				p.obraId === formData.obraId && p.fecha?.startsWith(formData.fecha)
+			)
+			if (parteExistente) {
+				const confirmar = window.confirm(
+					`Ya existe un parte para esta obra en la fecha ${formData.fecha} (estado: ${parteExistente.estado}). ¿Crear otro igualmente?`
+				)
 				if (!confirmar) {
 					setLoading(false)
 					return

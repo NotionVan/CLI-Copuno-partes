@@ -689,13 +689,29 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 			if (error.response?.data) {
 				console.error('Respuesta recibida del webhook:', error.response.data)
 			}
-			// Fallo de webhook (Make caído, timeout): el parte ya está en "Procesando",
-			// lo que impide reenvíos accidentales. La oficina reconcilia en Notion.
-			// Liberamos el lock idempotente para que el cliente pueda reintentar
-			// una vez que Make vuelva a estar disponible.
+			// Make usa webhook instant:true → responde 200 inmediatamente y procesa en background.
+			// Si axios falla/timeout, Make NO recibió la petición → revertir a Borrador es seguro.
+			// El jefe puede reintentar desde el móvil sin intervención de oficina.
 			release()
+			try {
+				await data.partesTrabajo.actualizarEstado(parteId, {
+					estadoProperty: parteData.properties['Estado'],
+					nuevoEstado: PARTE_ESTADO_BORRADOR.charAt(0).toUpperCase() + PARTE_ESTADO_BORRADOR.slice(1)
+				})
+			} catch (revertError) {
+				console.error('Error al revertir estado a Borrador tras fallo de webhook:', {
+					message: revertError.message,
+					parteId
+				})
+				// Si la reversión falla, el parte queda en Procesando — mismo comportamiento
+				// anterior. El log permite identificarlo para reconciliación manual.
+				return res.status(error.response?.status || 502).json({
+					error: 'No se pudo enviar los datos y tampoco revertir el estado. El parte queda en "Procesando" — cámbialo manualmente a "Borrador" en Notion para poder reintentar.',
+					details: error.response?.data?.error || error.response?.data?.message || error.message
+				})
+			}
 			return res.status(error.response?.status || 502).json({
-				error: 'No se pudo enviar los datos al webhook configurado. El parte queda en estado "Procesando" hasta que se resuelva.',
+				error: 'No se pudo enviar los datos al webhook. El parte ha vuelto a "Borrador" — puedes intentarlo de nuevo.',
 				details: error.response?.data?.error || error.response?.data?.message || error.message
 			})
 		}
@@ -807,6 +823,51 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 		console.error('Error al actualizar parte de trabajo:', error.message)
 		res.status(500).json({
 			error: 'Error al actualizar parte de trabajo',
+			details: error.message
+		})
+	}
+})
+
+// Crear un parte rectificativo a partir de uno firmado — refactorizado a data.js (ADR-002).
+// Copia cabecera + detalles del original a un parte nuevo en Borrador, enlazado vía `Rectifica a`.
+app.post('/api/partes-trabajo/:parteId/rectificar', async (req, res) => {
+	try {
+		const { parteId } = req.params
+		const result = await data.partesTrabajo.rectificar(parteId)
+
+		if (USE_MOCK_DATA) {
+			return res.json(result)
+		}
+
+		const { parteData, nombreFinal, parteOriginalId, detallesCopiados, erroresDetalles } = result
+
+		console.log(JSON.stringify({
+			reqId: req.id,
+			event: 'parte_rectificado',
+			parteOriginalId,
+			parteNuevoId: parteData.id,
+			nombreFinal,
+			detallesCopiados: detallesCopiados.length,
+			errores: erroresDetalles
+		}))
+
+		res.json({
+			...parteData,
+			parteOriginalId,
+			detallesCopiados: detallesCopiados.length,
+			erroresDetalles: erroresDetalles.length,
+			mensaje: `Parte rectificativo creado. ${detallesCopiados.length} empleados copiados.`
+		})
+	} catch (error) {
+		if (error.status === 409) {
+			return res.status(409).json({ error: error.message, estado: error.meta?.estado })
+		}
+		if (error.status === 404) {
+			return res.status(404).json({ error: error.message })
+		}
+		console.error('Error al rectificar parte de trabajo:', error.message)
+		res.status(500).json({
+			error: 'Error al rectificar parte de trabajo',
 			details: error.message
 		})
 	}
