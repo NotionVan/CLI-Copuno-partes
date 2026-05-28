@@ -2065,14 +2065,14 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		})
 	}
 
-	// Empleados disponibles a mostrar en el selector (excluye ya añadidos)
-	const candidatosVisibles = (busquedaLibreEmpleados ? resultadosBusquedaLibre : empleadosFiltrados)
-		.filter(e => !formData.empleados.includes(e.id))
-
 	// Filtrar empleados por nombre de búsqueda (modo filtrado por obra)
 	const empleadosFiltrados = empleadosObra.filter(empleado =>
 		empleado.nombre.toLowerCase().includes(busquedaEmpleado.toLowerCase())
 	)
+
+	// Empleados disponibles a mostrar en el selector (excluye ya añadidos)
+	const candidatosVisibles = (busquedaLibreEmpleados ? resultadosBusquedaLibre : empleadosFiltrados)
+		.filter(e => !formData.empleados.includes(e.id))
 
 	// F2+F5: búsqueda incremental con debounce.
 	// - Si el texto es 4-5 dígitos: intenta primero ID Copuno; si 404, cae a búsqueda por nombre.
