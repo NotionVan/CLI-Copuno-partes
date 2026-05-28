@@ -244,8 +244,8 @@ function mapEmpleado(page) {
 function mapParte(page) {
 	// Vínculo de rectificación (props pueden no existir todavía en Notion;
 	// extractPropertyValue devuelve '' en ese caso → seguro).
-	const rectificaA = extractPropertyValue(page.properties['Rectifica a'])
-	const rectificadoPor = extractPropertyValue(page.properties['Rectificado por'])
+	const rectificaA = extractPropertyValue(page.properties['Rectifica a '])
+	const rectificadoPor = extractPropertyValue(page.properties['Rectificado por '])
 	const rectificaAId = Array.isArray(rectificaA) && rectificaA[0] ? rectificaA[0].id : null
 	const rectificadoPorIds = Array.isArray(rectificadoPor) ? rectificadoPor.map(r => r.id) : []
 
@@ -669,7 +669,7 @@ const partesTrabajo = {
 		const propsNuevo = {
 			'Nombre': { title: [{ text: { content: `Parte rectificativo - ${obraTexto}` } }] },
 			'Notas': { rich_text: [{ text: { content: notas || '' } }] },
-			'Rectifica a': { relation: [{ id: parteOriginalId }] }
+			'Rectifica a ': { relation: [{ id: parteOriginalId }] }
 		}
 		if (fecha) propsNuevo['Fecha'] = { date: { start: fecha } }
 		if (obraId) propsNuevo['Obras'] = { relation: [{ id: obraId }] }
