@@ -156,11 +156,13 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
+	const { version } = require('./package.json')
 	if (USE_MOCK_DATA) {
-		return res.json({ ...mockStore.getHealthStatus(), mode: 'mock' })
+		return res.json({ ...mockStore.getHealthStatus(), version, mode: 'mock' })
 	}
 	res.json({
 		status: 'ok',
+		version,
 		timestamp: new Date().toISOString(),
 		notionToken: NOTION_TOKEN ? 'configured' : 'missing',
 		mode: 'live'
