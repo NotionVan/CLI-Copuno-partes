@@ -167,6 +167,7 @@
 ### PARTES_TRABAJO (Partes de trabajo)
 - **ID**: `20882593a25781258595e15abb37e87a`
 - **Descripción**: Partes de trabajo
+- **Props nuevas (rectificativos, 2026-05-28 — pendientes de crear en Notion):** `Rectifica a` (relation reflexiva → Partes de trabajo, dual), `Rectificado por` (lado sincronizado), `Es Rectificativo` (formula `not empty(prop("Rectifica a"))`). El backend escribe `Rectifica a` al crear un rectificativo; Make lee `Es Rectificativo` para marcar el PDF.
 
 #### Propiedades:
 - **AUX Pr OF1**: rollup (rollup)

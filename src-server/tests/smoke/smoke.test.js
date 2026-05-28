@@ -17,6 +17,8 @@
 
 process.env.USE_MOCK_DATA = 'true'
 process.env.NOTION_TOKEN = 'mock'
+// Desactivar el cache de catálogos para que cada test lea estado fresco del mock.
+process.env.CACHE_TTL_MS = '0'
 
 const test = require('node:test')
 const assert = require('node:assert/strict')
@@ -369,5 +371,41 @@ test('POST enviar-datos con Idempotency-Key explícita hace replay por esa key',
 
 test('POST enviar-datos devuelve 404 si parte no existe', async () => {
 	const res = await request(app).post('/api/partes-trabajo/no-existe/enviar-datos')
+	assert.equal(res.status, 404)
+})
+
+// ─── Rectificativos ───────────────────────────────────────────────────────────
+
+test('POST rectificar: crea parte Borrador copiando detalles del firmado', async () => {
+	// parte-2 está en estado Firmado en el mock, con detalles asociados.
+	const res = await request(app).post('/api/partes-trabajo/parte-2/rectificar')
+	assert.equal(res.status, 200)
+	assert.ok(res.body.id, 'debe devolver el id del nuevo parte')
+	assert.notEqual(res.body.id, 'parte-2', 'el rectificativo es un parte nuevo')
+	assert.equal(res.body.parteOriginalId, 'parte-2')
+	assert.ok(res.body.detallesCopiados >= 1, 'debe copiar al menos un detalle')
+
+	// El nuevo parte aparece en Borrador y enlazado al original.
+	const lista = await request(app).get('/api/partes-trabajo')
+	const nuevo = lista.body.find(p => p.id === res.body.id)
+	assert.ok(nuevo, 'el rectificativo aparece en el listado')
+	assert.equal(nuevo.estado, 'Borrador')
+	assert.equal(nuevo.rectificaAId, 'parte-2')
+	assert.equal(nuevo.esRectificativo, true)
+
+	// El original queda marcado como rectificado.
+	const original = lista.body.find(p => p.id === 'parte-2')
+	assert.ok(original.rectificadoPorIds.includes(res.body.id))
+})
+
+test('POST rectificar devuelve 409 si el parte no está firmado', async () => {
+	// parte-1 está en Borrador en el mock → no rectificable.
+	const res = await request(app).post('/api/partes-trabajo/parte-1/rectificar')
+	assert.equal(res.status, 409)
+	assert.ok(res.body.estado)
+})
+
+test('POST rectificar devuelve 404 si el parte no existe', async () => {
+	const res = await request(app).post('/api/partes-trabajo/no-existe/rectificar')
 	assert.equal(res.status, 404)
 })

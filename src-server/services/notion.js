@@ -242,6 +242,13 @@ function mapEmpleado(page) {
 }
 
 function mapParte(page) {
+	// Vínculo de rectificación (props pueden no existir todavía en Notion;
+	// extractPropertyValue devuelve '' en ese caso → seguro).
+	const rectificaA = extractPropertyValue(page.properties['Rectifica a'])
+	const rectificadoPor = extractPropertyValue(page.properties['Rectificado por'])
+	const rectificaAId = Array.isArray(rectificaA) && rectificaA[0] ? rectificaA[0].id : null
+	const rectificadoPorIds = Array.isArray(rectificadoPor) ? rectificadoPor.map(r => r.id) : []
+
 	return {
 		id: page.id,
 		nombre: extractPropertyValue(page.properties['Nombre']),
@@ -259,7 +266,10 @@ function mapParte(page) {
 		urlPDF: extractPropertyValue(page.properties['URL PDF']),
 		enviadoCliente: extractPropertyValue(page.properties['Enviado a cliente']),
 		notas: extractPropertyValue(page.properties['Notas']),
-		firmarUrl: extractPropertyValue(page.properties['Firmar'])
+		firmarUrl: extractPropertyValue(page.properties['Firmar']),
+		rectificaAId,
+		rectificadoPorIds,
+		esRectificativo: Boolean(rectificaAId)
 	}
 }
 
@@ -434,6 +444,10 @@ const empleados = {
 }
 
 const PARTE_NO_EDITABLES = ['firmado', 'datos enviados', 'procesando']
+
+// Estados desde los que se puede emitir un parte rectificativo.
+// Solo el documento ya firmado (artefacto inmutable) es rectificable.
+const PARTE_RECTIFICABLES = ['firmado']
 
 const partesTrabajo = {
 	async listar({ client }) {
@@ -624,6 +638,88 @@ const partesTrabajo = {
 		return client.request('PATCH', `/pages/${parteId}`, {
 			properties: { 'Estado': payload }
 		})
+	},
+
+	/**
+	 * Crea un parte rectificativo a partir de uno firmado.
+	 * Copia cabecera (obra, fecha, persona autorizada, notas) y todos los
+	 * Detalle Horas del original a un parte nuevo en estado Borrador, y enlaza
+	 * el nuevo parte al original vía la relación reflexiva `Rectifica a`.
+	 * Lanza Error con .status = 409 si el original no es rectificable.
+	 */
+	async rectificar({ client, parteOriginalId }) {
+		const original = await client.request('GET', `/pages/${parteOriginalId}`)
+		const estado = extractPropertyValue(original.properties['Estado'])
+
+		if (!PARTE_RECTIFICABLES.includes(String(estado).toLowerCase())) {
+			const err = new Error('Solo los partes firmados pueden rectificarse')
+			err.status = 409
+			err.meta = { estado }
+			throw err
+		}
+
+		const obraRel = extractPropertyValue(original.properties['Obras'])
+		const personaRel = extractPropertyValue(original.properties['Persona Autorizada'])
+		const obraId = Array.isArray(obraRel) && obraRel[0] ? obraRel[0].id : null
+		const jefeObraId = Array.isArray(personaRel) && personaRel[0] ? personaRel[0].id : null
+		const fecha = extractPropertyValue(original.properties['Fecha'])
+		const notas = extractPropertyValue(original.properties['Notas'])
+		const obraTexto = extractPropertyValue(original.properties['AUX Obra']) || 'Obra'
+
+		const propsNuevo = {
+			'Nombre': { title: [{ text: { content: `Parte rectificativo - ${obraTexto}` } }] },
+			'Notas': { rich_text: [{ text: { content: notas || '' } }] },
+			'Rectifica a': { relation: [{ id: parteOriginalId }] }
+		}
+		if (fecha) propsNuevo['Fecha'] = { date: { start: fecha } }
+		if (obraId) propsNuevo['Obras'] = { relation: [{ id: obraId }] }
+		if (jefeObraId) propsNuevo['Persona Autorizada'] = { relation: [{ id: jefeObraId }] }
+
+		const parteData = await client.request('POST', '/pages', {
+			parent: { database_id: DATABASES.PARTES_TRABAJO },
+			properties: propsNuevo
+		})
+
+		const parteCompleto = await client.request('GET', `/pages/${parteData.id}`)
+		const notionId = extractPropertyValue(parteCompleto.properties['ID'])
+		const nombreFinal = `Parte ${obraTexto}${notionId}`
+
+		await client.request('PATCH', `/pages/${parteData.id}`, {
+			properties: { 'Nombre': { title: [{ text: { content: nombreFinal } }] } }
+		})
+
+		// Copiar los Detalle Horas del original al rectificativo.
+		const detallesOriginal = await client.request('POST', `/databases/${DATABASES.DETALLES_HORA}/query`, {
+			filter: { property: 'Partes de trabajo', relation: { contains: parteOriginalId } },
+			page_size: 100
+		})
+
+		const detallesCopiados = []
+		const erroresDetalles = []
+		for (const detalle of detallesOriginal.results) {
+			try {
+				const empleadoRel = extractPropertyValue(detalle.properties['Empleados'])
+				const empleadoId = Array.isArray(empleadoRel) && empleadoRel[0] ? empleadoRel[0].id : null
+				if (!empleadoId) continue
+				const horas = detalle.properties['Cantidad Horas']?.number ?? 8
+				const nuevo = await client.request('POST', '/pages', {
+					parent: { database_id: DATABASES.DETALLES_HORA },
+					properties: {
+						'Detalle': { title: [{ text: { content: 'Detalle Horas' } }] },
+						'Partes de trabajo': { relation: [{ id: parteData.id }] },
+						'Empleados': { relation: [{ id: empleadoId }] },
+						'Cantidad Horas': { number: horas }
+					}
+				})
+				detallesCopiados.push(nuevo)
+				await new Promise(r => setTimeout(r, 100))
+			} catch (err) {
+				console.error(`Error al copiar detalle ${detalle.id} al rectificativo:`, err.message)
+				erroresDetalles.push({ detalleId: detalle.id, error: err.message })
+			}
+		}
+
+		return { parteData, nombreFinal, parteOriginalId, detallesCopiados, erroresDetalles }
 	}
 }
 

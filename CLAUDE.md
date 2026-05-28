@@ -101,6 +101,7 @@ Todos en [server.js](server.js), prefijo `/api/*`. Referencia completa en [docs/
 | GET | `/api/partes-trabajo/:id/estado` | [server.js:859](server.js#L859) |
 | GET (SSE) | `/api/partes-trabajo/:id/estado/stream` | [server.js:881](server.js#L881) |
 | POST | `/api/partes-trabajo/:id/enviar-datos` | [server.js:979](server.js#L979) — **dispara webhook Make** |
+| POST | `/api/partes-trabajo/:id/rectificar` | **Rectificativos.** Crea parte nuevo (Borrador) a partir de uno **Firmado**: copia cabecera + detalles, enlaza vía relación reflexiva `Rectifica a`. |
 | PUT | `/api/partes-trabajo/:id` | [server.js:1104](server.js#L1104) |
 | GET | `/api/datos-completos` | [server.js:1342](server.js#L1342) |
 | GET | `/*` (catch-all SPA) | [server.js:1376](server.js#L1376) |
@@ -109,7 +110,7 @@ Todos en [server.js](server.js), prefijo `/api/*`. Referencia completa en [docs/
 
 ## Flujos críticos — NO ROMPER
 
-Cualquier cambio que toque estos tres flujos requiere validación previa con `@regression-checker`.
+Cualquier cambio que toque estos flujos requiere validación previa con `@regression-checker`.
 
 ### 1. Firma digital del jefe de obra
 - Make recibe el parte → genera PDF → escribe `URL PDF` en Notion → la fórmula `Firmar` construye la URL pública → el jefe la abre, firma → Make sube el resultado a `Documento Firmado`.
@@ -125,6 +126,11 @@ Cualquier cambio que toque estos tres flujos requiere validación previa con `@r
 ### 3. Sincronización con Notion
 - Toda escritura va vía servidor (nunca desde el cliente). El cliente lee con polling adaptativo (ver más abajo).
 - Estados que **bloquean edición** en PUT (lógica en [server.js:1104+](server.js#L1104)): `firmado`, `datos enviados`, `procesando`.
+
+### 4. Partes rectificativos
+- `POST /api/partes-trabajo/:id/rectificar` crea un **parte nuevo** (Borrador) a partir de uno **Firmado**, copiando cabecera + `Detalle Horas`, y lo enlaza al original mediante la relación reflexiva `Rectifica a` (inversa `Rectificado por`). El original **no se modifica**.
+- El rectificativo reutiliza íntegro el pipeline existente (flujos 1 y 2): el usuario corrige → `enviar-datos` → PDF → firma. Como tiene su propio `ID` único, su URL de firma y su fichero OneDrive no colisionan con el original.
+- **Dependencia manual (Notion):** requiere las propiedades `Rectifica a` / `Rectificado por` (relación reflexiva dual) y la fórmula `Es Rectificativo` en la BD `Partes de trabajo`. **Dependencia manual (Make):** marcar el PDF como "RECTIFICATIVO" propagando `Es Rectificativo` por PARTES1-4→2-4→3-4 y añadiendo la variable a `Plantilla Parte.docx`. Sin estos pasos funciona en mock pero no en live. Detalle en [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md).
 
 ---
 

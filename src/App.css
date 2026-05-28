@@ -758,6 +758,16 @@
 	color: white;
 }
 
+.estado-badge.rectificativo {
+	background-color: #7c3aed;
+	color: white;
+}
+
+.estado-badge.rectificado {
+	background-color: #b45309;
+	color: white;
+}
+
 .parte-info {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

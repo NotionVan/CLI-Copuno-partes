@@ -230,7 +230,10 @@ const mapParte = (parte) => ({
   urlPDF: parte.urlPDF,
   enviadoCliente: parte.enviadoCliente,
   notas: parte.notas,
-  firmarUrl: parte.firmarUrl || buildFirmarUrl(parte)
+  firmarUrl: parte.firmarUrl || buildFirmarUrl(parte),
+  rectificaAId: parte.rectificaAId || null,
+  rectificadoPorIds: parte.rectificadoPorIds || [],
+  esRectificativo: Boolean(parte.rectificaAId)
 })
 
 const mapDetalle = (detalle) => ({
@@ -562,6 +565,76 @@ const updateParteTrabajo = (parteId, { obraId, fecha, personaAutorizadaId, notas
   }
 }
 
+const rectificarParte = (parteOriginalId) => {
+  const original = findParte(parteOriginalId)
+  if (!original) {
+    const error = new Error('Parte no encontrado')
+    error.code = 'NOT_FOUND'
+    throw error
+  }
+  if (String(original.estado || '').toLowerCase() !== 'firmado') {
+    const error = new Error('Solo los partes firmados pueden rectificarse')
+    error.code = 'NOT_RECTIFICABLE'
+    error.meta = { estado: original.estado }
+    throw error
+  }
+
+  const ahora = new Date().toISOString()
+  const nuevoId = uuidv4()
+  const nuevoParte = {
+    id: nuevoId,
+    nombre: `Parte rectificativo ${original.obra}`,
+    fecha: original.fecha,
+    ultimaEdicion: ahora,
+    estado: 'Borrador',
+    obra: original.obra,
+    obraId: original.obraId,
+    personaAutorizadaId: original.personaAutorizadaId,
+    personaAutorizada: original.personaAutorizada,
+    rpHorasTotales: 0,
+    horasOficial1: 0,
+    horasOficial2: 0,
+    horasCapataz: 0,
+    horasEncargado: 0,
+    urlPDF: '',
+    enviadoCliente: false,
+    notas: original.notas || '',
+    firmarUrl: buildFirmarUrl({ id: nuevoId, obra: original.obra }),
+    rectificaAId: parteOriginalId,
+    rectificadoPorIds: []
+  }
+  mockPartes.unshift(nuevoParte)
+  original.rectificadoPorIds = [...(original.rectificadoPorIds || []), nuevoId]
+
+  const detallesCopiados = []
+  mockDetalles
+    .filter((detalle) => detalle.parteId === parteOriginalId)
+    .forEach((d) => {
+      const detalle = {
+        id: uuidv4(),
+        parteId: nuevoId,
+        empleadoId: d.empleadoId,
+        empleadoNombre: d.empleadoNombre,
+        categoria: d.categoria,
+        horas: d.horas,
+        fecha: d.fecha,
+        detalle: d.detalle
+      }
+      mockDetalles.push(detalle)
+      detallesCopiados.push(detalle)
+    })
+
+  recalculateHoras(nuevoParte)
+
+  return {
+    ...createNotionLikePage(nuevoParte),
+    parteOriginalId,
+    detallesCopiados: detallesCopiados.length,
+    erroresDetalles: 0,
+    mensaje: `Parte rectificativo creado. ${detallesCopiados.length} empleados copiados.`
+  }
+}
+
 const sendParteDatos = (parteId) => {
   const parte = findParte(parteId)
   if (!parte) {
@@ -620,5 +693,6 @@ module.exports = {
   getParteEstado,
   createParteTrabajo,
   updateParteTrabajo,
+  rectificarParte,
   sendParteDatos
 }

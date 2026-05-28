@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-28 (v1.1.0 desplegada, QA completado, fixes post-QA aplicados)
+- **Última edición:** 2026-05-28 (N6: dependencias Notion cerradas — `Rectifica a`/`Rectificado por`/`Es Rectificativo` creadas en Notion. Botón Rectificar listo para producción. Make pendiente para marca visual en PDF)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -36,7 +36,7 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 
 | [N1](#n1--persona-autorizada-mezcla-modelo-cliente-y-modelo-interno) | 🟠 | Persona Autorizada — coexistencia legacy/interno | ⏳ | 3–5 h | Retainer (esta semana) |
 | [N2](#n2--asignación-libre-amplía-superficie-de-h2) | 🟠 | Asignación libre agrava H2 (creación no atómica) | ✅ | — | Cerrado — logging ya presente en server.js |
-| [N3](#n3--búsqueda-por-id-copuno-con-cobertura-incompleta) | 🟠 | ID COPUNO solo cubre el 27% de empleados | ⏳ | — | Decisión de producto |
+| [N3](#n3--búsqueda-por-id-copuno-con-cobertura-incompleta) | 🟠 | ID COPUNO cubre el 50% de empleados (657 pendientes) | 🔧 (migración parcial) | — | CSV enviado a Efrén para completar |
 | [N4](#n4--multiplicador-de-carga-notion-en-flujo-id-cross-obra) | 🟡 | Flujo "ID en varias obras" multiplica lecturas Notion | ⏳ | 2–4 h | Retainer (junto a C3) |
 | [N5](#n5--estados-hardcoded-divergentes-del-schema-real) | 🔵 | Lista `noEditables` hardcoded incluye `'enviado'` inexistente | ✅ | — | Cerrado 2026-05-27 |
 
@@ -212,13 +212,17 @@ Cualquier petición tipo "queremos que vaya más rápido la sincronización" se 
 
 #### N3 — Búsqueda por ID COPUNO con cobertura incompleta
 
-- **Estado:** ⏳ Pendiente · **Detectado:** 2026-05-26 · **Severidad:** 🟠 (producto, no técnico puro)
+- **Estado:** 🔧 Migración parcial · **Detectado:** 2026-05-26 · **Actualizado:** 2026-05-28 · **Severidad:** 🟠 (producto, no técnico puro)
 - **Dónde:** BD `Empleados`, propiedad `ID COPUNO` (number).
-- **Qué (dato real):** De **1.331 empleados, solo 365 (27,4%) tienen `ID COPUNO`** poblado. 966 no lo tienen. De los 693 empleados en estado `ON - Disponible`, no se ha medido el corte exacto pero proporcionalmente la cobertura será similar. Todos los IDs presentes son de **4 dígitos** (rango 0–5982); ninguno de 5 dígitos todavía — la preparación para 5 dígitos es prudente pero no urgente.
-- **Por qué importa:** La funcionalidad 2 (buscar por ID) y la 3 (registrar al mismo empleado en varias obras solo con su ID) **fallan o devuelven "no encontrado" para 3 de cada 4 empleados**. Esto es un problema de datos, no de código.
-- **Coste de arreglar:** 0 h de código. Esfuerzo de Copuno: poblar IDs en los ~700 empleados activos sin ID. **Bloqueante operativo** que debe negociarse con Efrén antes del 1 jun.
-- **Coste de NO arreglar:** funcionalidad 2 y 3 nacen rotas para la mayoría de plantilla. Andrés volverá al flujo viejo.
-- **Recomendación:** **Decisión de producto inmediata.** O Copuno se compromete a poblar IDs en empleados activos antes del 1 jun, o las funcionalidades 2 y 3 se retrasan. **Si no hay compromiso por escrito antes del miércoles, no las construyas.**
+- **Qué (dato actual):** De **1.330 empleados, 673 (50,6%) tienen `ID COPUNO`** poblado. 657 siguen sin él.
+  - **Carga automática 2026-05-28:** cruce del Excel `docs/ID.xlsx` (867 entradas) con Notion vía normalización + rotación de tokens. **306 empleados actualizados** (305 + 1 reintento por reset de conexión). Cobertura subió del 27% al 50% sin intervención manual.
+  - **Pendientes (657):** exportados a `docs/revision_ids_empleados.csv` con dos grupos:
+    - **Grupo A (61 casos):** fuzzy match ≥50% de tokens — sugerencia de ID incluida en CSV, Efrén solo confirma SÍ/NO.
+    - **Grupo B (595 casos):** sin candidato en el Excel — puede ser alta reciente, baja definitiva, o nombre con divergencia grande.
+  - Rango de IDs: 0–5957. Todos de 4 dígitos. 0 de 5 dígitos todavía.
+- **Por qué importa:** La funcionalidad 2 (buscar por ID) y la 3 (registrar al mismo empleado en varias obras solo con su ID) funcionan ya para la mitad de la plantilla. El 50% restante sigue devolviendo "no encontrado".
+- **Coste de arreglar el resto:** 0 h de código. Esfuerzo de Copuno: revisar `docs/revision_ids_empleados.csv` y devolver completo.
+- **Recomendación:** Enviar CSV a Efrén. Al recibirlo, ejecutar script de volcado idéntico al usado hoy (máx 1 h).
 
 #### N4 — Multiplicador de carga Notion en flujo "mismo empleado en varias obras"
 
@@ -233,6 +237,16 @@ Cualquier petición tipo "queremos que vaya más rápido la sincronización" se 
 #### N5 — Estados hardcoded divergentes del schema real
 
 - **Estado:** ✅ Cerrado 2026-05-27 — eliminado `'enviado'` de `PARTE_NO_EDITABLES` en [src-server/services/notion.js](../src-server/services/notion.js). Array queda `['firmado', 'datos enviados']`, alineado con el schema real de Notion.
+
+#### N6 — Partes rectificativos: dependencias manuales Notion/Make + riesgo de fichero en PARTES4-4
+
+- **Estado:** 🔧 En progreso · **Detectado:** 2026-05-28 · **Severidad:** 🟠
+- **Contexto:** implementada la feature de partes rectificativos (endpoint `POST /api/partes-trabajo/:id/rectificar`, mock, UI). Modelo: parte nuevo en Borrador enlazado al firmado vía relación reflexiva; reutiliza el pipeline existente para PDF + nueva firma.
+- **Dependencias manuales para live:**
+  1. **Notion:** ✅ Cerrado 2026-05-28 — `Rectifica a` / `Rectificado por` (relación reflexiva dual) y `Es Rectificativo` (fórmula) creadas en la BD `Partes de trabajo`.
+  2. **Make:** ⏳ Pendiente — propagar `Es Rectificativo` por PARTES1-4 (módulo 39 → 249) → PARTES2-4 (módulo 37) → PARTES3-4, y añadir la variable `{{Rectificativo}}` al `docx-templater` (módulo 11) + a `Plantilla Parte.docx`. PARTES4-4 (firma) no cambia. **El botón ya funciona en producción para crear el rectificativo; el PDF no se marcará como "RECTIFICATIVO" hasta completar este paso.**
+- **Riesgo latente confirmado (inspector):** PARTES4-4 módulo 34 lista la carpeta OneDrive `PARTES FINALES` (hasta 50 ficheros) sin filtro de nombre visible en el mapper antes de descargar `{{34.id}}`. Con rectificativos (más ficheros de la misma obra) aumenta la probabilidad de descargar el PDF equivocado al firmar. Verificar si hay filtro condicional entre módulo 34 y 17; si no, es un bug a corregir en Make.
+- **Recomendación:** el botón ya es seguro de activar en producción (Notion listo). Completar la parte Make para que el PDF lleve la marca visual. Tratar el riesgo de PARTES4-4 como tarea Make independiente.
 
 ### (c) Orden de implementación recomendado para la semana
 
@@ -253,7 +267,7 @@ Asume ~16 h efectivas (resto del retainer del mes; algo se va en revisión, depl
 ### (d) Go / No-go
 
 - 🟢 **GO** — Funcionalidades 5, 6, 1 y 4. Riesgo controlado si paso 1 y paso 3 se cierran.
-- 🟡 **CONDICIONAL** — Funcionalidades 2 y 3. **GO solo si** Efrén confirma por escrito antes del 28 may que Copuno poblará `ID COPUNO` en los ~700 empleados activos restantes antes del 1 jun. Si no, **NO-GO** y se replantean como proyecto de datos aparte.
+- 🟡 **CONDICIONAL → PARCIALMENTE DESBLOQUEADO** — Funcionalidades 2 y 3. Cobertura actual 50% tras carga automática 2026-05-28. Operativas para la mitad de la plantilla. Cobertura completa condicionada a revisión del CSV por parte de Efrén.
 - 🔴 **NO-GO si** se intenta arrancar el 1 jun sin: (i) `Firmantes Autorizados` poblado en obras activas, (ii) quick win de H2 desplegado, (iii) C3 resuelto. Cualquiera de los tres ausente = arranque expuesto a incidente visible.
 
 ### (e) Verificaciones en Notion
@@ -315,12 +329,11 @@ Muestra completa:
 
 #### E6. Cobertura `ID COPUNO` en EMPLEADOS
 
-- **Con `ID COPUNO`:** 365 (27,4%).
-- **Sin `ID COPUNO`:** 966 (72,6%).
-- Rango: 0–5982. Todos de 4 dígitos. 0 de 5 dígitos.
-- No medido por activo/inactivo, pero el grueso de la plantilla activa está sin ID.
+- **Con `ID COPUNO`:** 673 (50,6%) — actualizado 2026-05-28 tras carga automática de 306 IDs.
+- **Sin `ID COPUNO`:** 657 (49,4%) — CSV de revisión en `docs/revision_ids_empleados.csv`.
+- Rango: 0–5957. Todos de 4 dígitos. 0 de 5 dígitos.
 
-**Implicación crítica para el plan:** ver N3.
+**Implicación para el plan:** ver N3. Funcionalidades 2 y 3 operativas para la mitad de la plantilla desde hoy.
 
 #### E7. Estados PARTES_TRABAJO
 
@@ -358,9 +371,10 @@ Status real: `['Borrador', 'Listo para firmar', 'Datos Enviados', 'Firmado']`. L
    - Decisión a tomar con Efrén: ¿se hace a mano (≈ 30–60 min) o programando una pasada one-off con el script de migración?
    - Mínimo: cada obra activa debe tener al menos 1 firmante (típicamente el `Encargado COPUNO` actual + posibles jefes de obra/producción asignados).
 
-5. **EMPLEADOS — poblar `ID COPUNO` (acción Copuno):**
-   - Necesario en los ~700 empleados activos sin ID si se quiere mantener funcionalidades 2 y 3 del plan.
-   - **Es esfuerzo de Copuno, no del retainer.**
+5. **EMPLEADOS — completar `ID COPUNO` (acción Copuno):**
+   - Carga automática 2026-05-28: 306 IDs inyectados. Cobertura actual: 50%.
+   - Pendientes: 657 empleados en `docs/revision_ids_empleados.csv` (61 con sugerencia fuzzy, 595 sin candidato).
+   - **Acción:** Enviar CSV a Efrén para revisión. Al recibirlo, volcado ≤1 h.
 
 6. **OBRAS — corregir tipo de `Contacto Administración - Teléfono`** (es `email`, debería ser `phone_number` o `rich_text`). No urgente.
 
@@ -519,3 +533,6 @@ Reglas por tipo de cambio:
 | 2026-05-27 | Claude Code | **Smoke tests ampliados de 9 a 29.** Cobertura completa de todos los endpoints: catálogos (empleados, estado-opciones, datos-completos), obras/:id/empleados + firmantes-autorizados, búsqueda ?q= (hit/vacío/q<3), PUT empleados estado (ok+404), GET partes (listado, estado, detalles, empleados, 404s), PUT partes (ok, horas>24, bloqueo), enviar-datos con Idempotency-Key explícita + 404. 29/29 verdes. |
 | 2026-05-27 | Claude Code | **Cierre de hallazgos verificados.** C2 cerrado: lock optimista pre-webhook con estado `Procesando` — flujo `PATCH Procesando → webhook Make → PATCH Datos Enviados`. C1 descartado: plantilla Make filtra output. N2 verificado cerrado: logging `parte_creado`/`detalles_actualizados` ya presente con `reqId`. I1 cerrado: `datos-completos` ya usa `data.*` directamente (Fase B). I2 aplazado: documentado como comportamiento aceptable sin ROI de arreglar. |
 | 2026-05-28 | Claude Code | **Deploy v1.1.0 a producción.** Merge de Etapas 1+2+3 + Fase A+B en `master`. Bump versión 1.0.2 → 1.1.0. Fixes post-QA: crash `ReferenceError: Cannot access 'K' before initialization` (inicialización circular `candidatosVisibles`/`empleadosFiltrados` en `CrearParte`), `ReferenceError: estadoStreamRef is not defined` (referencia fuera de scope en cleanup del componente padre), versión expuesta en `GET /api/health` y footer leído de `package.json` vía `__APP_VERSION__`. QA 16 checks: 12 ✅, 4 ⚠️ (funcionales, sin bloqueo operativo), 0 ❌. Mejora UX: categoría del empleado visible inline junto al nombre en formulario de creación. |
+| 2026-05-28 | Claude Code | **Feature partes rectificativos.** Nuevo endpoint `POST /api/partes-trabajo/:id/rectificar`: crea parte nuevo (Borrador) a partir de uno `Firmado`, copia cabecera + `Detalle Horas`, enlaza vía relación reflexiva `Rectifica a`. Backend (`notion.js` `rectificar` + `mapParte` con `rectificaAId`/`rectificadoPorIds`/`esRectificativo`; `data.js`; `server.js`), mock (`rectificarParte`) y UI (botón "Rectificar" en partes firmados + badges Rectificativo/Rectificado + auto-apertura en edición). 3 smoke tests nuevos (32/32 verdes). Registrado riesgo **N6** (dependencias manuales Notion/Make + riesgo fichero PARTES4-4). |
+| 2026-05-28 | Javi Collado | **N6 — Dependencias Notion cerradas.** Creadas en BD `Partes de trabajo`: relación reflexiva dual `Rectifica a` / `Rectificado por` + fórmula `Es Rectificativo`. Botón "Rectificar" operativo en producción. Pendiente: marcado PDF en Make. |
+| 2026-05-28 | Claude Code | **Carga masiva ID COPUNO (N3).** Cruce de `docs/ID.xlsx` (867 entradas) con BD Empleados (1.330 registros) vía normalización + rotación de tokens + Jaccard. **306 IDs inyectados en Notion** (3 rondas: exacto ×2, rotación ×272, tokens ×32). Cobertura sube del 27% → **50,6%**. Generado `docs/revision_ids_empleados.csv` con los 657 pendientes: Grupo A (61 sugerencias fuzzy ≥50%) + Grupo B (595 huérfanos sin candidato). N3 pasa a estado 🔧 (migración parcial). |

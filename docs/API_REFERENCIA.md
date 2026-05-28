@@ -324,6 +324,27 @@ Proceso: archiva los `Detalle Horas` existentes (marcados `archived: true`) y cr
 
 Respuesta `200`: página Notion actualizada + `{ empleadosActualizados, detallesCreados, erroresDetalles, estadoCambiado, estadoAnterior, estadoNuevo, mensaje }`.
 
+### Rectificar parte (crear rectificativo)
+
+| Método | Ruta |
+|--------|------|
+| POST | `/api/partes-trabajo/:parteId/rectificar` |
+
+Crea un **parte rectificativo** a partir de uno firmado: un parte nuevo en estado `Borrador` que copia cabecera (obra, fecha, persona autorizada, notas) y todos los `Detalle Horas` del original, enlazado a este vía la relación reflexiva `Rectifica a` en Notion. El original queda referenciado por la relación inversa `Rectificado por` y **se conserva intacto** (su PDF firmado no se toca).
+
+El rectificativo sigue después el flujo normal: el usuario lo corrige → `enviar-datos` → Make genera el PDF (marcado como rectificativo) → el jefe firma de nuevo.
+
+**Reglas:**
+- Solo partes en estado `Firmado` son rectificables → `409` en otro caso.
+
+Respuesta `200`: página Notion del parte nuevo + `{ parteOriginalId, detallesCopiados, erroresDetalles, mensaje }`.
+
+Errores:
+- `409` — el parte no está firmado (`{ error, estado }`).
+- `404` — parte no encontrado.
+
+> **Dependencia Notion (manual):** requiere la relación reflexiva `Rectifica a` / `Rectificado por` en la BD `Partes de trabajo`. Sin ella, la creación falla en live (funciona en mock). Ver [DEUDA_TECNICA.md](DEUDA_TECNICA.md).
+
 ---
 
 ## Datos completos

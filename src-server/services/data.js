@@ -281,6 +281,31 @@ const partesTrabajo = {
 	},
 
 	/**
+	 * Crea un parte rectificativo a partir de un parte firmado.
+	 * Devuelve { parteData, nombreFinal, parteOriginalId, detallesCopiados, erroresDetalles }.
+	 * Lanza Error con .status = 409 si el original no es rectificable, .status = 404 si no existe.
+	 */
+	async rectificar(parteOriginalId) {
+		requireInit()
+		if (state.mode === 'mock') {
+			try {
+				return state.mockStore.rectificarParte(parteOriginalId)
+			} catch (e) {
+				if (e.code === 'NOT_RECTIFICABLE') {
+					const err = new Error(e.message)
+					err.status = 409
+					err.meta = e.meta
+					throw err
+				}
+				const err = new Error(e.message)
+				err.status = 404
+				throw err
+			}
+		}
+		return notion.partesTrabajo.rectificar({ client: state.notionClient, parteOriginalId })
+	},
+
+	/**
 	 * Actualiza solo el Estado del parte.
 	 * `estadoProperty` es el objeto property Notion (necesario para detectar tipo status/select/multi_select).
 	 */
