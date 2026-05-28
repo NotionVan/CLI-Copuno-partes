@@ -663,12 +663,15 @@ const partesTrabajo = {
 		const obraId = Array.isArray(obraRel) && obraRel[0] ? obraRel[0].id : null
 		const jefeObraId = Array.isArray(personaRel) && personaRel[0] ? personaRel[0].id : null
 		const fecha = extractPropertyValue(original.properties['Fecha'])
-		const notas = extractPropertyValue(original.properties['Notas'])
+		const notasOriginal = extractPropertyValue(original.properties['Notas'])
+		const notasRectificativo = notasOriginal
+			? `PARTE RECTIFICATIVO\n${notasOriginal}`
+			: 'PARTE RECTIFICATIVO'
 		const obraTexto = extractPropertyValue(original.properties['AUX Obra']) || 'Obra'
 
 		const propsNuevo = {
 			'Nombre': { title: [{ text: { content: `Parte rectificativo - ${obraTexto}` } }] },
-			'Notas': { rich_text: [{ text: { content: notas || '' } }] },
+			'Notas': { rich_text: [{ text: { content: notasRectificativo } }] },
 			'Rectifica a ': { relation: [{ id: parteOriginalId }] }
 		}
 		if (fecha) propsNuevo['Fecha'] = { date: { start: fecha } }

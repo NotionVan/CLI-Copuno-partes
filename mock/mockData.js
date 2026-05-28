@@ -598,7 +598,7 @@ const rectificarParte = (parteOriginalId) => {
     horasEncargado: 0,
     urlPDF: '',
     enviadoCliente: false,
-    notas: original.notas || '',
+    notas: original.notas ? `PARTE RECTIFICATIVO\n${original.notas}` : 'PARTE RECTIFICATIVO',
     firmarUrl: buildFirmarUrl({ id: nuevoId, obra: original.obra }),
     rectificaAId: parteOriginalId,
     rectificadoPorIds: []
