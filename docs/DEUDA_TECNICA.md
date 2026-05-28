@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-27 (I3 y I4 actualizados — Better Stack decidido para I4, bloqueado por email)
+- **Última edición:** 2026-05-28 (v1.1.0 desplegada, QA completado, fixes post-QA aplicados)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -518,3 +518,4 @@ Reglas por tipo de cambio:
 | 2026-05-27 | Claude Code | **Quick wins N5 + I5.** N5: eliminado `'enviado'` de `PARTE_NO_EDITABLES` en `notion.js` — alineado con schema real Notion (`['firmado', 'datos enviados']`). I5: reemplazado `window.location.reload()` post-edición parte ([src/App.jsx](../src/App.jsx)) por `onRefrescarPartes()` — recarga solo la lista de partes sin recargar la página completa ni perder estado UI. |
 | 2026-05-27 | Claude Code | **Smoke tests ampliados de 9 a 29.** Cobertura completa de todos los endpoints: catálogos (empleados, estado-opciones, datos-completos), obras/:id/empleados + firmantes-autorizados, búsqueda ?q= (hit/vacío/q<3), PUT empleados estado (ok+404), GET partes (listado, estado, detalles, empleados, 404s), PUT partes (ok, horas>24, bloqueo), enviar-datos con Idempotency-Key explícita + 404. 29/29 verdes. |
 | 2026-05-27 | Claude Code | **Cierre de hallazgos verificados.** C2 cerrado: lock optimista pre-webhook con estado `Procesando` — flujo `PATCH Procesando → webhook Make → PATCH Datos Enviados`. C1 descartado: plantilla Make filtra output. N2 verificado cerrado: logging `parte_creado`/`detalles_actualizados` ya presente con `reqId`. I1 cerrado: `datos-completos` ya usa `data.*` directamente (Fase B). I2 aplazado: documentado como comportamiento aceptable sin ROI de arreglar. |
+| 2026-05-28 | Claude Code | **Deploy v1.1.0 a producción.** Merge de Etapas 1+2+3 + Fase A+B en `master`. Bump versión 1.0.2 → 1.1.0. Fixes post-QA: crash `ReferenceError: Cannot access 'K' before initialization` (inicialización circular `candidatosVisibles`/`empleadosFiltrados` en `CrearParte`), `ReferenceError: estadoStreamRef is not defined` (referencia fuera de scope en cleanup del componente padre), versión expuesta en `GET /api/health` y footer leído de `package.json` vía `__APP_VERSION__`. QA 16 checks: 12 ✅, 4 ⚠️ (funcionales, sin bloqueo operativo), 0 ❌. Mejora UX: categoría del empleado visible inline junto al nombre en formulario de creación. |
