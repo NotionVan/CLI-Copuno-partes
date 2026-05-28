@@ -565,6 +565,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	const [estadoLocal, setEstadoLocal] = useState({})
 	const [enviandoParteId, setEnviandoParteId] = useState(null)
 	const [rectificandoParteId, setRectificandoParteId] = useState(null)
+	const [confirmRectificar, setConfirmRectificar] = useState(null) // parte pendiente de confirmar
 
 	// Función para limpiar todos los filtros
 	const limpiarFiltros = () => {
@@ -753,34 +754,29 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 	const esEstadoFirmado = (estado) => String(estado || '').toLowerCase() === 'firmado'
 
-	// Crear un parte rectificativo a partir de uno firmado y abrirlo en edición.
-	const handleRectificar = async (parte) => {
+	// Paso 1: mostrar modal de confirmación antes de rectificar.
+	const handleRectificar = (parte) => {
 		if (!parte || rectificandoParteId) return
-		const confirmar = window.confirm(
-			`¿Crear un parte rectificativo de "${parte.nombre}"?\n\nSe creará un parte nuevo en Borrador con los mismos empleados y horas para que lo corrijas. El parte firmado original se conserva intacto.`
-		)
-		if (!confirmar) return
+		setConfirmRectificar(parte)
+	}
 
+	// Paso 2: ejecutar la rectificación tras confirmar en el modal.
+	const ejecutarRectificar = async (parte) => {
+		setConfirmRectificar(null)
 		setRectificandoParteId(parte.id)
 		try {
 			const nuevo = await rectificarParte(parte.id)
 			setMensajeUI({ tipo: 'success', texto: 'Parte rectificativo creado. Corrige los datos y vuelve a enviarlo a firmar.' })
 
-			let partesActualizados = null
+			// Refrescar la lista en background (para que los badges aparezcan).
 			if (typeof onRefrescarPartes === 'function') {
-				try {
-					partesActualizados = await onRefrescarPartes()
-				} catch (refreshError) {
-					console.error('Error al refrescar partes tras rectificar:', refreshError)
-				}
+				onRefrescarPartes().catch(err => console.error('Error al refrescar partes tras rectificar:', err))
 			}
 
-			// Abrir el rectificativo recién creado en modo edición.
-			const parteNuevo = partesActualizados?.find((p) => p.id === nuevo.id)
+			// Abrir el rectificativo en edición usando su id directamente,
+			// sin esperar al refresh (el cache podría devolver la lista vieja).
 			setParteSeleccionado(null)
-			if (parteNuevo) {
-				await iniciarEdicion(parteNuevo)
-			}
+			await iniciarEdicion({ id: nuevo.id, nombre: nuevo.nombre || parte.nombre, obra: parte.obra, fecha: parte.fecha })
 		} catch (error) {
 			console.error('Error al rectificar el parte:', error)
 			setMensajeUI({ tipo: 'error', texto: error.message || 'No se pudo crear el parte rectificativo.' })
@@ -1844,6 +1840,24 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 						</button>
 						<h2 className="section-title">Consultar Partes Existentes</h2>
 					</div>
+					{/* Modal de confirmación para rectificar */}
+					{confirmRectificar && (
+						<div className="modal-overlay" onClick={() => setConfirmRectificar(null)}>
+							<div className="modal-confirm" onClick={e => e.stopPropagation()}>
+								<h3>¿Crear parte rectificativo?</h3>
+								<p>Se creará un parte nuevo en <strong>Borrador</strong> copiando los empleados y horas de <strong>{confirmRectificar.nombre}</strong>.</p>
+								<p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-small)' }}>El parte firmado original se conserva intacto.</p>
+								<div className="modal-confirm-actions">
+									<button className="btn btn-secondary" onClick={() => setConfirmRectificar(null)}>Cancelar</button>
+									<button className="btn btn-warning" onClick={() => ejecutarRectificar(confirmRectificar)}>
+										<RotateCcw size={16} />
+										Crear rectificativo
+									</button>
+								</div>
+							</div>
+						</div>
+					)}
+
 					{mensajeUI.texto && (
 						<div className={`message ${mensajeUI.tipo}`} style={{ marginBottom: 12 }}>
 							{mensajeUI.texto}

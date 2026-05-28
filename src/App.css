@@ -2596,6 +2596,38 @@ input[type="checkbox"] {
 	animation: floatInUp 0.3s ease;
 }
 
+.modal-confirm {
+	background: white;
+	border-radius: var(--border-radius-lg);
+	box-shadow: var(--shadow-lg);
+	max-width: 440px;
+	width: 100%;
+	padding: var(--spacing-xl);
+	animation: floatInUp 0.2s ease;
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-md);
+}
+
+.modal-confirm h3 {
+	margin: 0;
+	font-size: var(--font-size-xl);
+	color: var(--text-primary);
+}
+
+.modal-confirm p {
+	margin: 0;
+	color: var(--text-secondary);
+	line-height: 1.5;
+}
+
+.modal-confirm-actions {
+	display: flex;
+	gap: var(--spacing-sm);
+	justify-content: flex-end;
+	margin-top: var(--spacing-sm);
+}
+
 .sync-info-modal .modal-header {
 	padding: var(--spacing-lg);
 	border-bottom: 1px solid var(--border-color);
