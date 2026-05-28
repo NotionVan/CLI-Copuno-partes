@@ -188,6 +188,13 @@ function App() {
 		}
 	}, [])
 
+	// Exponer versión del build en window para facilitar diagnóstico desde consola.
+	useEffect(() => {
+		if (typeof __APP_VERSION__ !== 'undefined') {
+			window.__APP_VERSION__ = __APP_VERSION__
+		}
+	}, [])
+
 	// Comprobación de actualizaciones: compara la versión embebida en build con la que devuelve el servidor
 	useEffect(() => {
 		const buildVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null
