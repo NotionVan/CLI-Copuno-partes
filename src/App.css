@@ -2765,3 +2765,50 @@ input[type="checkbox"] {
 	color: var(--text-tertiary);
 	font-size: var(--font-size-small);
 }
+/* Banner de actualización disponible */
+.update-banner {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	background-color: #1e40af;
+	color: #fff;
+	padding: 10px 16px;
+	font-size: var(--font-size-small);
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.update-banner span {
+	flex: 1;
+	text-align: center;
+}
+
+.update-banner-btn {
+	background-color: #fff;
+	color: #1e40af;
+	border: none;
+	border-radius: 6px;
+	padding: 4px 14px;
+	font-size: var(--font-size-small);
+	font-weight: 600;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.update-banner-btn:hover {
+	background-color: #dbeafe;
+}
+
+.update-banner-close {
+	background: none;
+	border: none;
+	color: #bfdbfe;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	padding: 2px;
+}
+
+.update-banner-close:hover {
+	color: #fff;
+}

@@ -230,7 +230,7 @@ Definidos en [.claude/agents/](.claude/agents/). Invocar con `@<nombre>` cuando 
 
 - **Idioma:** español en docs, comentarios, nombres de propiedades Notion y mensajes UI. Código JS estándar (camelCase, inglés en identificadores cuando ya es así).
 - **`.env`** está en `.gitignore`. **Nunca** commitear tokens.
-- **Versionado:** SemVer en [package.json](package.json) y `CHANGELOG_V*.md` por release.
+- **Versionado:** SemVer en [package.json](package.json) y `CHANGELOG_V*.md` por release. **Cada deploy debe incluir un bump de versión acorde al peso del cambio:** `patch` (X.X.+1) para fixes y ajustes menores, `minor` (X.+1.0) para funcionalidad nueva sin romper compatibilidad, `major` (+1.0.0) para cambios estructurales o breaking. El banner de actualización en la app depende de este bump — sin él, los usuarios no verán la notificación de nueva versión.
 - **Deuda técnica:** **siempre** que se añada, cierre o reclasifique un hallazgo en [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md), actualizar (1) el cambio, (2) la fecha "Última edición" del bloque superior y (3) una nueva entrada en la sección "Historial de cambios" al final del documento. Sin excepciones — la cronología es la utilidad del archivo.
 - **Despliegue:** trunk-based en `master`. No hay `develop`. Vercel preview en cada PR.
 - **No introducir librerías nuevas sin necesidad real** — el stack es deliberadamente sencillo.

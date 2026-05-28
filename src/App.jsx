@@ -47,6 +47,7 @@ function App() {
 	const [syncMode, setSyncMode] = useState('rápido') // Estado del modo de sincronización
 	const [refrescando, setRefrescando] = useState(false) // Estado para el botón de refrescar
 	const [mostrarInfoSync, setMostrarInfoSync] = useState(false) // Estado para el popup de info de sincronización
+	const [hayActualizacion, setHayActualizacion] = useState(false)
 
 	// Smart Polling: ajusta frecuencia según actividad
 	const partesPollRef = useRef(null)
@@ -185,6 +186,29 @@ function App() {
 			stopEstadoPolling()
 			document.removeEventListener('visibilitychange', onVis)
 		}
+	}, [])
+
+	// Comprobación de actualizaciones: compara la versión embebida en build con la que devuelve el servidor
+	useEffect(() => {
+		const buildVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null
+		if (!buildVersion) return
+
+		const comprobarVersion = async () => {
+			try {
+				const res = await fetch('/api/health', { cache: 'no-store' })
+				if (!res.ok) return
+				const data = await res.json()
+				if (data.version && data.version !== buildVersion) {
+					setHayActualizacion(true)
+				}
+			} catch {
+				// sin conexión, ignorar
+			}
+		}
+
+		comprobarVersion()
+		const intervalo = setInterval(comprobarVersion, 5 * 60 * 1000) // cada 5 min
+		return () => clearInterval(intervalo)
 	}, [])
 
 	const cargarOpcionesEstado = async () => {
@@ -346,6 +370,18 @@ function App() {
 					</div>
 				</div>
 			</header>
+
+			{hayActualizacion && (
+				<div className="update-banner">
+					<span>🔄 Hay una nueva versión disponible.</span>
+					<button className="update-banner-btn" onClick={() => window.location.reload()}>
+						Actualizar ahora
+					</button>
+					<button className="update-banner-close" onClick={() => setHayActualizacion(false)} title="Cerrar">
+						<X size={14} />
+					</button>
+				</div>
+			)}
 
 			<main className="main">
 				<div className="container">
