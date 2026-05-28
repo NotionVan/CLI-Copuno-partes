@@ -380,7 +380,7 @@ function App() {
 
 			{hayActualizacion && (
 				<div className="update-banner">
-					<span>🔄 Hay una nueva versión disponible.</span>
+					<span>Hay una nueva versión disponible.</span>
 					<button className="update-banner-btn" onClick={() => window.location.reload()}>
 						Actualizar ahora
 					</button>
