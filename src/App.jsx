@@ -214,7 +214,7 @@ function App() {
 		}
 
 		comprobarVersion()
-		const intervalo = setInterval(comprobarVersion, 5 * 60 * 1000) // cada 5 min
+		const intervalo = setInterval(comprobarVersion, 60 * 1000) // cada 1 min
 		return () => clearInterval(intervalo)
 	}, [])
 
