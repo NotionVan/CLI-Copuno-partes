@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-05-27 (Fase B migración completa: todos los endpoints a `data.js`, `server.js` 1453→830 líneas, ADR-004 idempotencia; Etapas 1, 2 y 3 implementadas — ver [DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) sección "Etapas implementadas")
+- **Última edición:** 2026-05-28 (v1.2.0 — banner de actualización disponible: compara versión embebida en build con `/api/health` cada 5 min; convención SemVer de bump por peso de cambio documentada en CLAUDE.md)
 
 ---
 
