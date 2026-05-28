@@ -860,7 +860,11 @@ app.post('/api/partes-trabajo/:parteId/rectificar', async (req, res) => {
 		})
 	} catch (error) {
 		if (error.status === 409) {
-			return res.status(409).json({ error: error.message, estado: error.meta?.estado })
+			return res.status(409).json({
+				error: error.message,
+				estado: error.meta?.estado,
+				rectificadoPorId: error.meta?.rectificadoPorId
+			})
 		}
 		if (error.status === 404) {
 			return res.status(404).json({ error: error.message })

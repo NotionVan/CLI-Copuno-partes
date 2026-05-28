@@ -579,6 +579,13 @@ const rectificarParte = (parteOriginalId) => {
     throw error
   }
 
+  if (original.rectificadoPorIds && original.rectificadoPorIds.length > 0) {
+    const error = new Error('Este parte ya tiene un rectificativo asociado')
+    error.code = 'NOT_RECTIFICABLE'
+    error.meta = { estado: original.estado, rectificadoPorId: original.rectificadoPorIds[0] }
+    throw error
+  }
+
   const ahora = new Date().toISOString()
   const nuevoId = uuidv4()
   const nuevoParte = {
@@ -598,7 +605,9 @@ const rectificarParte = (parteOriginalId) => {
     horasEncargado: 0,
     urlPDF: '',
     enviadoCliente: false,
-    notas: original.notas ? `PARTE RECTIFICATIVO\n${original.notas}` : 'PARTE RECTIFICATIVO',
+    notas: original.notas && !original.notas.startsWith('PARTE RECTIFICATIVO')
+      ? `PARTE RECTIFICATIVO\n${original.notas}`
+      : original.notas || 'PARTE RECTIFICATIVO',
     firmarUrl: buildFirmarUrl({ id: nuevoId, obra: original.obra }),
     rectificaAId: parteOriginalId,
     rectificadoPorIds: []

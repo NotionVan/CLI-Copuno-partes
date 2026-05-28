@@ -653,9 +653,19 @@ const partesTrabajo = {
 		const estado = extractPropertyValue(original.properties['Estado'])
 
 		if (!PARTE_RECTIFICABLES.includes(String(estado).toLowerCase())) {
-			const err = new Error('Solo los partes firmados pueden rectificarse')
+			const err = new Error('Solo los partes firmados o con datos enviados pueden rectificarse')
 			err.status = 409
 			err.meta = { estado }
+			throw err
+		}
+
+		// Guard contra rectificativos duplicados: si el original ya tiene un rectificativo
+		// asociado, rechazar con 409 para evitar crear dos de la misma fuente.
+		const rectificadoPorExistente = extractPropertyValue(original.properties['Rectificado por '])
+		if (Array.isArray(rectificadoPorExistente) && rectificadoPorExistente.length > 0) {
+			const err = new Error('Este parte ya tiene un rectificativo asociado')
+			err.status = 409
+			err.meta = { estado, rectificadoPorId: rectificadoPorExistente[0].id }
 			throw err
 		}
 
@@ -665,9 +675,9 @@ const partesTrabajo = {
 		const jefeObraId = Array.isArray(personaRel) && personaRel[0] ? personaRel[0].id : null
 		const fecha = extractPropertyValue(original.properties['Fecha'])
 		const notasOriginal = extractPropertyValue(original.properties['Notas'])
-		const notasRectificativo = notasOriginal
+		const notasRectificativo = notasOriginal && !notasOriginal.startsWith('PARTE RECTIFICATIVO')
 			? `PARTE RECTIFICATIVO\n${notasOriginal}`
-			: 'PARTE RECTIFICATIVO'
+			: notasOriginal || 'PARTE RECTIFICATIVO'
 		const obraTexto = extractPropertyValue(original.properties['AUX Obra']) || 'Obra'
 
 		const propsNuevo = {

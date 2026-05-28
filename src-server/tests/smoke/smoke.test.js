@@ -409,3 +409,22 @@ test('POST rectificar devuelve 404 si el parte no existe', async () => {
 	const res = await request(app).post('/api/partes-trabajo/no-existe/rectificar')
 	assert.equal(res.status, 404)
 })
+
+test('POST rectificar devuelve 409 si el parte ya tiene un rectificativo', async () => {
+	// Crear un parte nuevo y mandarlo a Datos Enviados para poder rectificarlo.
+	const crear = await request(app).post('/api/partes-trabajo').send({
+		obra: 'Ampliación Planta Norte', obraId: 'obra-2',
+		fecha: '2026-06-01', jefeObraId: 'jefe-1'
+	})
+	const parteId = crear.body.id
+	await request(app).post(`/api/partes-trabajo/${parteId}/enviar-datos`)
+
+	// Primera rectificación → OK.
+	const r1 = await request(app).post(`/api/partes-trabajo/${parteId}/rectificar`)
+	assert.equal(r1.status, 200)
+
+	// Segunda rectificación sobre el mismo original → 409.
+	const r2 = await request(app).post(`/api/partes-trabajo/${parteId}/rectificar`)
+	assert.equal(r2.status, 409)
+	assert.ok(r2.body.error.includes('ya tiene un rectificativo'))
+})
