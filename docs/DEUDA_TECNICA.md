@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-26 (Etapas 1 y 2 implementadas — pendiente merge bloqueado por S1)
+- **Última edición:** 2026-05-27 (I3 y I4 actualizados — Better Stack decidido para I4, bloqueado por email)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -12,7 +12,7 @@
 
 ## Resumen ejecutivo (estado actual)
 
-La arquitectura cumple para el caso de uso actual pero descansa sobre **tres apuestas frágiles**: (1) no hay autenticación en `/api/*`, (2) la creación/edición de un parte hace N+1 escrituras a Notion sin transacción ni reconciliación, (3) en Vercel cada SSE abierto cuenta como serverless function corriendo hasta timeout, lo que rompe Smart Polling tal como está. El monolito de [server.js](../server.js) (~1.400 líneas) está largo pero cohesivo: **no es el problema**. Riesgo real más alto hoy: **H1 (auth) + H3 (SSE)**.
+La arquitectura cumple para el caso de uso actual pero descansa sobre **tres apuestas frágiles**: (1) no hay autenticación en `/api/*`, (2) la creación/edición de un parte hace N+1 escrituras a Notion sin transacción ni reconciliación, (3) en Vercel cada SSE abierto cuenta como serverless function corriendo hasta timeout, lo que rompe Smart Polling tal como está. El monolito de [server.js](../server.js) (~830 líneas tras la migración ADR-002) está cohesivo: **no es el problema**. Riesgo real más alto hoy: **H1 (auth) + H3 (SSE)**.
 
 ---
 
@@ -23,22 +23,22 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | ID | Sev | Título | Estado | Coste | Recomendación |
 |---|---|---|---|---|---|
 | [H1](#h1--ningún-endpoint-api-está-autenticado) | 🔴 | Auth en `/api/*` ausente | ⏳ | 4–8 h | Retainer **prioritario** |
-| [H2](#h2--creaciónedición-de-parte-no-es-atómica) | 🔴 | Parte sin atomicidad ni reconciliación | ⏳ | 8–12 h | Retainer |
+| [H2](#h2--creaciónedición-de-parte-no-es-atómica) | 🔴 | Parte sin atomicidad ni reconciliación | 🔧 (mitigado parcial) | 8–12 h | Retainer |
 | [H3](#h3--sse-sobre-vercel-serverless-incompatible) | 🔴 | SSE incompatible con Vercel serverless | ⏳ | 4–6 h | Retainer (próximo sprint) |
-| [C1](#c1--webhook-a-make-envía-payload-sin-sanear) | 🟠 | Webhook Make recibe payload sin sanear | ⏳ | 1–2 h | Retainer |
-| [C2](#c2--enviar-datos-orden-make--patch-vulnerable) | 🟠 | `enviar-datos`: ventana entre Make y PATCH estado | ⏳ | 3–4 h | Retainer (cuando haya hueco) |
-| [C3](#c3--n1-al-leer-empleados-de-una-obra) | 🟠 | N+1 al leer empleados de una obra | ⏳ | 2–3 h | Retainer |
-| [I1](#i1--apidatos-completos-hace-http-a-sí-mismo) | 🟡 | `/api/datos-completos` hace HTTP loopback | ⏳ | 1–2 h | Retainer |
-| [I2](#i2--cache-en-memoria--serverless--cache-inútil) | 🟡 | Cache en memoria inútil en serverless | ⏳ | 0 h (doc) | Ignorar / documentar |
+| [C1](#c1--webhook-a-make-envía-payload-sin-sanear) | 🟠 | Webhook Make recibe payload sin sanear | ❌ | — | Descartado — plantilla Make filtra el output |
+| [C2](#c2--enviar-datos-orden-make--patch-vulnerable) | 🟠 | `enviar-datos`: ventana entre Make y PATCH estado | ✅ | — | Cerrado 2026-05-27 |
+| [C3](#c3--n1-al-leer-empleados-de-una-obra) | 🟠 | N+1 al leer empleados de una obra | ✅ | — | Cerrado 2026-05-27 |
+| [I1](#i1--apidatos-completos-hace-http-a-sí-mismo) | 🟡 | `/api/datos-completos` hace HTTP loopback | ✅ | — | Cerrado — Fase B, llamadas directas a `data.*` |
+| [I2](#i2--cache-en-memoria--serverless--cache-inútil) | 🟡 | Cache en memoria inútil en serverless | ⏭️ | — | Aplazado — comportamiento documentado, sin ROI arreglarlo |
 | [I3](#i3--rate-limit-irrelevante-con-nat-compartido) | 🟡 | Rate limit revienta con NAT compartido | ⏳ | 1 h | Retainer (junto a H1) |
 | [I4](#i4--sin-telemetría-útil) | 🟡 | Sin telemetría, logs Vercel se pierden | ⏳ | 3–5 h | Retainer |
-| [I5](#i5--reload-de-ventana-tras-editar) | 🟡 | `window.location.reload()` tras editar | ⏳ | 2 h | Retainer (oportunista) |
+| [I5](#i5--reload-de-ventana-tras-editar) | 🟡 | `window.location.reload()` tras editar | ✅ | — | Cerrado 2026-05-27 |
 
 | [N1](#n1--persona-autorizada-mezcla-modelo-cliente-y-modelo-interno) | 🟠 | Persona Autorizada — coexistencia legacy/interno | ⏳ | 3–5 h | Retainer (esta semana) |
-| [N2](#n2--asignación-libre-amplía-superficie-de-h2) | 🟠 | Asignación libre agrava H2 (creación no atómica) | ⏳ | 1–2 h (quick win) | Retainer (esta semana) |
+| [N2](#n2--asignación-libre-amplía-superficie-de-h2) | 🟠 | Asignación libre agrava H2 (creación no atómica) | ✅ | — | Cerrado — logging ya presente en server.js |
 | [N3](#n3--búsqueda-por-id-copuno-con-cobertura-incompleta) | 🟠 | ID COPUNO solo cubre el 27% de empleados | ⏳ | — | Decisión de producto |
 | [N4](#n4--multiplicador-de-carga-notion-en-flujo-id-cross-obra) | 🟡 | Flujo "ID en varias obras" multiplica lecturas Notion | ⏳ | 2–4 h | Retainer (junto a C3) |
-| [N5](#n5--estados-hardcoded-divergentes-del-schema-real) | 🔵 | Lista `noEditables` hardcoded incluye `'enviado'` inexistente | ⏳ | 15 min | Retainer (oportunista) |
+| [N5](#n5--estados-hardcoded-divergentes-del-schema-real) | 🔵 | Lista `noEditables` hardcoded incluye `'enviado'` inexistente | ✅ | — | Cerrado 2026-05-27 |
 
 Informativos en sección [aparte](#informativos).
 
@@ -63,7 +63,9 @@ Informativos en sección [aparte](#informativos).
 
 #### H2 — Creación/edición de parte no es atómica
 
-- **Estado:** ⏳ Pendiente
+- **Estado:** 🔧 Mitigado parcialmente (2026-05-27) · pendiente solución estructural
+- **Mitigación 2026-05-27:** Idempotencia en `POST enviar-datos` ([src-server/lib/idempotency.js](../src-server/lib/idempotency.js)). Doble-click o reintentos del cliente ya no disparan Make dos veces ni causan PDFs duplicados. **No resuelve H2** (no garantiza atomicidad de las N escrituras de detalles), pero elimina la causa más frecuente de inconsistencias adyacentes. Test smoke verifica el replay.
+- **Lo que sigue pendiente:** los bucles `for empleados` en POST `/api/partes-trabajo` y PUT `/api/partes-trabajo/:id` siguen sin transacción ni reconciliación. Si Notion devuelve 5xx en mitad del bucle, el parte queda inconsistente. Solución estructural llega con la migración a Supabase (ADR-003) — Postgres da ACID gratis.
 - **Detectado:** 2026-05-11
 - **Dónde:** [server.js:580-752](../server.js#L580) (POST), [server.js:1104-1339](../server.js#L1104) (PUT). Bucle `for (const empleadoId of empleados)` con `await` secuencial y `try/catch` que **se traga errores y sigue**.
 - **Qué:** POST crea cabecera → PATCH nombre → N escrituras en `DETALLES_HORA`. Si la 3ª escritura falla por 429/red, el parte queda con 2 detalles y los otros desaparecen. Cliente recibe `200 OK` con `erroresDetalles.length > 0` pero **sin status code de error**. PUT es peor: **archiva** todos los detalles existentes antes de crear los nuevos — si Notion devuelve 5xx tras archivar, el parte queda **sin detalles**.
@@ -89,33 +91,24 @@ Informativos en sección [aparte](#informativos).
 
 #### C1 — Webhook a Make envía payload sin sanear
 
-- **Estado:** ⏳ Pendiente
+- **Estado:** ❌ Descartado (2026-05-27)
 - **Detectado:** 2026-05-11
 - **Dónde:** [server.js:1030-1049](../server.js#L1030-L1049).
-- **Qué:** `sanitizeEconomic` solo se aplica a `res.json` ([server.js:141-149](../server.js#L141-L149)). El `axios.post` al webhook envía el objeto Notion completo. Si la BD `Partes de trabajo` tiene propiedades económicas, Make las recibe.
-- **Coste de arreglar:** 1–2 h. Aplicar `sanitizeEconomic(payload)` antes del `axios.post`. Verificar primero qué espera Make.
-- **Coste de NO arreglar:** Inconsistencia con la promesa de saneado. Bajo si Make es cerrado/confiable; alto si en algún momento Make manda emails o expone el payload.
-- **Recomendación:** Retainer. Validar primero con qué campos trabaja Make.
+- **Qué:** `sanitizeEconomic` solo se aplica a `res.json`. El `axios.post` al webhook envía el objeto Notion completo con todas sus propiedades.
+- **Por qué se descarta:** La plantilla Make controla qué campos se renderizan en el PDF — solo muestra datos horarios, no económicos. El payload llega completo a Make pero nunca se expone al jefe de obra ni sale por ningún canal visible. Riesgo real: nulo en la configuración actual. Si Make cambia (email con payload raw, nuevo escenario), reevaluar.
 
 #### C2 — `enviar-datos`: orden Make → PATCH vulnerable
 
-- **Estado:** ⏳ Pendiente
-- **Detectado:** 2026-05-11
-- **Dónde:** [server.js:1058-1094](../server.js#L1058-L1094).
-- **Qué:** Flujo: (1) POST a Make → (2) PATCH estado a `Datos Enviados`. Si (1) ok y (2) falla, Make ya genera el PDF pero el parte sigue como `borrador`. Ventana vulnerable a reintento accidental → 2 PDFs, 2 entradas OneDrive, datos duplicados.
-- **Coste de arreglar:** 3–4 h. Patrón: marcar parte como "Procesando" *antes* del webhook (lock optimista), webhook, marcar `Datos Enviados` después. Requiere añadir estado en Notion.
-- **Coste de NO arreglar:** Incidente raro pero embarazoso.
-- **Recomendación:** Retainer, no urgente.
+- **Estado:** ✅ Cerrado 2026-05-27
+- **Solución:** Añadido estado `Procesando` (amarillo) en Notion. El flujo ahora es: (1) PATCH `Procesando` → (2) webhook Make → (3) PATCH `Datos Enviados`. Si (2) o (3) fallan, el parte queda en `Procesando` — bloqueado para edición y reenvío. La oficina reconcilia manualmente cambiando el estado en Notion. `PARTE_NO_EDITABLES` actualizado para incluir `'procesando'` en `notion.js` y `mockData.js`.
 
 #### C3 — N+1 al leer empleados de una obra
 
-- **Estado:** ⏳ Pendiente
+- **Estado:** ✅ Cerrado (2026-05-27)
 - **Detectado:** 2026-05-11
-- **Dónde:** [server.js:482-531](../server.js#L482-L531).
-- **Qué:** Por cada empleado relacionado: 1 GET a `/pages/:id`. Obra con 30 empleados = 31 requests secuenciales. A 3 req/s de Notion → ~10 s mínimo. Sin `Promise.all`, sin cache individual.
-- **Por qué importa:** Parte del "la app va lenta" subjetivo. Multiplica riesgo de 429 con varios usuarios concurrentes.
-- **Coste de arreglar:** 2–3 h. Query a `EMPLEADOS` filtrando por relación con la obra, o `Promise.all` con p-limit a 3 concurrencia.
-- **Recomendación:** Retainer.
+- **Resuelto en:** [server.js](../server.js) endpoint `GET /api/obras/:obraId/empleados` → ahora delega en [src-server/services/notion.js](../src-server/services/notion.js) `obras.empleadosDeObra()`, que hace **una sola query** filtrada por relación inversa `EMPLEADOS.Obras contains :obraId`.
+- **Validación:** test smoke en [src-server/tests/smoke/smoke.test.js](../src-server/tests/smoke/smoke.test.js) cubre el endpoint (modo mock). En live el comportamiento se verifica visualmente desde la app.
+- **Nota:** ya estaba implementado en código durante la Etapa 1 (commit anterior), pero seguía marcado como pendiente por descuido documental. El refactor a `data.js` (ADR-002) lo confirma como patrón.
 
 ---
 
@@ -123,36 +116,37 @@ Informativos en sección [aparte](#informativos).
 
 #### I1 — `/api/datos-completos` hace HTTP a sí mismo
 
-- **Estado:** ⏳ Pendiente · **Dónde:** [server.js:1352-1357](../server.js#L1352-L1357) · **Coste:** 1–2 h.
-- `axios.get(\`${req.protocol}://${req.get('host')}/api/...\`)` × 4. En serverless = invocación de otras funciones × 4. Frágil ante cambios de host/protocolo. Refactor: extraer helpers `fetchObras()`, `fetchEmpleados()`, etc.
+- **Estado:** ✅ Cerrado (Fase B, 2026-05-27) — reemplazado por `Promise.all([data.obras.listar(), data.jefesObra.listar(), data.empleados.listar(), data.partesTrabajo.listar()])`. Sin HTTP loopback, sin fragilidad de host/protocolo, funciona en mock y live.
 
 #### I2 — Cache en memoria + serverless = cache inútil
 
-- **Estado:** ⏳ Pendiente · **Dónde:** [server.js:97-109](../server.js#L97-L109) · **Coste:** 0 h documentar.
-- `CACHE_TTL_MS` asume proceso long-lived. En serverless, cada invocación arranca con `cache = new Map()` o reutiliza si lambda caliente — comportamiento impredecible y contradice [docs/SMART_POLLING.md](SMART_POLLING.md). **Recomendación: ignorar / documentar.** No invertir en Vercel KV mientras el caso de uso sea pequeño.
+- **Estado:** ⏭️ Aplazado — comportamiento documentado, sin ROI arreglarlo ahora.
+- `CACHE_TTL_MS` asume proceso long-lived. En serverless, cada invocación puede arrancar con `cache = new Map()` vacío si la lambda está fría. El comportamiento es impredecible pero el impacto es bajo: en el peor caso simplemente no cachea nada y hace más llamadas a Notion. No invertir en Vercel KV mientras el volumen sea pequeño. Reevaluar si se detectan 429s frecuentes en producción.
 
 #### I3 — Rate limit irrelevante con NAT compartido
 
-- **Estado:** ⏳ Pendiente · **Dónde:** [server.js:86-95](../server.js#L86-L95) · **Coste:** 1 h.
-- Si los jefes están detrás del mismo NAT corporativo, todos comparten IP. 100 req/15min ≈ 6.6 req/min para *todo* el equipo. Smart Polling solo revienta el límite con 2 usuarios. Subir `RATE_LIMIT_MAX` a ~1000 o `keyGenerator` por sesión cuando se cierre [H1](#h1--ningún-endpoint-api-está-autenticado).
+- **Estado:** ⏳ Pendiente · **Dónde:** [server.js:86-95](../server.js#L86-L95) · **Coste:** 2 min (variable de entorno en Vercel).
+- Con Smart Polling (3 s/req en modo rápido), un solo usuario hace 300 req/15min — el triple del límite actual (100). Con varios usuarios en el mismo NAT corporativo, revienta con uso normal. Vercel Pro no resuelve esto — el rate limit sigue siendo por IP independientemente del plan.
+- **Solución temporal:** subir `RATE_LIMIT_MAX` a ~1000 en Vercel Dashboard en cuanto haya acceso. **Solución definitiva:** `keyGenerator` por usuario autenticado cuando se cierre [H1](#h1--ningún-endpoint-api-está-autenticado) — H1 lo resuelve del todo.
 
 #### I4 — Sin telemetría útil
 
 - **Estado:** ⏳ Pendiente · **Dónde:** todo [server.js](../server.js) · **Coste:** 3–5 h.
-- Solo `console.*` + morgan. Vercel mantiene logs ~24 h (Hobby) / 3 días (Pro). Para diagnosticar "se perdieron las horas del martes pasado" ya están borrados. `req.id` se genera pero no se propaga al webhook Make ni a respuestas críticas. Integrar Sentry/Axiom/Better Stack (planes gratuitos suficientes).
+- Solo `console.*` + morgan. Vercel mantiene logs 3 días (Pro). Para diagnosticar "se perdieron las horas del martes pasado" ya están borrados. `req.id` se genera pero no se propaga al webhook Make ni a respuestas de error al cliente — sin forma de correlacionar log del servidor con log de Make.
+- **Herramienta decidida: Better Stack** (logging pino + retención 30 días + alertas, plan free suficiente). Doble beneficio: instalar Better Stack = instalar pino, que es el logger del ADR-006 pendiente.
+- **Bloqueante:** alta en Better Stack pendiente de desbloquear email `javi@notionvan.com`. Una vez desbloqueado: crear cuenta, obtener token, instalar `pino` + transport Better Stack, propagar `req.id` a webhook Make y respuestas de error.
 
 #### I5 — Reload de ventana tras editar
 
-- **Estado:** ⏳ Pendiente · **Dónde:** [src/App.jsx:977](../src/App.jsx#L977) · **Coste:** 2 h.
-- `window.location.reload()` tras editar parte. Pierde estado UI, reabre todas las queries. Reemplazar por refresh del listado + cerrar modal.
+- **Estado:** ✅ Cerrado 2026-05-27 — reemplazado por `onRefrescarPartes()` que recarga solo la lista de partes vía `getPartesTrabajo()` sin recargar la página completa.
 
 ---
 
 ### 🔵 Informativos
 
-- **[server.js](../server.js) ~1.400 líneas — largo pero cohesivo.** No urge partirlo. Si se hace, partir por dominio (obras, empleados, partes, detalles, webhook), no por capa.
+- **[server.js](../server.js) ~830 líneas — refactorizado (Fase B, 2026-05-27).** No urge partirlo. Si se hace, partir por dominio (obras, empleados, partes, detalles, webhook), no por capa.
 - **[src/App.jsx](../src/App.jsx) ~2.470 líneas — sí es un olor.** Formularios + listado + modal + polling + edición en uno. Refactor por componentes (`EdicionParte`, `DetallesParteModal`, `ListadoPartes`) es **proyecto aparte**, no entra en 20h/mes.
-- **`extractPropertyValue` duplicada** en [server.js:167](../server.js#L167) y [src/services/notionService.js:69](../src/services/notionService.js#L69) con divergencias menores. Aceptable al tamaño actual.
+- **`extractPropertyValue`** vive en [src-server/services/notion.js](../src-server/services/notion.js) y se importa en `server.js`. La copia de [src/services/notionService.js:69](../src/services/notionService.js#L69) (frontend) diverge ligeramente — aceptable al tamaño actual.
 - **Versiones:** React 18, Vite 7, Express 4. Todo soportado y al día. Helmet/compression/morgan correctos.
 - **Catch-all `/^(?!\/api\/).*/`** ([server.js:1376](../server.js#L1376)) es correcto, evita el bug clásico de capturar /api con regex laxas.
 - **IDs de BBDD Notion hardcoded** en [server.js:27-33](../server.js#L27-L33). Aceptable para 4 BBDDs estables; mover a env si se duplica en staging.
@@ -213,13 +207,8 @@ Cualquier petición tipo "queremos que vaya más rápido la sincronización" se 
 
 #### N2 — Asignación libre + multi-obra amplían superficie de H2
 
-- **Estado:** ⏳ Pendiente · **Detectado:** 2026-05-26 · **Severidad:** 🟠
-- **Dónde:** [server.js:580-752](../server.js#L580) (POST), [server.js:1104-1339](../server.js#L1104) (PUT).
-- **Qué:** Funcionalidades 1 (asignar empleados sin asignación previa) y 3 (mismo empleado en varias obras vía ID) **aumentan el `N` del bucle N+1 de creación de `DETALLES_HORA`** y la probabilidad de que un mismo empleado aparezca en partes simultáneos del mismo día. H2 ya documenta que el bucle se traga errores y devuelve `200` con `erroresDetalles`. Con el plan, además: ¿qué pasa si dos partes del mismo día en obras distintas referencian al mismo empleado y uno falla? Hoy: nada detecta inconsistencia.
-- **Por qué importa:** El cliente lo notará antes (más volumen, más probabilidad). Sin el quick win de logging, debug imposible.
-- **Coste de arreglar (quick win, decisión ya tomada):** 1–2 h. Logging estructurado de "empleados pretendidos vs detalles creados OK vs fallidos" con `req.id`, en POST y PUT.
-- **Coste de NO arreglar:** Reapertura del antiguo dolor "se han perdido las horas" en pleno arranque con Andrés.
-- **Recomendación:** Retainer, esta semana, **antes del 1 jun**.
+- **Estado:** ✅ Cerrado (verificado 2026-05-27) — logging estructurado ya presente en `server.js`.
+- Los eventos `parte_creado` y `detalles_actualizados` incluyen `reqId`, `pretendidos`, `creados`, `errores` y `empleadosNoAsignadosIds`. Cruzable con logs de Vercel para reconstruir cualquier pérdida de horas. No requería código adicional.
 
 #### N3 — Búsqueda por ID COPUNO con cobertura incompleta
 
@@ -243,10 +232,7 @@ Cualquier petición tipo "queremos que vaya más rápido la sincronización" se 
 
 #### N5 — Estados hardcoded divergentes del schema real
 
-- **Estado:** ⏳ Pendiente · **Detectado:** 2026-05-26 · **Severidad:** 🔵
-- **Dónde:** [server.js:1149](../server.js#L1149).
-- **Qué:** El array `noEditables = ['firmado', 'datos enviados', 'enviado']`. El schema real de `Estado` en `PARTES_TRABAJO` es `['Borrador', 'Listo para firmar', 'Datos Enviados', 'Firmado']`. `'enviado'` no existe como estado y nunca se va a evaluar — código muerto. No es un bug funcional (los dos primeros sí coinciden tras `toLowerCase`) pero es ruido que confunde al próximo lector.
-- **Recomendación:** Limpieza oportunista (15 min) cuando se toque ese bloque por otra razón. No es prioridad.
+- **Estado:** ✅ Cerrado 2026-05-27 — eliminado `'enviado'` de `PARTE_NO_EDITABLES` en [src-server/services/notion.js](../src-server/services/notion.js). Array queda `['firmado', 'datos enviados']`, alineado con el schema real de Notion.
 
 ### (c) Orden de implementación recomendado para la semana
 
@@ -464,6 +450,42 @@ Criterios PENDIENTE_PREVIEW (verificación manual al desbloquear S1):
 
 ---
 
+### Etapa 3 — Funcionalidades extendidas F1 + F2 + F3 (2026-05-26)
+
+- **Rama:** `etapa3/funcionalidades-extendidas-f1-f2-f3` (basada en `etapa2/...`, NO en master)
+- **PR:** no creado todavía — se creará tras rebase sobre master post-merge de Etapas 1 y 2
+- **Commits:** `aec81c5` (implementación) + `38cf339` (blindaje `Array.isArray`)
+- **Veredicto regression-checker:** ÁMBAR (flujos 1 y 2 verdes; flujo 3 ámbar inicial cerrado con commit `38cf339`)
+
+Prerrequisitos Notion verificados con `@notion-integration-inspector` (API directa, no MCP):
+
+- ✅ `ID COPUNO` en EMPLEADOS: tipo `number`, filtro `number.equals` operativo
+- ⚠️ **Duplicados confirmados en producción:** IDs `5848` (2 empleados), `5760` (2), `5917` (2). Endpoint maneja el caso devolviendo todos los matches; frontend muestra aviso para que el usuario elija. Limpieza de datos por parte del cliente (Efrén) recomendada pero no bloqueante.
+- ✅ DETALLES_HORA: **no tiene restricción UNIQUE** (Notion no las soporta). Propiedades: `Empleados` (relation), `Fecha` (formula), `Partes de trabajo` (relation), `Cantidad Horas` (number), `ID` (unique_id autoincremental, no constraint). F3 sale gratis.
+
+Funcionalidades:
+
+- **F2 — Búsqueda por ID Copuno con fallback a nombre.** Endpoint existente `/api/empleados/buscar` extendido para aceptar `?id=NNNN` además de `?q=texto`. Filtro `property: 'ID COPUNO', number: { equals }`. 400 si id inválido; 404 si no encuentra; warning log estructurado si Notion devuelve >1 match. Frontend: detección automática de texto numérico (`/^\d{3,6}$/`) en el input de búsqueda libre — si numérico, llama primero al ID, fallback a nombre si 404. Aviso UI cuando hay duplicados.
+- **F1 — Asignación de empleados sin asignación previa.** Verificado que el backend POST/PUT no tenía validación que rechace empleados fuera de la relación `OBRAS.Empleados`. Logging H2 (Etapa 1) ampliado: añadidos `empleadosNoAsignadosObra` (count) y `empleadosNoAsignadosIds` (lista) calculados precargando la relación de la obra una vez (+1 petición, no N+1). Blindado con `Array.isArray()` tras feedback de regression-checker. **No toca la relación permanente OBRAS↔EMPLEADOS** — el empleado opera en la obra ese día sin que su asignación cambie.
+- **F3 — Mismo empleado en varias obras el mismo día.** Verificación de schema, no cambios de código. La combinación `Empleados+Fecha+Partes de trabajo` se puede repetir en DETALLES_HORA porque Notion no impone constraints únicos. F1+F2 habilitan el caso de uso desde la UI.
+
+Riesgos identificados:
+
+1. **Duplicados de ID Copuno en datos legacy** (3 casos): manejados en código (devuelve todos + aviso UI), pero merece limpieza con el cliente.
+2. **Empleados `Estado=Inactivo`** sí aparecen en búsqueda por ID/nombre. Spec no lo prohibe → comportamiento aceptable. Si el cliente quiere filtrarlos, es decisión de producto futura.
+
+Criterios PENDIENTE_PREVIEW (verificación manual al desbloquear S1):
+
+- [ ] Buscar empleado por ID válido existente → muestra empleado correcto
+- [ ] Buscar ID duplicado (5848, 5760 o 5917) → aviso UI + lista de 2 empleados
+- [ ] Buscar ID inexistente → fallback a búsqueda por nombre
+- [ ] Buscar empleado por nombre directamente → comportamiento Etapa 2 inalterado
+- [ ] Crear parte con empleado NO asignado a la obra → guarda correctamente, log Vercel muestra `empleadosNoAsignadosObra > 0`
+- [ ] Crear parte para mismo empleado en 2 obras distintas el mismo día → ambos partes se crean sin conflicto
+- [ ] Editar parte de obra sin empleados asignados → no devuelve 500 (blindaje `Array.isArray`)
+
+---
+
 ## Cómo mantener este documento
 
 Cada modificación de este archivo lleva tres pasos obligatorios:
@@ -490,3 +512,9 @@ Reglas por tipo de cambio:
 | 2026-05-26 | Javi Collado | Registrado stopper S1 (acceso Vercel bloqueado). |
 | 2026-05-26 | Claude Code | Etapa 1 implementada en rama `etapa1/deuda-tecnica-c3-h2-i3` (commit `1b4893c`, PR [#2](https://github.com/NotionVan/Copuno_Gestion_Partes/pull/2)). C3 + H2 quick win + I3. Regression-checker ÁMBAR. Merge bloqueado por S1. |
 | 2026-05-26 | Claude Code | Etapa 2 implementada en rama `etapa2/funcionalidades-minimo-viable-f4-f5-f6` (commit `8659f62`). F4 + F5 + F6 con edge cases. Sin PR hasta que merge de Etapa 1 desbloquee rebase sobre master. Regression-checker ÁMBAR. |
+| 2026-05-26 | Claude Code | Etapa 3 implementada en rama `etapa3/funcionalidades-extendidas-f1-f2-f3` (commits `aec81c5` + `38cf339`). F2 búsqueda por ID Copuno + manejo de duplicados (5848, 5760, 5917). F1 empleados libres con logging enriquecido. F3 verificado (Notion sin constraints UNIQUE). Sin PR hasta merge de Etapa 2. Regression-checker ÁMBAR cerrado con blindaje Array.isArray. |
+| 2026-05-27 | Claude Code | **Fase A consolidación arquitectónica.** Creados [docs/ARQUITECTURA.md](./ARQUITECTURA.md) + [ADR-001](./adr/ADR-001-notion-como-bbdd.md), [ADR-002](./adr/ADR-002-capa-abstraccion-datos.md), [ADR-003](./adr/ADR-003-supabase-destino-migracion.md). Introducida capa `src-server/services/{notion,data}.js` (ADR-002) — 6 endpoints piloto refactorizados (obras, jefes-obra, firmantes-autorizados, empleados, empleados/buscar, empleados/estado-opciones, obras/:id/empleados). Implementada **idempotencia** en `POST enviar-datos` ([src-server/lib/idempotency.js](../src-server/lib/idempotency.js)) — defensa frente a doble-click sin tocar frontend. Añadidos 9 **tests smoke** con supertest + `node:test` (`npm run test:smoke`, todos verdes). **C3 cerrado** (verificación + documentación), **H2 mitigado parcialmente**. |
+| 2026-05-27 | Claude Code | **Fase B migración completa ADR-002.** Migrados los 11 endpoints restantes a `data.*`: `empleados/actualizarEstado`, todos los de `partesTrabajo` (listar, estado, empleados, detalles, crear, actualizar, actualizarEstado, obtenerPagina), `datos-completos` (reemplazado self-HTTP por llamadas directas). Dead code eliminado de `server.js` (`makeNotionRequest`, `DATABASES`, `getNotionHeaders`, `validateNotionResponse`, `buildEstadoUpdatePayload`, `extractPropertyValue` local). `server.js`: 1.453 → **830 líneas**. Creado [ADR-004](./adr/ADR-004-idempotencia-enviar-datos.md). Docs actualizadas: [API_REFERENCIA.md](./API_REFERENCIA.md), [ARQUITECTURA.md](./ARQUITECTURA.md), CLAUDE.md, DEUDA_TECNICA.md. 9/9 smoke tests verdes. |
+| 2026-05-27 | Claude Code | **Quick wins N5 + I5.** N5: eliminado `'enviado'` de `PARTE_NO_EDITABLES` en `notion.js` — alineado con schema real Notion (`['firmado', 'datos enviados']`). I5: reemplazado `window.location.reload()` post-edición parte ([src/App.jsx](../src/App.jsx)) por `onRefrescarPartes()` — recarga solo la lista de partes sin recargar la página completa ni perder estado UI. |
+| 2026-05-27 | Claude Code | **Smoke tests ampliados de 9 a 29.** Cobertura completa de todos los endpoints: catálogos (empleados, estado-opciones, datos-completos), obras/:id/empleados + firmantes-autorizados, búsqueda ?q= (hit/vacío/q<3), PUT empleados estado (ok+404), GET partes (listado, estado, detalles, empleados, 404s), PUT partes (ok, horas>24, bloqueo), enviar-datos con Idempotency-Key explícita + 404. 29/29 verdes. |
+| 2026-05-27 | Claude Code | **Cierre de hallazgos verificados.** C2 cerrado: lock optimista pre-webhook con estado `Procesando` — flujo `PATCH Procesando → webhook Make → PATCH Datos Enviados`. C1 descartado: plantilla Make filtra output. N2 verificado cerrado: logging `parte_creado`/`detalles_actualizados` ya presente con `reqId`. I1 cerrado: `datos-completos` ya usa `data.*` directamente (Fase B). I2 aplazado: documentado como comportamiento aceptable sin ROI de arreglar. |

@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-05-26 17:30 CEST (Etapas 1 y 2 implementadas — ver [DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) sección "Etapas implementadas")
+- **Última edición:** 2026-05-27 (Fase B migración completa: todos los endpoints a `data.js`, `server.js` 1453→830 líneas, ADR-004 idempotencia; Etapas 1, 2 y 3 implementadas — ver [DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) sección "Etapas implementadas")
 
 ---
 
@@ -15,8 +15,8 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 | Capa | Tecnología |
 |---|---|
 | Frontend | React 18 + Vite 7 (`src/`) |
-| Backend | Node.js + Express 4 — **monolítico en [server.js](server.js)** (~1.400 líneas) |
-| BBDD | Notion API v1 (consumida con `axios` directamente, sin SDK) |
+| Backend | Node.js + Express 4 — **monolítico en [server.js](server.js)** (~830 líneas) |
+| BBDD | Notion API v1 (vía `src-server/services/notion.js`, sin SDK) |
 | PDF + firma | Make.com vía webhook (`PARTES_DATOS_WEBHOOK_URL`) |
 | Hosting | Vercel (config en [vercel.json](vercel.json), región `cdg1`) |
 | Cliente API frontend | [src/services/notionService.js](src/services/notionService.js) (axios contra `/api/*` same-origin) |
@@ -91,7 +91,7 @@ Todos en [server.js](server.js), prefijo `/api/*`. Referencia completa en [docs/
 | GET | `/api/empleados` | [server.js:365](server.js#L365) |
 | GET | `/api/empleados/estado-opciones` | [server.js:400](server.js#L400) |
 | PUT | `/api/empleados/:id/estado` | [server.js:432](server.js#L432) |
-| GET | `/api/empleados/buscar` | **Etapa 2 — F5.** Server-side filter `title.contains`, mín 3 chars, máx 50 |
+| GET | `/api/empleados/buscar` | **Etapa 2 — F5** (`?q=texto`, server-side `title.contains`) + **Etapa 3 — F2** (`?id=NNNN`, filtro `number.equals`, maneja duplicados) |
 | GET | `/api/obras/:id/empleados` | [server.js:482](server.js#L482) — **Etapa 1 — C3:** query filtrada (sin N+1) |
 | GET | `/api/obras/:id/firmantes-autorizados` | **Etapa 2 — F4.** Lee `OBRAS.Persona Autorizada` → JEFE_OBRAS, devuelve `{id, nombre, email, rol}` |
 | GET | `/api/partes-trabajo` | [server.js:534](server.js#L534) |
@@ -116,13 +116,15 @@ Cualquier cambio que toque estos tres flujos requiere validación previa con `@r
 - En la app, el estado del parte transita a `firmado` (estado que **bloquea edición** — ver [server.js:1104+](server.js#L1104)).
 
 ### 2. Generación + almacenamiento del PDF
-- Trigger: `POST /api/partes-trabajo/:id/enviar-datos` ([server.js:979](server.js#L979)) → hace `axios.post(PARTES_DATOS_WEBHOOK_URL, payload)` con timeout `PARTES_WEBHOOK_TIMEOUT_MS`.
+- Trigger: `POST /api/partes-trabajo/:id/enviar-datos` ([server.js:979](server.js#L979)).
+- Flujo (C2 cerrado 2026-05-27): (1) PATCH estado → `Procesando` (lock optimista), (2) `axios.post(PARTES_DATOS_WEBHOOK_URL, payload)`, (3) PATCH estado → `Datos Enviados`.
+- Si el webhook falla, el parte queda en `Procesando` (bloqueado — no se puede reenviar accidentalmente). Reconciliación manual en Notion.
 - Si `PARTES_DATOS_WEBHOOK_URL` no está definida, **se simula** y se loguea (modo desarrollo).
 - Make persiste el PDF en OneDrive y graba `URL PDF` + `AUX ID PDF Onedrive` en Notion.
 
 ### 3. Sincronización con Notion
 - Toda escritura va vía servidor (nunca desde el cliente). El cliente lee con polling adaptativo (ver más abajo).
-- Estados que **bloquean edición** en PUT (lógica en [server.js:1104+](server.js#L1104)): `firmado`, `datos enviados`, `enviado`.
+- Estados que **bloquean edición** en PUT (lógica en [server.js:1104+](server.js#L1104)): `firmado`, `datos enviados`, `procesando`.
 
 ---
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw, X } from 'lucide-react'
-import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, enviarDatosParte, getFirmantesAutorizados, buscarEmpleados } from './services/notionService'
+import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, enviarDatosParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId } from './services/notionService'
 
 // F4: helpers para agrupar firmantes por rol en el selector
 const ROLES_ORDEN = ['Encargado', 'Jefe de Obra', 'Jefe de Producción', 'Otros']
@@ -1011,10 +1011,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			// Esperar un momento para que el usuario lea el mensaje antes de cerrar
 			await new Promise(resolve => setTimeout(resolve, resultado.estadoCambiado ? 4000 : 2000))
 
-			// Recargar datos para reflejar los cambios
-			if (onVolver) {
-				// Recargar datos en el componente padre
-				window.location.reload()
+			// Refrescar listado de partes sin recargar la página completa
+			if (onRefrescarPartes) {
+				await onRefrescarPartes()
 			}
 
 			// Cerrar modal de edición
@@ -2075,7 +2074,9 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		empleado.nombre.toLowerCase().includes(busquedaEmpleado.toLowerCase())
 	)
 
-	// F5: búsqueda incremental con debounce cuando está activa la búsqueda libre
+	// F2+F5: búsqueda incremental con debounce.
+	// - Si el texto es 4-5 dígitos: intenta primero ID Copuno; si 404, cae a búsqueda por nombre.
+	// - Si el texto no es numérico: búsqueda directa por nombre.
 	useEffect(() => {
 		if (!busquedaLibreEmpleados || busquedaEmpleado.length < 3) {
 			setResultadosBusquedaLibre([])
@@ -2084,8 +2085,19 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		setBuscandoLibre(true)
 		const t = setTimeout(async () => {
 			try {
-				const r = await buscarEmpleados(busquedaEmpleado, 20)
-				setResultadosBusquedaLibre(r || [])
+				const texto = busquedaEmpleado.trim()
+				const esIdCopuno = /^\d{3,6}$/.test(texto)
+				let resultados = []
+				if (esIdCopuno) {
+					resultados = await buscarEmpleadoPorId(texto)
+					if (!resultados || resultados.length === 0) {
+						// Fallback a nombre: el ID podría ser parte de un nombre (raro) o no existir
+						resultados = await buscarEmpleados(texto, 20)
+					}
+				} else {
+					resultados = await buscarEmpleados(texto, 20)
+				}
+				setResultadosBusquedaLibre(resultados || [])
 			} catch (e) {
 				setResultadosBusquedaLibre([])
 			} finally {
@@ -2578,7 +2590,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 										<Search size={18} />
 										<input
 											type="text"
-											placeholder={busquedaLibreEmpleados ? "Escribe al menos 3 letras para buscar..." : "Buscar empleado por nombre..."}
+											placeholder={busquedaLibreEmpleados ? "Buscar por ID Copuno (4-5 dígitos) o nombre (3+ letras)..." : "Buscar empleado por nombre..."}
 											value={busquedaEmpleado}
 											onChange={(e) => setBusquedaEmpleado(e.target.value)}
 											className="empleados-search-input"
@@ -2595,6 +2607,12 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 									)}
 									{busquedaLibreEmpleados && buscandoLibre && (
 										<div className="empleados-loading"><Loader2 size={16} className="loading-spinner" /> Buscando…</div>
+									)}
+									{/* F2: aviso de IDs duplicados en Notion */}
+									{busquedaLibreEmpleados && !buscandoLibre && /^\d{3,6}$/.test(busquedaEmpleado.trim()) && resultadosBusquedaLibre.length > 1 && (
+										<div className="empleados-empty" style={{ marginBottom: 6, color: '#92400e' }}>
+											⚠️ Hay {resultadosBusquedaLibre.length} empleados con ID Copuno {busquedaEmpleado.trim()}. Elige el correcto.
+										</div>
 									)}
 
 									{candidatosVisibles.length === 0 ? (

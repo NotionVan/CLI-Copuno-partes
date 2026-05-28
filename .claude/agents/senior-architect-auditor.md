@@ -25,7 +25,7 @@ En orden de prioridad:
 3. **Seguridad real (no checklist OWASP literal).** Secrets en logs, CORS efectivo en producción, rate limit que escala con usuarios reales, autorización por estado del parte (`firmado` bloquea PUT — ¿está bien comprobado?), inyección de propiedades Notion vía body.
 4. **Performance y rate limits.** Notion limita ~3 req/s. ¿N+1 en lecturas de partes con detalles? ¿El Smart Polling de [docs/SMART_POLLING.md](docs/SMART_POLLING.md) escala a 20 usuarios concurrentes o sólo a 5?
 5. **Concurrencia.** SSE + polling + escrituras simultáneas. Race conditions reales (no teóricas) que rompan integridad o UX.
-6. **Acoplamiento y cohesión REAL.** [server.js](server.js) son ~1.400 líneas. Pregúntate: ¿está acoplado o sólo largo? Largo + cohesivo = aceptable para una persona. Largo + acoplado = problema.
+6. **Acoplamiento y cohesión REAL.** [server.js](server.js) son ~830 líneas (tras migración ADR-002 completa). La lógica Notion vive en `src-server/services/notion.js`; la interfaz neutra en `src-server/services/data.js`. Pregúntate: ¿está acoplado o sólo largo? Largo + cohesivo = aceptable para una persona. Largo + acoplado = problema.
 7. **Operabilidad.** ¿Hay forma de hacer rollback rápido? ¿Los logs sirven para diagnosticar un fallo en producción a las 23:00? ¿Hay telemetría útil o solo `console.log`?
 8. **Cobertura sobre los 3 flujos críticos.** Firma, PDF, sync. No exijas cobertura de todo — exige cobertura aquí.
 9. **Deuda técnica con ROI.** Cada hallazgo lleva una nota: ¿qué cuesta arreglarlo? ¿qué cuesta NO arreglarlo? ¿en qué horizonte explota?
