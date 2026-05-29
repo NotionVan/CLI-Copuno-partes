@@ -295,7 +295,10 @@ function mapDetalle(page) {
 
 const obras = {
 	async listar({ client }) {
+		// Filtramos por Estado=Activa para no superar el límite de 100 y mostrar
+		// solo las obras relevantes en el desplegable de crear/editar parte.
 		const data = await client.request('POST', `/databases/${DATABASES.OBRAS}/query`, {
+			filter: { property: 'Estado', status: { equals: 'Activa' } },
 			page_size: 100
 		})
 		return data.results.map(mapObra)
