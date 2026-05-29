@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-29 (v1.3.1 — fix residual SSE en cerrarDetalles. Previo v1.3.0: cerrados H3, I3, N4)
+- **Última edición:** 2026-05-29 (añadido I6 — tests unitarios notion.js, aplazado hasta cerrar H1/H2)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -33,6 +33,7 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [I3](#i3--rate-limit-irrelevante-con-nat-compartido) | 🟡 | Rate limit revienta con NAT compartido | ✅ | — | Cerrado 2026-05-29 |
 | [I4](#i4--sin-telemetría-útil) | 🟡 | Sin telemetría, logs Vercel se pierden | ⏳ | 3–5 h | Retainer |
 | [I5](#i5--reload-de-ventana-tras-editar) | 🟡 | `window.location.reload()` tras editar | ✅ | — | Cerrado 2026-05-27 |
+| [I6](#i6--tests-unitarios-de-funciones-puras-notionjs) | 🔵 | Tests unitarios de funciones puras (notion.js) | ⏭️ | 2–3 h | Retainer — después de H1 y H2 |
 
 | [N1](#n1--persona-autorizada-mezcla-modelo-cliente-y-modelo-interno) | 🟠 | Persona Autorizada — coexistencia legacy/interno | ⏳ | 3–5 h | Retainer (esta semana) |
 | [N2](#n2--asignación-libre-amplía-superficie-de-h2) | 🟠 | Asignación libre agrava H2 (creación no atómica) | ✅ | — | Cerrado — logging ya presente en server.js |
@@ -143,6 +144,16 @@ Informativos en sección [aparte](#informativos).
 ---
 
 ### 🔵 Informativos
+
+#### I6 — Tests unitarios de funciones puras (notion.js)
+
+- **Estado:** ⏭️ Aplazado — hacer cuando H1 y H2 estén cerrados.
+- **Detectado:** 2026-05-29 · **Severidad:** 🔵
+- **Qué:** Las funciones `extractPropertyValue`, `buildEstadoUpdatePayload`, `sanitizeEconomic` y los mappers (`mapParte`, `mapEmpleado`, etc.) en `src-server/services/notion.js` son funciones puras sin dependencias externas — candidatas ideales para tests unitarios con Vitest. Hoy no tienen cobertura unitaria formal (los smoke tests prueban los endpoints completos en mock, no las funciones individualmente).
+- **Por qué aplazar:** el riesgo real activo del proyecto es H1 (auth, RGPD) y H2 (atomicidad). Los unitarios protegen contra regresiones en funciones puras, que históricamente no han sido el punto de fallo en este proyecto. Las 2-3 h tienen mayor ROI cerrando H1/H2 primero.
+- **Coste cuando se haga:** 2-3 h. Instalar Vitest (compatible con el stack actual), escribir tests para `extractPropertyValue` (15+ tipos de propiedad Notion), `sanitizeEconomic` (regla RGPD), y los mappers principales. Integrar con `npm run test` junto a los smoke tests existentes.
+- **Valor cuando se haga:** red de seguridad para refactors de `notion.js` (usada en 20+ sitios), documentación viva del contrato de cada tipo de propiedad Notion, práctica de TDD sobre código real.
+- **Recomendación:** retainer, después de H1 y H2.
 
 - **[server.js](../server.js) ~830 líneas — refactorizado (Fase B, 2026-05-27).** No urge partirlo. Si se hace, partir por dominio (obras, empleados, partes, detalles, webhook), no por capa.
 - **[src/App.jsx](../src/App.jsx) ~2.470 líneas — sí es un olor.** Formularios + listado + modal + polling + edición en uno. Refactor por componentes (`EdicionParte`, `DetallesParteModal`, `ListadoPartes`) es **proyecto aparte**, no entra en 20h/mes.
@@ -559,6 +570,7 @@ Reglas por tipo de cambio:
 | 2026-05-28 | Javi Collado | **N6 — Dependencias Notion cerradas.** Creadas en BD `Partes de trabajo`: relación reflexiva dual `Rectifica a` / `Rectificado por` + fórmula `Es Rectificativo`. Botón "Rectificar" operativo en producción. Pendiente: marcado PDF en Make. |
 | 2026-05-28 | Claude Code | **v1.2.2 — edge cases rectificativos + estados ampliados.** (1) Guard duplicados: `409` si el original ya tiene `Rectificado por ` poblado — protege contra doble click/dos pestañas. Smoke test dedicado (33/33). (2) No duplicar prefijo "PARTE RECTIFICATIVO" en notas en cadena. (3) `PARTE_RECTIFICABLES = ['firmado','datos enviados']`. QA Chrome: botón ausente en partes ya rectificados ✅; flujo desde `Datos Enviados` ✅; prefijo en cadena pendiente de verificar en producción. Changelog `CHANGELOG_V1.2.2.md`. |
 | 2026-05-28 | Claude Code | **v1.2.1 — rectificativos en producción + banner.** Fix nombres de propiedad Notion con espacio final (`Rectifica a `/`Rectificado por `) que causaban 500 (commit `4cea407`). Modal de confirmación propio en vez de `window.confirm` + apertura del rectificativo en edición sin esperar al cache (`dd15afe`). Prefijo `PARTE RECTIFICATIVO` en notas del rectificativo (`9dc581d`). Banner de actualización: intervalo 5 min → 1 min, `__APP_VERSION__` expuesta en `window`, emoji eliminado. Verificado en producción con `@regression-checker` + QA Chrome. Changelogs `CHANGELOG_V1.2.0.md` (rectificativos + banner) y `CHANGELOG_V1.2.1.md`. |
+| 2026-05-29 | Javi Collado | **I6 registrado — tests unitarios notion.js aplazados.** Valorado el coste/beneficio de añadir Vitest + tests unitarios para `extractPropertyValue`, `sanitizeEconomic` y mappers. Decisión: aplazar hasta cerrar H1 y H2 — mayor ROI en auth e integridad de datos primero. |
 | 2026-05-29 | Claude Code | **v1.3.1 — fix residual SSE.** `cerrarDetalles()` referenciaba `estadoStreamRef` (eliminado en v1.3.0) → `ReferenceError` en consola al abrir modal de detalles. Sustituida por `estadoPollRef` + `clearInterval`. QA Chrome: modal limpio 8+ s, sin errores. |
 | 2026-05-29 | Claude Code | **v1.3.0 — H3 + I3 + N4 cerrados.** H3: eliminado endpoint SSE `/api/partes-trabajo/:id/estado/stream`; sustituido por polling client-side puro en `App.jsx` con Smart Polling adaptativo (3s/8s/15s), eliminando el problema de invocaciones serverless continuas y los huecos de reconexión. I3: `RATE_LIMIT_MAX=1000` confirmado en código (default). N4: cache 30 s en `/api/empleados/buscar` para búsquedas por ID y por nombre. 33/33 smoke. Bump 1.2.2 → 1.3.0. |
 | 2026-05-28 | Claude Code | **Carga masiva ID COPUNO (N3).** Cruce de `docs/ID.xlsx` (867 entradas) con BD Empleados (1.330 registros) vía normalización + rotación de tokens + Jaccard. **306 IDs inyectados en Notion** (3 rondas: exacto ×2, rotación ×272, tokens ×32). Cobertura sube del 27% → **50,6%**. Generado `docs/revision_ids_empleados.csv` con los 657 pendientes: Grupo A (61 sugerencias fuzzy ≥50%) + Grupo B (595 huérfanos sin candidato). N3 pasa a estado 🔧 (migración parcial). |
