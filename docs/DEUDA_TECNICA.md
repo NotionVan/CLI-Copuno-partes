@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-29 (añadido I6 — tests unitarios notion.js, aplazado hasta cerrar H1/H2)
+- **Última edición:** 2026-05-29 (S1 cerrado — Vercel OK; S2 nuevo — OneDrive perdido, Make bloqueado)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -419,21 +419,17 @@ Bloqueos externos al código que impiden completar el ciclo de despliegue normal
 
 #### S1 — Sin acceso a Vercel por email notionvan@copuno.com no operativo
 
+- **Estado:** ✅ Resuelto — Vercel autodespliega correctamente desde master (verificado en producción desde v1.1.0).
+
+#### S2 — Sin acceso a OneDrive (Make bloqueado)
+
 - **Estado:** 🔴 Bloqueante activo
-- **Detectado:** 2026-05-26
-- **Qué:** La cuenta de Vercel está asociada a notionvan@copuno.com (tenant O365 Copuno).
-  Email no operativo actualmente, impide acceder al dashboard para reconectar la
-  integración GitHub tras el traslado del repo de javintnvn → NotionVan.
-- **Impacto:** Webhook GitHub↔Vercel roto. Pushes a master no disparan deploys.
-  PRs no generan preview deploys. Etapa 1 implementada pero pendiente de verificar
-  en preview hasta resolver.
-- **Dependencia:** Copuno debe restaurar acceso a notionvan@copuno.com
-  (Efrén / administrador O365 Copuno).
-- **Acción cuando se resuelva:** Vercel Dashboard → Settings → Git → Disconnect →
-  Connect → NotionVan/Copuno_Gestion_Partes → rama master. Verificar preview deploy
-  antes de mergear PR Etapa 1.
-- **Nota:** Este mismo email bloquea la configuración de Supabase para auth (H1).
-  Resolverlo desbloquea dos stoppers a la vez.
+- **Detectado:** 2026-05-29
+- **Qué:** Se ha perdido el acceso a la cuenta OneDrive donde Make almacena los PDFs generados (`PARTES FINALES`) y la plantilla Word (`INFRA/Plantilla Parte.docx`). Make no puede descargar la plantilla ni subir los PDFs firmados.
+- **Impacto:** El flujo de generación de PDF (PARTES3-4) y el de firma (PARTES4-4) están **bloqueados en producción**. Los partes pueden crearse y editarse con normalidad, pero no se puede generar el PDF ni firmar.
+- **Dependencia:** Copuno debe restaurar el acceso a la cuenta OneDrive vinculada a Make (Efrén / administrador O365 Copuno).
+- **Acción cuando se resuelva:** verificar en Make que las conexiones de OneDrive en PARTES3-4 y PARTES4-4 siguen activas (no han expirado) y lanzar un parte de prueba completo (crear → enviar datos → verificar PDF → firmar).
+- **Nota:** Este bloqueo también impide ejecutar el protocolo N6 (marca "RECTIFICATIVO" en PDF) hasta que se restaure el acceso.
 
 ---
 
