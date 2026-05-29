@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-29 (v1.3.2 — fix obras en desplegable; S2 OneDrive bloqueado)
+- **Última edición:** 2026-05-29 (añadido I7 — quick wins rendimiento cache, aplazado)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -34,6 +34,7 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [I4](#i4--sin-telemetría-útil) | 🟡 | Sin telemetría, logs Vercel se pierden | ⏳ | 3–5 h | Retainer |
 | [I5](#i5--reload-de-ventana-tras-editar) | 🟡 | `window.location.reload()` tras editar | ✅ | — | Cerrado 2026-05-27 |
 | [I6](#i6--tests-unitarios-de-funciones-puras-notionjs) | 🔵 | Tests unitarios de funciones puras (notion.js) | ⏭️ | 2–3 h | Retainer — después de H1 y H2 |
+| [I7](#i7--quick-wins-de-rendimiento-cache) | 🔵 | Quick wins rendimiento: cache firmantes + TTL catálogos | ⏭️ | ~20 min | Retainer — bajo riesgo, hacer cuando haya hueco |
 
 | [N1](#n1--persona-autorizada-mezcla-modelo-cliente-y-modelo-interno) | 🟠 | Persona Autorizada — coexistencia legacy/interno | ⏳ | 3–5 h | Retainer (esta semana) |
 | [N2](#n2--asignación-libre-amplía-superficie-de-h2) | 🟠 | Asignación libre agrava H2 (creación no atómica) | ✅ | — | Cerrado — logging ya presente en server.js |
@@ -154,6 +155,16 @@ Informativos en sección [aparte](#informativos).
 - **Coste cuando se haga:** 2-3 h. Instalar Vitest (compatible con el stack actual), escribir tests para `extractPropertyValue` (15+ tipos de propiedad Notion), `sanitizeEconomic` (regla RGPD), y los mappers principales. Integrar con `npm run test` junto a los smoke tests existentes.
 - **Valor cuando se haga:** red de seguridad para refactors de `notion.js` (usada en 20+ sitios), documentación viva del contrato de cada tipo de propiedad Notion, práctica de TDD sobre código real.
 - **Recomendación:** retainer, después de H1 y H2.
+
+#### I7 — Quick wins de rendimiento: cache firmantes + TTL catálogos
+
+- **Estado:** ⏭️ Aplazado · **Detectado:** 2026-05-29 · **Severidad:** 🔵
+- **Contexto:** el cuello de botella real es la latencia de Notion API (~300-800 ms/request desde Vercel EU). El código ya tiene cache de 30 s en obras, jefes, empleados y partes, y `Promise.all` en `datos-completos`. Lo que falta son dos mejoras de coste mínimo:
+  1. **Cache en `/api/obras/:id/firmantes-autorizados`** — se llama cada vez que el usuario selecciona una obra al crear/editar un parte. Sin cache: si el usuario cambia de obra N veces, son N llamadas a Notion. Fix: clave `firmantes:${obraId}` con TTL 30 s (mismo patrón que el resto). ~15 min.
+  2. **Subir TTL de catálogos de 30 s → 5 min** — obras, jefes y empleados cambian raramente durante la jornada. 30 s es muy conservador. Con 5 min se reduce ~90% de las llamadas a Notion para catálogos sin impacto en consistencia. ~5 min (cambiar un número en `CACHE_TTL_MS` default o por variable de entorno).
+- **Lo que NO tiene ROI:** migración a Supabase (proyecto aparte), paginación de partes (134 partes, no es el problema), compresión (ya activa).
+- **Coste total:** ~20 min.
+- **Recomendación:** retainer, hacer cuando haya hueco entre tareas más prioritarias.
 
 - **[server.js](../server.js) ~830 líneas — refactorizado (Fase B, 2026-05-27).** No urge partirlo. Si se hace, partir por dominio (obras, empleados, partes, detalles, webhook), no por capa.
 - **[src/App.jsx](../src/App.jsx) ~2.470 líneas — sí es un olor.** Formularios + listado + modal + polling + edición en uno. Refactor por componentes (`EdicionParte`, `DetallesParteModal`, `ListadoPartes`) es **proyecto aparte**, no entra en 20h/mes.
@@ -566,6 +577,7 @@ Reglas por tipo de cambio:
 | 2026-05-28 | Javi Collado | **N6 — Dependencias Notion cerradas.** Creadas en BD `Partes de trabajo`: relación reflexiva dual `Rectifica a` / `Rectificado por` + fórmula `Es Rectificativo`. Botón "Rectificar" operativo en producción. Pendiente: marcado PDF en Make. |
 | 2026-05-28 | Claude Code | **v1.2.2 — edge cases rectificativos + estados ampliados.** (1) Guard duplicados: `409` si el original ya tiene `Rectificado por ` poblado — protege contra doble click/dos pestañas. Smoke test dedicado (33/33). (2) No duplicar prefijo "PARTE RECTIFICATIVO" en notas en cadena. (3) `PARTE_RECTIFICABLES = ['firmado','datos enviados']`. QA Chrome: botón ausente en partes ya rectificados ✅; flujo desde `Datos Enviados` ✅; prefijo en cadena pendiente de verificar en producción. Changelog `CHANGELOG_V1.2.2.md`. |
 | 2026-05-28 | Claude Code | **v1.2.1 — rectificativos en producción + banner.** Fix nombres de propiedad Notion con espacio final (`Rectifica a `/`Rectificado por `) que causaban 500 (commit `4cea407`). Modal de confirmación propio en vez de `window.confirm` + apertura del rectificativo en edición sin esperar al cache (`dd15afe`). Prefijo `PARTE RECTIFICATIVO` en notas del rectificativo (`9dc581d`). Banner de actualización: intervalo 5 min → 1 min, `__APP_VERSION__` expuesta en `window`, emoji eliminado. Verificado en producción con `@regression-checker` + QA Chrome. Changelogs `CHANGELOG_V1.2.0.md` (rectificativos + banner) y `CHANGELOG_V1.2.1.md`. |
+| 2026-05-29 | Javi Collado | **I7 registrado — quick wins rendimiento aplazados.** Cache en firmantes-autorizados + subir TTL catálogos de 30 s a 5 min. ~20 min de trabajo, aplazado por prioridad. |
 | 2026-05-29 | Claude Code | **v1.3.2 — fix obras en desplegable.** `/api/obras` devolvía solo las primeras 100 obras (BD tiene >100). Obras nuevas como "Getares - Pruebas NotionVan" quedaban fuera del desplegable. Solución: filtro `Estado=Activa` → 56 obras activas, caben en una página, desplegable limpio. |
 | 2026-05-29 | Javi Collado | **I6 registrado — tests unitarios notion.js aplazados.** Valorado el coste/beneficio de añadir Vitest + tests unitarios para `extractPropertyValue`, `sanitizeEconomic` y mappers. Decisión: aplazar hasta cerrar H1 y H2 — mayor ROI en auth e integridad de datos primero. |
 | 2026-05-29 | Claude Code | **v1.3.1 — fix residual SSE.** `cerrarDetalles()` referenciaba `estadoStreamRef` (eliminado en v1.3.0) → `ReferenceError` en consola al abrir modal de detalles. Sustituida por `estadoPollRef` + `clearInterval`. QA Chrome: modal limpio 8+ s, sin errores. |
