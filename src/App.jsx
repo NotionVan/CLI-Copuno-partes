@@ -1319,9 +1319,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	}, [parteSeleccionado?.id])
 
 	const cerrarDetalles = () => {
-		if (estadoStreamRef.current) {
-			estadoStreamRef.current.close()
-			estadoStreamRef.current = null
+		if (estadoPollRef.current) {
+			clearInterval(estadoPollRef.current)
+			estadoPollRef.current = null
 		}
 		setParteSeleccionado(null)
 		setDetallesEmpleados([])
