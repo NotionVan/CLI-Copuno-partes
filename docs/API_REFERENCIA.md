@@ -245,22 +245,14 @@ Respuesta `200`: `{ "estado": "Borrador", "ultimaEdicion": "2026-05-27T10:00:00.
 
 Errores: `404` (parte no encontrado).
 
-### Stream de estado (SSE)
+### ~~Stream de estado (SSE)~~ — **Eliminado en v1.3.0**
 
-| Método | Ruta |
-|--------|------|
-| GET | `/api/partes-trabajo/:parteId/estado/stream` |
+El endpoint `GET /api/partes-trabajo/:parteId/estado/stream` fue eliminado por incompatibilidad con Vercel serverless (cada conexión SSE era una invocación facturable continua que expiraba en 60 s causando huecos de sincronización).
 
-Abre una conexión Server-Sent Events. Emite un evento cada vez que `estado` o `ultimaEdicion` cambian. Entre emisiones envía latidos (`: heartbeat`).
-
-**Smart Polling adaptativo:**
-- Modo rápido (3 s): cuando hubo cambios en los últimos 30 s.
+**Sustitución:** el frontend (`App.jsx`) hace polling adaptativo client-side directamente contra `GET /api/partes-trabajo/:parteId/estado`:
+- Modo rápido (3 s): cambios en los últimos 30 s.
 - Modo normal (8 s): entre 30 s y 2 min sin cambios.
 - Modo lento (15 s): más de 2 min sin cambios.
-
-Evento de datos: `data: { "estado": "Datos Enviados", "ultimaEdicion": "..." }`
-
-Evento de error: `event: error\ndata: { "message": "..." }`
 
 ### Enviar datos (disparar Make)
 

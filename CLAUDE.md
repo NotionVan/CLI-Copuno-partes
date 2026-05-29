@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-05-28 (v1.2.1 — partes rectificativos (endpoint + UI + prefijo "PARTE RECTIFICATIVO" en notas) y banner de actualización (comprueba `/api/health` cada 1 min). Changelogs: [CHANGELOG_V1.2.0.md](CHANGELOG_V1.2.0.md), [CHANGELOG_V1.2.1.md](CHANGELOG_V1.2.1.md))
+- **Última edición:** 2026-05-29 (v1.3.1 — SSE eliminado (H3), polling client-side puro, fix residual estadoStreamRef, cache en buscar empleados (N4). Changelogs: [CHANGELOG_V1.3.0.md](CHANGELOG_V1.3.0.md), [CHANGELOG_V1.3.1.md](CHANGELOG_V1.3.1.md))
 
 ---
 
@@ -99,7 +99,7 @@ Todos en [server.js](server.js), prefijo `/api/*`. Referencia completa en [docs/
 | GET | `/api/partes-trabajo/:id/empleados` | [server.js:755](server.js#L755) |
 | GET | `/api/partes-trabajo/:id/detalles` | [server.js:795](server.js#L795) |
 | GET | `/api/partes-trabajo/:id/estado` | [server.js:859](server.js#L859) |
-| GET (SSE) | `/api/partes-trabajo/:id/estado/stream` | [server.js:881](server.js#L881) |
+| ~~GET (SSE)~~ | ~~`/api/partes-trabajo/:id/estado/stream`~~ | **Eliminado en v1.3.0** — sustituido por polling client-side en `App.jsx` contra `/api/partes-trabajo/:id/estado`. |
 | POST | `/api/partes-trabajo/:id/enviar-datos` | [server.js:979](server.js#L979) — **dispara webhook Make** |
 | POST | `/api/partes-trabajo/:id/rectificar` | **Rectificativos.** Crea parte nuevo (Borrador) a partir de uno **Firmado** o **Datos Enviados**: copia cabecera + detalles, enlaza vía relación reflexiva `Rectifica a`. |
 | PUT | `/api/partes-trabajo/:id` | [server.js:1104](server.js#L1104) |
@@ -212,6 +212,7 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 - **`server.js` es un monolito de ~1.400 líneas.** No es bonito pero funciona. Refactor mayor está fuera del retainer (proyecto aparte).
 - **Nombres de propiedad Notion con espacios al final:** algunas propiedades tienen un espacio final en su nombre (`'Rectifica a '`, `'Rectificado por '`, `' Email'`, `'Horas Encargado '`, `'Horas Oficial 2ª '`). Hay que referenciarlas **exactamente** así o la lectura/escritura falla en silencio. Verificar siempre el nombre real vía API antes de usarlo.
 - **Banner de actualización:** la app compara `__APP_VERSION__` (embebida en build) con `version` de `/api/health` cada **1 minuto**; si difieren, muestra el banner. Por eso **cada deploy necesita un bump de versión** en `package.json` (ver Convenciones).
+- **Smart Polling en modal de detalles (v1.3.0):** usa polling adaptativo client-side (3 s/8 s/15 s) contra `GET /api/partes-trabajo/:id/estado`. El endpoint SSE ya no existe — devuelve 404 si se llama. El polling vive en `App.jsx` en el `useEffect` con `estadoPollRef`.
 
 ---
 

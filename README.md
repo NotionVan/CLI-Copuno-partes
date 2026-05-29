@@ -2,8 +2,8 @@
 
 Aplicación web moderna para la gestión de partes de trabajo con backend en Notion. Diseñada con una interfaz minimalista y elegante, optimizada para usuarios de todos los niveles.
 
-> **Versión actual:** `1.2.2`
-> **Release:** 28 de mayo de 2026 · [Changelog](./CHANGELOG_V1.2.2.md)
+> **Versión actual:** `1.3.1`
+> **Release:** 29 de mayo de 2026 · [Changelog](./CHANGELOG_V1.3.1.md)
 >
 > _(El historial de versiones más abajo es heredado y puede no reflejar el orden real; la fuente de verdad del versionado es `package.json` + los `CHANGELOG_V*.md`.)_
 
@@ -302,10 +302,16 @@ NODE_ENV=production
 
 ## 📝 Changelog
 
-### v1.2.1 - Partes rectificativos + banner de actualización ⭐ **ACTUAL**
-- ✅ **Partes rectificativos** - Corregir un parte firmado creando uno nuevo enlazado al original (el firmado se conserva intacto). Botón "Rectificar", badges y prefijo "PARTE RECTIFICATIVO" en notas.
+### v1.3.1 - Polling client-side, cache búsquedas, fixes SSE ⭐ **ACTUAL**
+- ✅ **SSE eliminado (H3)** - El modal de detalles ya no usa Server-Sent Events (incompatibles con Vercel serverless). Usa polling adaptativo client-side (3s/8s/15s). Resuelve la queja "hay que refrescar manual".
+- ✅ **Cache en búsqueda de empleados (N4)** - Menos lecturas Notion en flujo multi-obra.
+- ✅ **Rate limit a 1000 req/15 min (I3)** - Cubre NAT compartido de oficina.
+- 📄 **Changelogs**: [CHANGELOG_V1.3.0.md](CHANGELOG_V1.3.0.md) · [CHANGELOG_V1.3.1.md](CHANGELOG_V1.3.1.md)
+
+### v1.2.2 - Partes rectificativos + banner de actualización
+- ✅ **Partes rectificativos** - Corregir un parte firmado/con datos enviados creando uno nuevo enlazado al original. Botón "Rectificar", badges, guard de duplicados y prefijo "PARTE RECTIFICATIVO" en notas.
 - ✅ **Banner de actualización** - Aviso automático en la app cuando hay una versión nueva desplegada (comprueba cada 1 min).
-- 📄 **Changelogs**: [CHANGELOG_V1.2.0.md](CHANGELOG_V1.2.0.md) · [CHANGELOG_V1.2.1.md](CHANGELOG_V1.2.1.md)
+- 📄 **Changelogs**: [CHANGELOG_V1.2.0.md](CHANGELOG_V1.2.0.md) · [CHANGELOG_V1.2.1.md](CHANGELOG_V1.2.1.md) · [CHANGELOG_V1.2.2.md](CHANGELOG_V1.2.2.md)
 
 > El historial siguiente es heredado (numeración previa no lineal). Versión real en `package.json`.
 
