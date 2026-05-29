@@ -244,9 +244,31 @@ Cualquier petición tipo "queremos que vaya más rápido la sincronización" se 
 - **Contexto:** implementada la feature de partes rectificativos (endpoint `POST /api/partes-trabajo/:id/rectificar`, mock, UI). Modelo: parte nuevo en Borrador enlazado al firmado vía relación reflexiva; reutiliza el pipeline existente para PDF + nueva firma.
 - **Dependencias manuales para live:**
   1. **Notion:** ✅ Cerrado 2026-05-28 — `Rectifica a ` / `Rectificado por ` (relación reflexiva dual) y `Es Rectificativo` (fórmula) creadas en la BD `Partes de trabajo`. **OJO:** las dos propiedades de relación se crearon con un **espacio al final del nombre**; el código las referencia con ese espacio exacto (fix commit `4cea407` — antes fallaba con 500 "is not a function" / propiedad desconocida). Verificado en producción con `@regression-checker` y QA Chrome (crea rectificativo, marca original, abre edición, sin errores).
-  2. **Make:** ⏳ Pendiente — propagar `Es Rectificativo` por PARTES1-4 (módulo 39 → 249) → PARTES2-4 (módulo 37) → PARTES3-4, y añadir la variable `{{Rectificativo}}` al `docx-templater` (módulo 11) + a `Plantilla Parte.docx`. PARTES4-4 (firma) no cambia. **El botón ya funciona en producción para crear el rectificativo; el PDF no se marcará como "RECTIFICATIVO" hasta completar este paso.** Mitigación parcial ya en producción: el campo `Notas` del rectificativo lleva el prefijo `PARTE RECTIFICATIVO`, así que es identificable en Notion aunque el PDF aún no lo refleje.
-- **Riesgo latente confirmado (inspector):** PARTES4-4 módulo 34 lista la carpeta OneDrive `PARTES FINALES` (hasta 50 ficheros) sin filtro de nombre visible en el mapper antes de descargar `{{34.id}}`. Con rectificativos (más ficheros de la misma obra) aumenta la probabilidad de descargar el PDF equivocado al firmar. Verificar si hay filtro condicional entre módulo 34 y 17; si no, es un bug a corregir en Make.
-- **Recomendación:** el botón ya es seguro de activar en producción (Notion listo). Completar la parte Make para que el PDF lleve la marca visual. Tratar el riesgo de PARTES4-4 como tarea Make independiente.
+  2. **Make:** ⏳ Pendiente — pasos exactos (decisión 2026-05-29: queda en deuda técnica para hacer manualmente):
+
+     **Paso 1 — `Plantilla Parte.docx`** (OneDrive, carpeta `INFRA`):
+     Abrir el .docx y añadir bloque condicional donde sea visible (p.ej. bajo el título):
+     `{#Rectificativo}PARTE RECTIFICATIVO{/Rectificativo}`
+     Guardar y subir con el mismo nombre.
+
+     **Paso 2 — PARTES1-4, módulo 39** (`util:SetVariables`):
+     Añadir variable `Rectificativo` = `{{2.data.properties["Es Rectificativo"].formula.boolean}}`
+
+     **Paso 3 — PARTES1-4, módulo 249** (POST a PARTES2-4):
+     Añadir campo al body JSON: `"Rectificativo": "{{39.Rectificativo}}"`
+
+     **Paso 4 — PARTES2-4, módulo 37** (POST a PARTES3-4):
+     Añadir campo al body JSON: `"Rectificativo": "{{1.Rectificativo}}"` (confirmar nº módulo webhook receptor en el escenario real).
+
+     **Paso 5 — PARTES3-4, módulo 11** (`docx-templater:FillDocument`):
+     Añadir variable al mapper: `Rectificativo` = `{{1.Rectificativo}}`
+
+     **Paso 6 — Verificación**: tomar un parte rectificativo en Borrador, pulsar "Enviar datos" y comprobar que el PDF generado incluye la marca visual.
+
+     **OJO:** no añadir sufijo al nombre del fichero en el módulo 13 (upload OneDrive) hasta resolver el riesgo de PARTES4-4 (ver abajo).
+
+- **Riesgo latente confirmado (inspector):** PARTES4-4 módulo 34 lista la carpeta OneDrive `PARTES FINALES` (hasta 50 ficheros) sin filtro de nombre visible en el mapper antes de descargar `{{34.id}}`. Con rectificativos (más ficheros de la misma obra) aumenta la probabilidad de descargar el PDF equivocado al firmar. Verificar si hay filtro condicional entre módulo 34 y 17; si no, es un bug a corregir en Make antes de activar sufijos en el nombre del fichero.
+- **Recomendación:** el botón ya es seguro en producción (Notion listo, mitigación por Notas). Hacer los pasos Make cuando haya acceso — no requiere código. Tratar el riesgo de PARTES4-4 primero si se van a usar sufijos en nombres de fichero.
 
 ### (c) Orden de implementación recomendado para la semana
 
