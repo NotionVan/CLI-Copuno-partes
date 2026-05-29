@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw, X } from 'lucide-react'
-import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId } from './services/notionService'
+import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId } from './services/notionService'
 
 // F4: helpers para agrupar firmantes por rol en el selector
 const ROLES_ORDEN = ['Encargado', 'Jefe de Obra', 'Jefe de Producción', 'Otros']
@@ -1261,49 +1261,59 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	}
 
 
-	const estadoStreamRef = useRef(null)
+	// H3: polling client-side puro en lugar de SSE (incompatible con Vercel serverless).
+	// Reutiliza la misma lógica de Smart Polling adaptativo que el polling principal.
+	const estadoPollRef = useRef(null)
+	const estadoPollLastChangeRef = useRef(Date.now())
+
+	const getEstadoPollInterval = () => {
+		const elapsed = Date.now() - estadoPollLastChangeRef.current
+		if (elapsed < 30000) return 3000   // rápido: cambios recientes
+		if (elapsed < 120000) return 8000  // normal
+		return 15000                        // lento
+	}
 
 	useEffect(() => {
-		// Abrir SSE para sincronizar estado mientras el modal de detalles esté abierto
-		if (parteSeleccionado?.id) {
-			let attempt = 0
-			const maxDelay = 30000
-			const connect = () => {
-				try {
-					const es = new EventSource(`/api/partes-trabajo/${parteSeleccionado.id}/estado/stream`)
-					es.onmessage = (ev) => {
-						attempt = 0 // reset backoff en mensaje
-						try {
-							const data = JSON.parse(ev.data)
-							setParteSeleccionado(prev => prev ? ({ ...prev, estado: data.estado, ultimaEdicion: data.ultimaEdicion }) : prev)
-						} catch { }
-					}
-					es.onerror = () => {
-						es.close()
-						// backoff
-						attempt += 1
-						const delay = Math.min(maxDelay, 1000 * Math.pow(2, attempt))
-						setTimeout(() => { if (estadoStreamRef.current === es) connect() }, delay)
-					}
-					estadoStreamRef.current = es
-				} catch {
-					attempt += 1
-					const delay = Math.min(maxDelay, 1000 * Math.pow(2, attempt))
-					setTimeout(connect, delay)
-				}
+		if (!parteSeleccionado?.id) {
+			if (estadoPollRef.current) {
+				clearInterval(estadoPollRef.current)
+				estadoPollRef.current = null
 			}
-			connect()
-		} else {
-			// cerrar stream si no hay parte seleccionada
-			if (estadoStreamRef.current) {
-				estadoStreamRef.current.close()
-				estadoStreamRef.current = null
+			return
+		}
+
+		let cancelled = false
+
+		const poll = async () => {
+			if (cancelled) return
+			try {
+				const data = await getParteEstado(parteSeleccionado.id)
+				if (!data || cancelled) return
+				setParteSeleccionado(prev => {
+					if (!prev || prev.id !== parteSeleccionado.id) return prev
+					if (prev.estado !== data.estado || prev.ultimaEdicion !== data.ultimaEdicion) {
+						estadoPollLastChangeRef.current = Date.now()
+						return { ...prev, estado: data.estado, ultimaEdicion: data.ultimaEdicion }
+					}
+					return prev
+				})
+			} catch { /* sin conexión, ignorar */ }
+
+			// Ajustar intervalo según actividad
+			if (estadoPollRef.current) {
+				clearInterval(estadoPollRef.current)
+				estadoPollRef.current = setInterval(poll, getEstadoPollInterval())
 			}
 		}
+
+		estadoPollLastChangeRef.current = Date.now()
+		estadoPollRef.current = setInterval(poll, getEstadoPollInterval())
+
 		return () => {
-			if (estadoStreamRef.current) {
-				estadoStreamRef.current.close()
-				estadoStreamRef.current = null
+			cancelled = true
+			if (estadoPollRef.current) {
+				clearInterval(estadoPollRef.current)
+				estadoPollRef.current = null
 			}
 		}
 	}, [parteSeleccionado?.id])

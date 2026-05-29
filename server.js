@@ -252,6 +252,11 @@ app.get('/api/empleados/buscar', async (req, res) => {
 				return res.status(400).json({ error: 'ID Copuno inválido', details: 'Debe ser un entero positivo' })
 			}
 
+			// N4: cache corta para búsquedas por ID (reduce lecturas Notion en flujo multi-obra)
+			const cacheKeyId = `buscar-id:${idNum}`
+			const cachedId = getCache(cacheKeyId)
+			if (cachedId) return res.json(cachedId)
+
 			const { resultados, duplicado } = await data.empleados.buscarPorIdCopuno(idNum, { limite })
 
 			if (resultados.length === 0) {
@@ -268,6 +273,7 @@ app.get('/api/empleados/buscar', async (req, res) => {
 				}))
 			}
 
+			setCache(cacheKeyId, resultados)
 			return res.json(resultados)
 		}
 
@@ -277,7 +283,13 @@ app.get('/api/empleados/buscar', async (req, res) => {
 			return res.json([])
 		}
 
+		// N4: cache corta para búsquedas por nombre
+		const cacheKeyQ = `buscar-q:${q.toLowerCase()}:${limite}`
+		const cachedQ = getCache(cacheKeyQ)
+		if (cachedQ) return res.json(cachedQ)
+
 		const resultados = await data.empleados.buscarPorNombre(q, { limite })
+		setCache(cacheKeyQ, resultados)
 		res.json(resultados)
 	} catch (error) {
 		console.error('Error al buscar empleados:', error.message)
@@ -446,103 +458,9 @@ app.get('/api/partes-trabajo/:parteId/estado', async (req, res) => {
 	}
 })
 
-// Stream de estado del parte (SSE): emite cambios en tiempo (casi) real
-app.get('/api/partes-trabajo/:parteId/estado/stream', async (req, res) => {
-	const { parteId } = req.params
-	res.writeHead(200, {
-		'Content-Type': 'text/event-stream',
-		'Cache-Control': 'no-cache',
-		Connection: 'keep-alive'
-	})
+// H3: endpoint SSE eliminado — sustituido por polling client-side en App.jsx.
+// El endpoint GET /api/partes-trabajo/:id/estado (línea anterior) cubre la misma necesidad.
 
-	let closed = false
-	req.on('close', () => { closed = true })
-
-	let lastEstado = null
-	let lastEdit = null
-
-	if (USE_MOCK_DATA) {
-		try {
-			const snapshot = mockStore.getParteEstado(parteId)
-			res.write(`data: ${JSON.stringify(snapshot)}\n\n`)
-		} catch (error) {
-			res.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`)
-		}
-
-		const interval = setInterval(() => {
-			if (closed) {
-				clearInterval(interval)
-				return
-			}
-			res.write(': heartbeat\n\n')
-		}, 2000) // Reducido de 5s a 2s para mayor frecuencia
-
-		return
-	}
-
-	const send = (obj) => {
-		res.write(`data: ${JSON.stringify(obj)}\n\n`)
-	}
-
-	// Smart Polling en SSE: ajusta frecuencia según cambios detectados
-	let lastChangeTime = Date.now()
-	let currentInterval = 3000 // Empezar en modo rápido
-	let intervalId = null
-
-	const getSmartInterval = () => {
-		const timeSinceChange = Date.now() - lastChangeTime
-		if (timeSinceChange < 30000) return 3000 // Modo rápido: cambios recientes (<30s)
-		if (timeSinceChange < 120000) return 8000 // Modo normal: sin cambios <2min
-		return 15000 // Modo lento: sin cambios >2min
-	}
-
-	// Función de sondeo — refactorizado a data.js (ADR-002)
-	const poll = async () => {
-		try {
-			const { estado, ultimaEdicion } = await data.partesTrabajo.estado(parteId)
-
-			if (estado !== lastEstado || ultimaEdicion !== lastEdit) {
-				lastEstado = estado
-				lastEdit = ultimaEdicion
-				lastChangeTime = Date.now() // Actualizar tiempo del último cambio
-				send({ estado, ultimaEdicion })
-
-				// Reiniciar polling con intervalo rápido
-				const newInterval = getSmartInterval()
-				if (newInterval !== currentInterval) {
-					currentInterval = newInterval
-					if (intervalId) clearInterval(intervalId)
-					intervalId = setInterval(pollLoop, currentInterval)
-				}
-			} else {
-				// Sin cambios, verificar si necesitamos ajustar intervalo
-				const newInterval = getSmartInterval()
-				if (newInterval !== currentInterval) {
-					currentInterval = newInterval
-					if (intervalId) clearInterval(intervalId)
-					intervalId = setInterval(pollLoop, currentInterval)
-				}
-				// latidos para mantener vivo el stream
-				res.write(': heartbeat\n\n')
-			}
-		} catch (e) {
-			res.write(`event: error\ndata: ${JSON.stringify({ message: e.message })}\n\n`)
-		}
-	}
-
-	const pollLoop = async () => {
-		if (closed) {
-			if (intervalId) clearInterval(intervalId)
-			return
-		}
-		await poll()
-	}
-
-	// Primer envío inmediato
-	await poll()
-	// Iniciar polling adaptativo
-	intervalId = setInterval(pollLoop, currentInterval)
-})
 app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 	const { parteId } = req.params
 	if (!parteId) {

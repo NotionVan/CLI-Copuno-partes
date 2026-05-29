@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-28 (v1.2.2 — guard duplicados (409 si ya existe rectificativo), no duplicar prefijo en notas en cadena, rectificativos desde `Datos Enviados`. QA Chrome: guard verificado en producción. N6 Make sigue pendiente)
+- **Última edición:** 2026-05-29 (v1.3.0 — cerrados H3 (SSE → polling client-side), I3 (RATE_LIMIT_MAX=1000), N4 (cache en buscar))
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -24,20 +24,20 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 |---|---|---|---|---|---|
 | [H1](#h1--ningún-endpoint-api-está-autenticado) | 🔴 | Auth en `/api/*` ausente | ⏳ | 4–8 h | Retainer **prioritario** |
 | [H2](#h2--creaciónedición-de-parte-no-es-atómica) | 🔴 | Parte sin atomicidad ni reconciliación | 🔧 (mitigado parcial) | 8–12 h | Retainer |
-| [H3](#h3--sse-sobre-vercel-serverless-incompatible) | 🔴 | SSE incompatible con Vercel serverless | ⏳ | 4–6 h | Retainer (próximo sprint) |
+| [H3](#h3--sse-sobre-vercel-serverless-incompatible) | 🔴 | SSE incompatible con Vercel serverless | ✅ | — | Cerrado 2026-05-29 |
 | [C1](#c1--webhook-a-make-envía-payload-sin-sanear) | 🟠 | Webhook Make recibe payload sin sanear | ❌ | — | Descartado — plantilla Make filtra el output |
 | [C2](#c2--enviar-datos-orden-make--patch-vulnerable) | 🟠 | `enviar-datos`: ventana entre Make y PATCH estado | ✅ | — | Cerrado 2026-05-27 |
 | [C3](#c3--n1-al-leer-empleados-de-una-obra) | 🟠 | N+1 al leer empleados de una obra | ✅ | — | Cerrado 2026-05-27 |
 | [I1](#i1--apidatos-completos-hace-http-a-sí-mismo) | 🟡 | `/api/datos-completos` hace HTTP loopback | ✅ | — | Cerrado — Fase B, llamadas directas a `data.*` |
 | [I2](#i2--cache-en-memoria--serverless--cache-inútil) | 🟡 | Cache en memoria inútil en serverless | ⏭️ | — | Aplazado — comportamiento documentado, sin ROI arreglarlo |
-| [I3](#i3--rate-limit-irrelevante-con-nat-compartido) | 🟡 | Rate limit revienta con NAT compartido | ⏳ | 1 h | Retainer (junto a H1) |
+| [I3](#i3--rate-limit-irrelevante-con-nat-compartido) | 🟡 | Rate limit revienta con NAT compartido | ✅ | — | Cerrado 2026-05-29 |
 | [I4](#i4--sin-telemetría-útil) | 🟡 | Sin telemetría, logs Vercel se pierden | ⏳ | 3–5 h | Retainer |
 | [I5](#i5--reload-de-ventana-tras-editar) | 🟡 | `window.location.reload()` tras editar | ✅ | — | Cerrado 2026-05-27 |
 
 | [N1](#n1--persona-autorizada-mezcla-modelo-cliente-y-modelo-interno) | 🟠 | Persona Autorizada — coexistencia legacy/interno | ⏳ | 3–5 h | Retainer (esta semana) |
 | [N2](#n2--asignación-libre-amplía-superficie-de-h2) | 🟠 | Asignación libre agrava H2 (creación no atómica) | ✅ | — | Cerrado — logging ya presente en server.js |
 | [N3](#n3--búsqueda-por-id-copuno-con-cobertura-incompleta) | 🟠 | ID COPUNO cubre el 50% de empleados (657 pendientes) | 🔧 (migración parcial) | — | CSV enviado a Efrén para completar |
-| [N4](#n4--multiplicador-de-carga-notion-en-flujo-id-cross-obra) | 🟡 | Flujo "ID en varias obras" multiplica lecturas Notion | ⏳ | 2–4 h | Retainer (junto a C3) |
+| [N4](#n4--multiplicador-de-carga-notion-en-flujo-id-cross-obra) | 🟡 | Flujo "ID en varias obras" multiplica lecturas Notion | ✅ | — | Cerrado 2026-05-29 |
 | [N5](#n5--estados-hardcoded-divergentes-del-schema-real) | 🔵 | Lista `noEditables` hardcoded incluye `'enviado'` inexistente | ✅ | — | Cerrado 2026-05-27 |
 
 Informativos en sección [aparte](#informativos).
@@ -76,7 +76,7 @@ Informativos en sección [aparte](#informativos).
 
 #### H3 — SSE sobre Vercel serverless incompatible
 
-- **Estado:** ⏳ Pendiente
+- **Estado:** ✅ Cerrado 2026-05-29 (v1.3.0)
 - **Detectado:** 2026-05-11
 - **Dónde:** [server.js:881-978](../server.js#L881), [vercel.json:11-15](../vercel.json#L11-L15).
 - **Qué:** El endpoint `/estado/stream` instala `setInterval(pollLoop, ...)` y se queda colgado. En Vercel Node serverless, cada request es función con timeout máx 10 s (Hobby) / 60 s (Pro) / 900 s (Pro Edge explícito). Cada usuario con modal abierto consume **una invocación facturable continua**. Tras timeout, SSE reabre, `lastChangeTime` se resetea → patrón: poll 3s durante 60s, reconectar, otra vez → **modo lento nunca se alcanza en producción**.
@@ -125,7 +125,7 @@ Informativos en sección [aparte](#informativos).
 
 #### I3 — Rate limit irrelevante con NAT compartido
 
-- **Estado:** ⏳ Pendiente · **Dónde:** [server.js:86-95](../server.js#L86-L95) · **Coste:** 2 min (variable de entorno en Vercel).
+- **Estado:** ✅ Cerrado 2026-05-29 — `RATE_LIMIT_MAX` default subido de 100 → 1000 en código (commit Etapa 1, confirmado en producción). **Solución definitiva** pendiente de H1: `keyGenerator` por usuario autenticado. · **Dónde:** [server.js:86-95](../server.js#L86-L95)
 - Con Smart Polling (3 s/req en modo rápido), un solo usuario hace 300 req/15min — el triple del límite actual (100). Con varios usuarios en el mismo NAT corporativo, revienta con uso normal. Vercel Pro no resuelve esto — el rate limit sigue siendo por IP independientemente del plan.
 - **Solución temporal:** subir `RATE_LIMIT_MAX` a ~1000 en Vercel Dashboard en cuanto haya acceso. **Solución definitiva:** `keyGenerator` por usuario autenticado cuando se cierre [H1](#h1--ningún-endpoint-api-está-autenticado) — H1 lo resuelve del todo.
 
@@ -226,7 +226,7 @@ Cualquier petición tipo "queremos que vaya más rápido la sincronización" se 
 
 #### N4 — Multiplicador de carga Notion en flujo "mismo empleado en varias obras"
 
-- **Estado:** ⏳ Pendiente · **Detectado:** 2026-05-26 · **Severidad:** 🟡
+- **Estado:** ✅ Cerrado 2026-05-29 (v1.3.0) — cache de 30 s añadida a `/api/empleados/buscar` tanto para búsqueda por ID (`buscar-id:N`) como por nombre (`buscar-q:texto:limite`). Patrón reutilizado del cache existente en `server.js`. · **Detectado:** 2026-05-26 · **Severidad:** 🟡
 - **Dónde:** Nuevo endpoint probable `/api/empleados/buscar?id=` + uso encadenado con `/api/obras/:id/empleados` y POST de parte.
 - **Qué:** Flujo típico funcionalidad 3: usuario teclea ID → backend busca empleado (1 query a `EMPLEADOS` con filtro) → si está en otra obra activa hay que validar/mostrar el contexto → cada parte nuevo crea un `DETALLES_HORA`. Con Notion a 3 req/s y N partes en obras distintas para el mismo empleado al mismo día (escenario realista en construcción: peón rotando), el patrón secuencial actual ya saturado por C3 entra en zona de 429.
 - **Por qué importa:** Refuerza la urgencia de C3 (`Promise.all` con `p-limit`) y sugiere añadir cache corta (~5 s) para `/api/empleados/buscar?id=` durante una jornada.
@@ -537,4 +537,5 @@ Reglas por tipo de cambio:
 | 2026-05-28 | Javi Collado | **N6 — Dependencias Notion cerradas.** Creadas en BD `Partes de trabajo`: relación reflexiva dual `Rectifica a` / `Rectificado por` + fórmula `Es Rectificativo`. Botón "Rectificar" operativo en producción. Pendiente: marcado PDF en Make. |
 | 2026-05-28 | Claude Code | **v1.2.2 — edge cases rectificativos + estados ampliados.** (1) Guard duplicados: `409` si el original ya tiene `Rectificado por ` poblado — protege contra doble click/dos pestañas. Smoke test dedicado (33/33). (2) No duplicar prefijo "PARTE RECTIFICATIVO" en notas en cadena. (3) `PARTE_RECTIFICABLES = ['firmado','datos enviados']`. QA Chrome: botón ausente en partes ya rectificados ✅; flujo desde `Datos Enviados` ✅; prefijo en cadena pendiente de verificar en producción. Changelog `CHANGELOG_V1.2.2.md`. |
 | 2026-05-28 | Claude Code | **v1.2.1 — rectificativos en producción + banner.** Fix nombres de propiedad Notion con espacio final (`Rectifica a `/`Rectificado por `) que causaban 500 (commit `4cea407`). Modal de confirmación propio en vez de `window.confirm` + apertura del rectificativo en edición sin esperar al cache (`dd15afe`). Prefijo `PARTE RECTIFICATIVO` en notas del rectificativo (`9dc581d`). Banner de actualización: intervalo 5 min → 1 min, `__APP_VERSION__` expuesta en `window`, emoji eliminado. Verificado en producción con `@regression-checker` + QA Chrome. Changelogs `CHANGELOG_V1.2.0.md` (rectificativos + banner) y `CHANGELOG_V1.2.1.md`. |
+| 2026-05-29 | Claude Code | **v1.3.0 — H3 + I3 + N4 cerrados.** H3: eliminado endpoint SSE `/api/partes-trabajo/:id/estado/stream`; sustituido por polling client-side puro en `App.jsx` con Smart Polling adaptativo (3s/8s/15s), eliminando el problema de invocaciones serverless continuas y los huecos de reconexión. I3: `RATE_LIMIT_MAX=1000` confirmado en código (default). N4: cache 30 s en `/api/empleados/buscar` para búsquedas por ID y por nombre. 33/33 smoke. Bump 1.2.2 → 1.3.0. |
 | 2026-05-28 | Claude Code | **Carga masiva ID COPUNO (N3).** Cruce de `docs/ID.xlsx` (867 entradas) con BD Empleados (1.330 registros) vía normalización + rotación de tokens + Jaccard. **306 IDs inyectados en Notion** (3 rondas: exacto ×2, rotación ×272, tokens ×32). Cobertura sube del 27% → **50,6%**. Generado `docs/revision_ids_empleados.csv` con los 657 pendientes: Grupo A (61 sugerencias fuzzy ≥50%) + Grupo B (595 huérfanos sin candidato). N3 pasa a estado 🔧 (migración parcial). |

@@ -242,6 +242,16 @@ export const getPartesTrabajo = async () => {
 	}
 }
 
+// Obtener estado actual de un parte (para polling client-side)
+export const getParteEstado = async (parteId) => {
+  try {
+    const response = await apiClient.get(`/api/partes-trabajo/${parteId}/estado`)
+    return response.data
+  } catch (error) {
+    handleApiError(error, 'obtener estado del parte')
+  }
+}
+
 // Obtener detalles de empleados de un parte específico
 export const getDetallesEmpleados = async (parteId) => {
 	try {
