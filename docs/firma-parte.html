@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Captura de Firma</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .touch-none { touch-action: none; }
+    #signatureCanvas {
+      width: 256px; height: 256px;
+      border: 2px solid #000; border-radius: .5rem;
+      background-color: #fff; cursor: crosshair;
+    }
+    .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%; width: 50px; height: 50px;
+      animation: spin 1s linear infinite;
+      position: fixed; top:50%; left:50%;
+      transform: translate(-50%,-50%); z-index:1001;
+      display: none;
+    }
+    @keyframes spin {
+      0% {transform: translate(-50%,-50%) rotate(0deg);}
+      100% {transform: translate(-50%,-50%) rotate(360deg);}
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+  <div class="loader" id="loader"></div>
+
+  <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+    <header class="mb-6 text-center">
+      <h1 class="text-2xl font-bold text-gray-700">Firma del Parte</h1>
+      <p class="text-gray-500 mt-1">
+        ID del Parte: <span id="parteIdDisplay" class="font-semibold">Cargando...</span>
+        &nbsp;|&nbsp;
+        Obra: <span id="obraDisplay" class="font-semibold">Cargando...</span>
+      </p>
+    </header>
+
+    <div id="signatureArea">
+      <div class="mb-4 flex justify-center">
+        <canvas id="signatureCanvas" class="touch-none shadow-inner"></canvas>
+      </div>
+      <div class="flex gap-3">
+        <button id="clearButton"
+          class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded-lg">
+          Limpiar Firma
+        </button>
+        <button id="sendButton"
+          class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg">
+          Enviar Firma
+        </button>
+      </div>
+    </div>
+
+    <div id="postSendUI" class="text-center mt-6" style="display:none;">
+      <p id="successMessage" class="text-green-600 font-semibold mb-4"></p>
+      <button id="closeWindowButton"
+        class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg">
+        Cerrar Ventana
+      </button>
+    </div>
+
+    <div id="messageArea" class="mt-4 text-center text-sm text-gray-600"></div>
+  </div>
+
+  <footer class="mt-6 text-center text-xs text-gray-400">
+    &copy; 2025 Grupo Copuno. Aplicación de captura de firmas.
+  </footer>
+
+  <script>
+    const MAKE_WEBHOOK_URL = 'https://hook.eu2.make.com/qx6gv2yuia61k1o7o7c895imcqyvrmob';
+
+    // DOM Elements
+    const canvas            = document.getElementById('signatureCanvas');
+    const ctx               = canvas.getContext('2d');
+    const clearButton       = document.getElementById('clearButton');
+    const sendButton        = document.getElementById('sendButton');
+    const parteIdDisplay    = document.getElementById('parteIdDisplay');
+    const obraDisplay       = document.getElementById('obraDisplay');
+    const loader            = document.getElementById('loader');
+    const messageArea       = document.getElementById('messageArea');
+    const signatureAreaDiv  = document.getElementById('signatureArea');
+    const postSendUIDiv     = document.getElementById('postSendUI');
+    const successMessageP   = document.getElementById('successMessage');
+    const closeWindowButton = document.getElementById('closeWindowButton');
+
+    let drawing = false, parteId = null, obra = null;
+
+    function setupVisibleCanvas() {
+      const baseW = 256, baseH = 256;
+      canvas.width  = baseW * window.devicePixelRatio;
+      canvas.height = baseH * window.devicePixelRatio;
+      canvas.style.width  = baseW + 'px';
+      canvas.style.height = baseH + 'px';
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      ctx.lineWidth   = Math.max(2, 3/window.devicePixelRatio);
+      ctx.lineCap     = 'round';
+      ctx.strokeStyle = '#002FA7';
+    }
+
+    function getMousePos(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+    function getTouchPos(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+    }
+    function startDrawing(e) {
+      drawing = true;
+      const pos = e.type.startsWith('mouse') ? getMousePos(e) : getTouchPos(e);
+      ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+      e.cancelable && e.preventDefault();
+    }
+    function draw(e) {
+      if (!drawing) return;
+      const pos = e.type.startsWith('mouse') ? getMousePos(e) : getTouchPos(e);
+      ctx.lineTo(pos.x, pos.y); ctx.stroke();
+      e.cancelable && e.preventDefault();
+    }
+    function stopDrawing() {
+      drawing && ctx.closePath();
+      drawing = false;
+    }
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      messageArea.innerHTML = '';
+    }
+    function isCanvasEmpty() {
+      const empty = document.createElement('canvas');
+      empty.width  = canvas.width;
+      empty.height = canvas.height;
+      return canvas.toDataURL() === empty.toDataURL();
+    }
+    function showMessage(msg, color='red') {
+      messageArea.innerHTML = `<p style="color:${color}">${msg}</p>`;
+    }
+
+    async function sendSignature() {
+      messageArea.innerHTML = '';
+      if (!MAKE_WEBHOOK_URL) return showMessage('Webhook no configurado.');
+      if (!parteId)            return showMessage('parteId ausente en URL.');
+      if (!obra)               return showMessage('obra ausente en URL.');
+      if (isCanvasEmpty())     return showMessage('Firma vacía.', 'orange');
+
+      loader.style.display = 'block';
+      sendButton.disabled = clearButton.disabled = true;
+
+      // Create 128x128 output canvas
+      const outC = document.createElement('canvas');
+      outC.width = outC.height = 128;
+      outC.getContext('2d').drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, 128, 128);
+      const sigData = outC.toDataURL('image/png');
+      const payload = {
+        parteId,
+        obra,
+        signatureBase64: sigData,
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        const resp = await fetch(MAKE_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (resp.ok) {
+          const txt = await resp.text();
+          if (txt.toLowerCase() === 'accepted') {
+            signatureAreaDiv.style.display = 'none';
+            successMessageP.textContent = `Firma parte ${parteId} enviada con éxito.`;
+            postSendUIDiv.style.display = 'block';
+          } else {
+            showMessage(`Enviado, pero respuesta inesperada: ${txt}`, 'orange');
+          }
+        } else {
+          const err = await resp.text();
+          showMessage(`Error ${resp.status}: ${err}`);
+        }
+      } catch (e) {
+        showMessage(`Error de red: ${e.message}`);
+      } finally {
+        loader.style.display = 'none';
+        if (postSendUIDiv.style.display === 'none') {
+          sendButton.disabled = clearButton.disabled = false;
+        }
+      }
+    }
+
+    window.addEventListener('load', () => {
+      const params = new URLSearchParams(location.search);
+      parteId = params.get('parteId');
+      obra    = params.get('obra');
+      parteIdDisplay.textContent = parteId || 'No especificado';
+      obraDisplay.textContent    = obra    || 'No especificada';
+
+      setupVisibleCanvas();
+
+      // Mouse events
+      canvas.addEventListener('mousedown', startDrawing);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stopDrawing);
+      canvas.addEventListener('mouseout', stopDrawing);
+      // Touch events
+      canvas.addEventListener('touchstart', startDrawing, { passive: false });
+      canvas.addEventListener('touchmove',  draw,       { passive: false });
+      canvas.addEventListener('touchend',   stopDrawing);
+
+      clearButton.addEventListener('click', clearCanvas);
+      sendButton.addEventListener('click', sendSignature);
+      closeWindowButton.addEventListener('click', () => window.close());
+    });
+  </script>
+
+</body>
+</html>

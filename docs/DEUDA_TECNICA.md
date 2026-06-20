@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-05-29 (añadido I7 — quick wins rendimiento cache, aplazado)
+- **Última edición:** 2026-06-20 (M4 cerrado — fix raíz del `\n` en Notas movido al servidor + referencia obligatoria al parte original en rectificativos; v1.3.3)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -41,6 +41,10 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [N3](#n3--búsqueda-por-id-copuno-con-cobertura-incompleta) | 🟠 | ID COPUNO cubre el 50% de empleados (657 pendientes) | 🔧 (migración parcial) | — | CSV enviado a Efrén para completar |
 | [N4](#n4--multiplicador-de-carga-notion-en-flujo-id-cross-obra) | 🟡 | Flujo "ID en varias obras" multiplica lecturas Notion | ✅ | — | Cerrado 2026-05-29 |
 | [N5](#n5--estados-hardcoded-divergentes-del-schema-real) | 🔵 | Lista `noEditables` hardcoded incluye `'enviado'` inexistente | ✅ | — | Cerrado 2026-05-27 |
+| [M1](#m1--paginación-make-partes14-módulos-9-y-15-sin-paginar) | 🔴 | Paginación Make: módulos 9 y 15 de PARTES1/4 sin paginar | ✅ | — | Cerrado 2026-06-18 |
+| [M2](#m2--body-módulo-249-frágil-campos-numéricos-sin-fallback) | 🔵 | Body módulo 249: campos numéricos sin fallback + \n en Notas | ✅ | — | Cerrado 2026-06-20 |
+| [M3](#m3--webhook-partes44-eliminado--página-de-firma-rota) | 🔴 | Webhook PARTES4/4 eliminado → página firma devolvía 410 | ✅ | — | Cerrado 2026-06-18 |
+| [M4](#m4--n-en-notas-de-rectificativos-rompe-el-json-de-make--fix-raíz-en-servidor) | 🟠 | `\n` en Notas de rectificativos rompe JSON de Make (fix raíz en servidor) | ✅ | — | Cerrado 2026-06-20 |
 
 Informativos en sección [aparte](#informativos).
 
@@ -583,6 +587,64 @@ Reglas por tipo de cambio:
 | 2026-05-29 | Claude Code | **v1.3.1 — fix residual SSE.** `cerrarDetalles()` referenciaba `estadoStreamRef` (eliminado en v1.3.0) → `ReferenceError` en consola al abrir modal de detalles. Sustituida por `estadoPollRef` + `clearInterval`. QA Chrome: modal limpio 8+ s, sin errores. |
 | 2026-05-29 | Claude Code | **v1.3.0 — H3 + I3 + N4 cerrados.** H3: eliminado endpoint SSE `/api/partes-trabajo/:id/estado/stream`; sustituido por polling client-side puro en `App.jsx` con Smart Polling adaptativo (3s/8s/15s), eliminando el problema de invocaciones serverless continuas y los huecos de reconexión. I3: `RATE_LIMIT_MAX=1000` confirmado en código (default). N4: cache 30 s en `/api/empleados/buscar` para búsquedas por ID y por nombre. 33/33 smoke. Bump 1.2.2 → 1.3.0. |
 | 2026-05-28 | Claude Code | **Carga masiva ID COPUNO (N3).** Cruce de `docs/ID.xlsx` (867 entradas) con BD Empleados (1.330 registros) vía normalización + rotación de tokens + Jaccard. **306 IDs inyectados en Notion** (3 rondas: exacto ×2, rotación ×272, tokens ×32). Cobertura sube del 27% → **50,6%**. Generado `docs/revision_ids_empleados.csv` con los 657 pendientes: Grupo A (61 sugerencias fuzzy ≥50%) + Grupo B (595 huérfanos sin candidato). N3 pasa a estado 🔧 (migración parcial). |
+| 2026-06-20 | Claude Code + Javi Collado | **M2 cerrado — body módulo 249 blindado.** Parte rectificativo 249 (Getares) quedó en IEQ con 400 "Bad control character" por `\n` literal en Notas. Fix: `replace(Notas; "\n"; " ")` + `ifempty(...; 0)` en 9 campos numéricos. Bundle resuelto desde IEQ. S2 (OneDrive) confirmado resuelto por Copuno. |
+| 2026-06-20 | Claude Code + Javi Collado | **M4 cerrado + v1.3.3 — fix raíz `\n` en servidor + referencia al parte original.** La mitigación M2 (`replace` en Make) no era fiable (el editor de Make no sustituía el 0x0A real; 400 reincidente en parte 249 posición 378). Fix raíz movido al servidor: `notion.js`/`mockData.js` colapsan `[\n\r\t]` a espacio antes de escribir Notas. Nuevo requisito de negocio: todo rectificativo referencia al original → `PARTE RECTIFICATIVO DEL PARTE #<ID> — <notas>`. Parte 249 desbloqueado (Notas saneadas + IEQ vaciada, 14 bundles) → "Listo para firmar". Pendiente no bloqueante: refresco UI tras `replayed:true` + verificar `URL PDF` del 249. |
+| 2026-06-18 | Claude Code + Javi Collado | **M3 cerrado — webhook PARTES4/4 eliminado.** Webhook `cgh4ss6k73d5...` devolvía 410 Gone → página de firma rota (CORS + "Failed to fetch"). Creado nuevo webhook en Make (`qx6gv2yuia61...`), actualizado HTML de firma en WordPress. Código versionado en `docs/firma-parte.html`. |
+| 2026-06-18 | Claude Code + Javi Collado | **M1 cerrado — bug paginación Make PARTES1/4.** Módulos 9 y 15 del escenario "PARTES 1/4" convertidos de `POST .../query` (sin paginar, límite 100) a `GET /v1/pages/{id}` directo. BD de Obras tenía 133 registros → obras en posición >100 nunca llegaban al iterador → módulo 249 nunca se ejecutaba → escenario 2 sin datos → sin PDF ni firma. Verificado en producción con dos obras (Las Palmas pos.130, Lentiscos): 200 OK en módulo 249, escenario 2 recibe datos. Operaciones: 137 → 12 por ejecución. **M2 registrado** como deuda baja: body módulo 249 con campos numéricos sin fallback (no falla con partes reales, pero frágil). Blueprint del repo pendiente de actualizar con los cambios de producción. |
+
+---
+
+## Hallazgos Make (escenarios)
+
+#### M1 — Paginación Make PARTES1/4: módulos 9 y 15 sin paginar
+
+- **Estado:** ✅ Cerrado 2026-06-18
+- **Detectado:** 2026-06-18
+- **Dónde:** Escenario Make "PARTES 1/4 – Recojo cabecera del parte", módulos **9** (query BD Obras) y **15** (query BD Persona Autorizada/Jefes de obra).
+- **Qué:** Ambos módulos hacían `POST /databases/{id}/query` con body `{}` (sin filtro ni paginación). Notion limita a 100 resultados por página. La BD de Obras tenía 133 registros → obras en posición >100 (como "Las Palmas", posición 130) nunca aparecían en el iterador → el filtro del módulo 33 las rechazaba → el flujo no llegaba al módulo 249 ("Envía Datos a automat. 2") → el escenario 2 no recibía el parte → no se generaba PDF ni se activaba la firma. El mismo defecto existía en el bloque de jefes de obra (módulo 15), latente porque solo hay 7 jefes.
+- **Solución aplicada:** módulos 9 y 15 convertidos de `POST .../query` a **`GET /v1/pages/{{ID Obra}}`** y **`GET /v1/pages/{{ID Persona Autorizada}}`** respectivamente (page-ids ya disponibles en el módulo 39). Iteradores 31 y 25 actualizados para iterar directamente sobre la página devuelta. Filtros de igualdad de los módulos 33 y 26 eliminados (ya no son necesarios). Aplicado en producción (escenario ID 5595847).
+- **Verificación:** dos partes procesados en producción con obras en posición >100 (Las Palmas pos.130, Lentiscos): módulo 249 devuelve `200 Accepted`, escenario 2 recibe datos. Operaciones por ejecución: 137 → **12**.
+- **Riesgo latente resuelto:** el bloque de jefes (módulo 15) tenía el mismo defecto pero no fallaba porque hay solo 7 jefes. La solución lo cierra de raíz para ambos bloques.
+- **Blueprint en repo:** pendiente de actualizar [docs/Escenarios Make/PARTES1-4 - Recojo cabecera del parte.blueprint.json](Escenarios%20Make/PARTES1-4%20-%20Recojo%20cabecera%20del%20parte.blueprint.json) — el escenario en producción difiere del blueprint versionado.
+
+#### M3 — Webhook PARTES4/4 eliminado → página de firma rota
+
+- **Estado:** ✅ Cerrado 2026-06-18
+- **Detectado:** 2026-06-18
+- **Dónde:** Página de firma pública `copuno.com/es/notion/` (HTML externo, fuera del repo de la webapp) + escenario Make **PARTES4/4 - Recojo Firma**.
+- **Qué:** El webhook `cgh4ss6k73d5hh6rp7uond9h6pkxipxq` referenciado en la constante `MAKE_WEBHOOK_URL` del HTML de firma había sido eliminado de Make (devolvía **410 Gone**). Al pulsar "Enviar Firma", el navegador recibía CORS error + 410 y mostraba "Error de red: Failed to fetch". El jefe de obra no podía firmar ningún parte.
+- **Solución:** (1) Creado nuevo webhook en Make para PARTES4/4 → URL `https://hook.eu2.make.com/qx6gv2yuia61k1o7o7c895imcqyvrmob`. (2) Actualizada la constante `MAKE_WEBHOOK_URL` en el HTML de la página de firma en WordPress. (3) Código fuente versionado en [docs/firma-parte.html](firma-parte.html) para referencia futura.
+- **Lección:** el HTML de firma vive en WordPress (fuera del repo) y referencia una URL de webhook Make hardcodeada. Si el webhook se regenera en Make (por borrado accidental o recreación del escenario), hay que actualizar también este HTML. Considerar documentar este punto en el onboarding técnico.
+
+#### M2 — Body módulo 249 frágil: campos numéricos sin comillas ni fallback
+
+- **Estado:** ✅ Cerrado 2026-06-20
+- **Detectado:** 2026-06-18
+- **Severidad:** 🔵
+- **Dónde:** Escenario Make "PARTES 1/4", módulo **249** ("Envía Datos a automat. 2"), body JSON.
+- **Qué:** Dos problemas en el body JSON del módulo 249: (1) campos numéricos sin comillas ni fallback → JSON inválido si llegaban vacíos; (2) campo `Notas del parte` con salto de línea literal (`\n` no escapado) → `400 Bad control character in string literal` al procesar un parte rectificativo cuyas notas tenían texto multilínea (`"PARTE RECTIFICATIVO\nPruebas "`).
+- **Cómo se manifestó:** parte 249 ("Rectif.Parte Getares") quedó atascado en `Datos Enviados` sin generar PDF. El módulo 249 devolvía 400 y el bundle iba a la IEQ.
+- **Solución aplicada (2026-06-20):** (1) 9 campos numéricos envueltos con `{{ifempty(39.\`campo\`; 0)}}`. (2) Notas cambiado a `{{replace(39.Notas; "\n"; " ")}}`. Bundle del parte 249 resuelto manualmente desde la IEQ.
+- **Nota:** la mitigación del `\n` quedó en el lado Make (`replace`), pero **resultó no fiable** — el `replace(...; "\n"; ...)` del editor de Make no atrapaba el salto de línea real (0x0A) de forma consistente y el 400 reaparecía en la misma posición. El fix definitivo se movió al servidor → ver **M4**.
+
+---
+
+#### M4 — `\n` en Notas de rectificativos rompe el JSON de Make → fix raíz en servidor
+
+- **Estado:** ✅ Cerrado 2026-06-20 (v1.3.3)
+- **Detectado:** 2026-06-20
+- **Severidad:** 🟠
+- **Dónde:** [src-server/services/notion.js](../src-server/services/notion.js) (función `rectificar`) + [mock/mockData.js](../mock/mockData.js). Origen del dato que aguas abajo rompía el módulo 249 de Make (ver [M2](#m2--body-módulo-249-frágil-campos-numéricos-sin-comillas-ni-fallback)).
+- **Qué:** El endpoint `/rectificar` construía las Notas del rectificativo con un salto de línea literal: `` `PARTE RECTIFICATIVO\n${notasOriginal}` ``. Ese `\n` (0x0A) llegaba a Notion y, al serializar Make el parte como JSON en el módulo 249, producía `400 Bad control character in string literal in JSON at position N`. El parte rectificativo quedaba atascado en `Datos Enviados` sin generar PDF. La mitigación M2 (`replace` en Make) no era fiable: el `replace(...; "\n"; " ")` del editor de Make interpreta `"\n"` como los dos caracteres `\`+`n`, no como el byte de control real → no lo sustituía y el 400 reaparecía (parte 249, posición 378 reincidente).
+- **Causa raíz:** introducir un carácter de control en el origen (Notion) y depender de Make para sanearlo. Mal sitio para el fix.
+- **Solución aplicada (2026-06-20):**
+  1. **Fix raíz en el servidor:** el prefijo del rectificativo pasa a una sola línea y cualquier carácter de control (`\n`, `\r`, `\t`) en las notas se colapsa a espacio antes de escribir en Notion (`.replace(/[\n\r\t]+/g, ' ')`). Así el JSON de Make nunca recibe un carácter de control, sin depender de la plantilla Make.
+  2. **Requisito de negocio:** todo rectificativo referencia ahora explícitamente al parte original en sus Notas → prefijo `PARTE RECTIFICATIVO DEL PARTE #<ID original> — <notas originales>` (ID leído de `original.properties['ID'].unique_id.number`). En cadena (rectificativo de rectificativo) se descarta el prefijo previo para no encadenarlos, dejando como referencia el ID del parte rectificado actual.
+  3. Paridad aplicada en `mock/mockData.js`.
+- **Desbloqueo del parte 249:** Notas saneadas vía API Notion (`\n` → ` `), estado reseteado a Borrador, IEQ de PARTES1/4 vaciada (14 bundles con JSON pre-computado roto eliminados — un "Resolve" reintenta el bundle guardado, no re-evalúa la plantilla). Reenvío desde la app → parte avanzó a "Listo para firmar".
+- **Pendiente (no bloqueante):** (a) el frontend no refresca el estado tras una respuesta `replayed: true` del store de idempotencia → muestra estado obsoleto (Borrador) aunque Notion ya avanzó; registrado como observación, fix aparte. (b) verificar que PARTES3/4 grabó `URL PDF` en Notion para el 249 (estaba vacío en la última lectura).
+
+---
 
 #### Bug corregido — Obras no aparecían en desplegable (>100 obras en BD)
 

@@ -678,9 +678,26 @@ const partesTrabajo = {
 		const jefeObraId = Array.isArray(personaRel) && personaRel[0] ? personaRel[0].id : null
 		const fecha = extractPropertyValue(original.properties['Fecha'])
 		const notasOriginal = extractPropertyValue(original.properties['Notas'])
-		const notasRectificativo = notasOriginal && !notasOriginal.startsWith('PARTE RECTIFICATIVO')
-			? `PARTE RECTIFICATIVO\n${notasOriginal}`
-			: notasOriginal || 'PARTE RECTIFICATIVO'
+		// ID del parte original al que rectifica — debe quedar SIEMPRE referenciado en las Notas.
+		const idOriginal = original.properties['ID']?.unique_id?.number ?? null
+		// Prefijo en una sola línea: el salto de línea (\n) rompía el JSON que
+		// Make serializa aguas abajo ("Bad control character at position N"). Ver DEUDA_TECNICA M4.
+		const prefijoRectificativo = idOriginal != null
+			? `PARTE RECTIFICATIVO DEL PARTE #${idOriginal}`
+			: 'PARTE RECTIFICATIVO'
+		// Las notas del original pueden traer su propio prefijo "PARTE RECTIFICATIVO..."
+		// (rectificativo de un rectificativo): se descarta para no encadenar prefijos,
+		// dejando como referencia el ID del parte rectificado actual.
+		// Cualquier carácter de control (\n, \r, \t) se colapsa a espacio: rompía el JSON
+		// que Make serializa aguas abajo ("Bad control character"). Ver DEUDA_TECNICA M4.
+		const notasLimpias = (notasOriginal || '')
+			.replace(/[\n\r\t]+/g, ' ')
+			.replace(/^PARTE RECTIFICATIVO[^—]*—?\s*/, '')
+			.replace(/\s+/g, ' ')
+			.trim()
+		const notasRectificativo = notasLimpias
+			? `${prefijoRectificativo} — ${notasLimpias}`
+			: prefijoRectificativo
 		const obraTexto = extractPropertyValue(original.properties['AUX Obra']) || 'Obra'
 
 		const propsNuevo = {

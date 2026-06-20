@@ -605,9 +605,16 @@ const rectificarParte = (parteOriginalId) => {
     horasEncargado: 0,
     urlPDF: '',
     enviadoCliente: false,
-    notas: original.notas && !original.notas.startsWith('PARTE RECTIFICATIVO')
-      ? `PARTE RECTIFICATIVO\n${original.notas}`
-      : original.notas || 'PARTE RECTIFICATIVO',
+    notas: (() => {
+      // Referencia obligatoria al parte original (paridad con notion.js → DEUDA_TECNICA M4).
+      const prefijo = `PARTE RECTIFICATIVO DEL PARTE #${original.id}`
+      const limpias = (original.notas || '')
+        .replace(/[\n\r\t]+/g, ' ')
+        .replace(/^PARTE RECTIFICATIVO[^—]*—?\s*/, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+      return limpias ? `${prefijo} — ${limpias}` : prefijo
+    })(),
     firmarUrl: buildFirmarUrl({ id: nuevoId, obra: original.obra }),
     rectificaAId: parteOriginalId,
     rectificadoPorIds: []

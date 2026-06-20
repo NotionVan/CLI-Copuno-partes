@@ -393,6 +393,17 @@ test('POST rectificar: crea parte Borrador copiando detalles del firmado', async
 	assert.equal(nuevo.rectificaAId, 'parte-2')
 	assert.equal(nuevo.esRectificativo, true)
 
+	// Notas: referencian al parte original y nunca llevan caracteres de control
+	// (el \n rompía el JSON que Make serializa aguas abajo). Ver DEUDA_TECNICA M4.
+	assert.ok(
+		nuevo.notas.startsWith('PARTE RECTIFICATIVO DEL PARTE #'),
+		'las notas del rectificativo deben referenciar al parte original'
+	)
+	assert.ok(
+		!/[\n\r\t]/.test(nuevo.notas),
+		'las notas del rectificativo no deben contener caracteres de control'
+	)
+
 	// El original queda marcado como rectificado.
 	const original = lista.body.find(p => p.id === 'parte-2')
 	assert.ok(original.rectificadoPorIds.includes(res.body.id))
