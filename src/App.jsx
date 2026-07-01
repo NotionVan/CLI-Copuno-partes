@@ -2804,7 +2804,12 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 									{/* EDGE CASE 4 — Empleados ya añadidos al parte: bloque persistente */}
 									{formData.empleados.length > 0 && (
 										<div style={{ marginBottom: 12 }}>
-											<h4 style={{ marginBottom: 6 }}>Empleados añadidos al parte ({formData.empleados.length}):</h4>
+											<h4 style={{ marginBottom: 6 }}>
+												Empleados añadidos al parte ({formData.empleados.length}) ·{' '}
+												<span className="total-horas">
+													Horas totales: {formData.empleados.reduce((sum, empId) => sum + (Number(formData.empleadosHoras[empId]) || 0), 0)}
+												</span>
+											</h4>
 											<div className="empleados-lista empleados-lista-compacta">
 												{formData.empleados.map(empId => {
 													const emp = empleadosAñadidosDetalle[empId]
