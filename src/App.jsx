@@ -2806,7 +2806,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 										<div style={{ marginBottom: 12 }}>
 											<h4 style={{ marginBottom: 6 }}>
 												Empleados añadidos al parte ({formData.empleados.length}) ·{' '}
-												<span className="total-horas">
+												<span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
 													Horas totales: {formData.empleados.reduce((sum, empId) => sum + (Number(formData.empleadosHoras[empId]) || 0), 0)}
 												</span>
 											</h4>
