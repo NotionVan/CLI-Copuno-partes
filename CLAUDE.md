@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-05-29 (v1.3.1 — SSE eliminado (H3), polling client-side puro, fix residual estadoStreamRef, cache en buscar empleados (N4). Changelogs: [CHANGELOG_V1.3.0.md](CHANGELOG_V1.3.0.md), [CHANGELOG_V1.3.1.md](CHANGELOG_V1.3.1.md))
+- **Última edición:** 2026-07-01 (v1.4.0/v1.4.1 — añadir empleado por ID Copuno o nombre al editar un parte, con sugerencias en vivo (debounce), igual que en creación. Changelogs: [CHANGELOG_V1.4.0.md](CHANGELOG_V1.4.0.md), [CHANGELOG_V1.4.1.md](CHANGELOG_V1.4.1.md))
 
 ---
 

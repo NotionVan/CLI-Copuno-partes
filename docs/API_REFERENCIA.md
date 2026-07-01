@@ -1,6 +1,6 @@
 # Referencia de API — Copuno Gestión de Partes
 
-**Última edición:** 2026-05-27
+**Última edición:** 2026-07-01
 **Base URL (producción):** `https://partesobra.copuno.com`
 **Base URL (local):** `http://localhost:3001`
 
@@ -105,6 +105,8 @@ Respuestas:
 - `GET /api/empleados/buscar?id=abc` → `400 { "error": "ID Copuno inválido" }`.
 
 > Si existen múltiples empleados con el mismo `idCopuno`, se loguea un warning y se devuelven todos. El frontend debe decidir cuál usar.
+
+> **Usado en (v1.4.0+):** además de en la creación de partes, este endpoint alimenta el campo "Añadir empleado" de la **edición** de un parte (`ConsultaPartes` en `src/App.jsx`) — búsqueda incremental con debounce que prueba primero `?id=` si el texto son 3-6 dígitos y cae a `?q=` en caso contrario o sin resultados.
 
 ### Opciones de estado de empleados
 

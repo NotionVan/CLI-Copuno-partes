@@ -2,8 +2,8 @@
 
 Aplicación web moderna para la gestión de partes de trabajo con backend en Notion. Diseñada con una interfaz minimalista y elegante, optimizada para usuarios de todos los niveles.
 
-> **Versión actual:** `1.3.1`
-> **Release:** 29 de mayo de 2026 · [Changelog](./CHANGELOG_V1.3.1.md)
+> **Versión actual:** `1.4.1`
+> **Release:** 1 de julio de 2026 · [Changelog](./CHANGELOG_V1.4.1.md)
 >
 > _(El historial de versiones más abajo es heredado y puede no reflejar el orden real; la fuente de verdad del versionado es `package.json` + los `CHANGELOG_V*.md`.)_
 
@@ -207,6 +207,7 @@ node scripts/test-notion-direct.js  # Test de conectividad
 - **Validación de permisos:** Control de qué partes se pueden editar
 - **Mensajes informativos:** Feedback claro sobre estados no editables
 - **Interfaz de edición:** Formulario completo para modificar partes
+- **Añadir empleado por ID o nombre (v1.4.0+):** Buscador con sugerencias en vivo (debounce) para incluir un trabajador en el parte sin depender de que esté vinculado previamente a la obra
 
 ### 👥 Gestión Avanzada de Empleados
 - **Empleados por obra:** Carga específica según obra seleccionada
@@ -302,7 +303,16 @@ NODE_ENV=production
 
 ## 📝 Changelog
 
-### v1.3.1 - Polling client-side, cache búsquedas, fixes SSE ⭐ **ACTUAL**
+### v1.4.1 - Sugerencias por nombre al añadir empleado en edición ⭐ **ACTUAL**
+- ✅ **Añadir empleado por nombre o ID en edición** - El campo introducido en v1.4.0 ahora también busca por nombre/apellidos, con sugerencias en vivo (debounce 300ms), igual que en creación de partes.
+- 📄 **Changelog**: [CHANGELOG_V1.4.1.md](CHANGELOG_V1.4.1.md)
+
+### v1.4.0 - Añadir trabajador por ID Copuno al editar un parte
+- ✅ **Nuevo campo en edición de partes** - Permite incluir un empleado en un parte ya creado escribiendo su ID Copuno, sin depender de que esté vinculado como empleado de la obra.
+- ✅ **Reutiliza infraestructura existente** - Mismo endpoint `GET /api/empleados/buscar?id=` y patrón ya usado en creación de partes.
+- 📄 **Changelog**: [CHANGELOG_V1.4.0.md](CHANGELOG_V1.4.0.md)
+
+### v1.3.1 - Polling client-side, cache búsquedas, fixes SSE
 - ✅ **SSE eliminado (H3)** - El modal de detalles ya no usa Server-Sent Events (incompatibles con Vercel serverless). Usa polling adaptativo client-side (3s/8s/15s). Resuelve la queja "hay que refrescar manual".
 - ✅ **Cache en búsqueda de empleados (N4)** - Menos lecturas Notion en flujo multi-obra.
 - ✅ **Rate limit a 1000 req/15 min (I3)** - Cubre NAT compartido de oficina.
@@ -313,32 +323,30 @@ NODE_ENV=production
 - ✅ **Banner de actualización** - Aviso automático en la app cuando hay una versión nueva desplegada (comprueba cada 1 min).
 - 📄 **Changelogs**: [CHANGELOG_V1.2.0.md](CHANGELOG_V1.2.0.md) · [CHANGELOG_V1.2.1.md](CHANGELOG_V1.2.1.md) · [CHANGELOG_V1.2.2.md](CHANGELOG_V1.2.2.md)
 
-> El historial siguiente es heredado (numeración previa no lineal). Versión real en `package.json`.
+> El historial siguiente es heredado de una numeración previa abandonada/no lineal (anterior a esta serie 1.3.x/1.4.x real). Las descripciones de "v1.4.0/v1.4.1/v1.4.2" de esta sección **no** corresponden a los archivos `CHANGELOG_V1.4.0.md`/`CHANGELOG_V1.4.1.md` actuales del repo (que documentan la función de añadir empleado en edición, ver arriba). Se conservan aquí solo como registro histórico; no representan código presente en la app.
 
-### v1.4.2 - Botón de Restablecer Filtros
+### ~~v1.4.2 - Botón de Restablecer Filtros~~ (histórico, numeración abandonada)
 - ✅ **Botón "Limpiar"** - Restablecer todos los filtros con un solo clic
 - ✅ **Visibilidad contextual** - Solo aparece cuando hay filtros activos
 - ✅ **Diseño touch-friendly** - Optimizado para tablets
 - ✅ **Feedback visual** - Estados hover y active para mejor UX
 - ✅ **80% menos interacciones** - De 4-5 clics a 1 clic para limpiar filtros
-- 📄 **Changelog completo**: [CHANGELOG_V1.4.2.md](CHANGELOG_V1.4.2.md)
+- 📄 **Changelog completo** (huérfano, no ligado a esta serie): [CHANGELOG_V1.4.2.md](CHANGELOG_V1.4.2.md)
 
-### v1.4.1 - Resumen de Horas por Categoría
+### ~~v1.4.1 - Resumen de Horas por Categoría~~ (histórico, numeración abandonada — ver v1.4.1 real más arriba)
 - ✅ **Resumen visual de horas** - Vista consolidada por tipo de empleado
 - ✅ **Categorías laborales** - Oficial 1ª/2ª, Oficial, Encargado, Capataz, Peón
 - ✅ **Total destacado** - Banner visual con el total de horas del parte
 - ✅ **Sin datos económicos** - Solo información de horas trabajadas
 - ✅ **UX mejorada** - Verificación rápida antes de enviar datos
-- 📄 **Changelog completo**: [CHANGELOG_V1.4.1.md](CHANGELOG_V1.4.1.md)
 
-### v1.4.0 - Smart Polling y Optimización de Sincronización
+### ~~v1.4.0 - Smart Polling y Optimización de Sincronización~~ (histórico, numeración abandonada — ver v1.4.0 real más arriba)
 - ✅ **Smart Polling adaptativo** - Sistema de sincronización inteligente con 3 niveles
 - ✅ **Optimización de API** - Consumo reducido 60% en picos de actividad
 - ✅ **Indicadores visuales** - Badge animado mostrando modo de sincronización actual
 - ✅ **Detección de cambios** - Hash-based change detection para evitar updates innecesarios
 - ✅ **Latencia ultra-baja** - 3 segundos de actualización cuando hay actividad
 - ✅ **Escalabilidad mejorada** - Soporte para 10+ usuarios concurrentes
-- 📄 **Changelog completo**: [CHANGELOG_V1.4.0.md](CHANGELOG_V1.4.0.md)
 
 ### v1.3.0 - Funcionalidad de Edición y Gestión Avanzada
 - ✅ **Funcionalidad de edición de partes** - Endpoint PUT completo
@@ -349,7 +357,7 @@ NODE_ENV=production
 - ✅ **Interfaz profesional y moderna** - UX optimizada
 - ✅ **Documentación completa** - Estado actual y roadmap futuro
 
-### v1.0.2 - Mejoras Lista de Empleados (9 de diciembre de 2025) ⭐ **ACTUAL**
+### v1.0.2 - Mejoras Lista de Empleados (9 de diciembre de 2025)
 - ✅ **Buscador de empleados** - Filtrado por nombre en tiempo real
 - ✅ **Layout compacto** - Diseño horizontal optimizado para tablet
 - ✅ **Botones +/- táctiles** - Entrada de horas sin teclado
