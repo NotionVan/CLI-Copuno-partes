@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-07-01 (v1.4.0/v1.4.1 — añadir empleado por ID Copuno o nombre al editar un parte, con sugerencias en vivo (debounce), igual que en creación. Changelogs: [CHANGELOG_V1.4.0.md](CHANGELOG_V1.4.0.md), [CHANGELOG_V1.4.1.md](CHANGELOG_V1.4.1.md))
+- **Última edición:** 2026-07-01 (v1.4.3/v1.4.4 — total de horas visible al crear un parte, con fix de estilo (texto invisible por reutilizar `.total-horas` sobre fondo blanco). Changelogs: [CHANGELOG_V1.4.3.md](CHANGELOG_V1.4.3.md), [CHANGELOG_V1.4.4.md](CHANGELOG_V1.4.4.md))
 
 ---
 

@@ -2,8 +2,8 @@
 
 Aplicación web moderna para la gestión de partes de trabajo con backend en Notion. Diseñada con una interfaz minimalista y elegante, optimizada para usuarios de todos los niveles.
 
-> **Versión actual:** `1.4.1`
-> **Release:** 1 de julio de 2026 · [Changelog](./CHANGELOG_V1.4.1.md)
+> **Versión actual:** `1.4.4`
+> **Release:** 1 de julio de 2026 · [Changelog](./CHANGELOG_V1.4.4.md)
 >
 > _(El historial de versiones más abajo es heredado y puede no reflejar el orden real; la fuente de verdad del versionado es `package.json` + los `CHANGELOG_V*.md`.)_
 
@@ -198,6 +198,7 @@ node scripts/test-notion-direct.js  # Test de conectividad
 - **Formulario intuitivo:** Selección de obra y jefe
 - **Gestión de empleados:** Asignación por obra específica
 - **Control de horas:** Asignación individual por empleado
+- **Total de horas en vivo (v1.4.3+):** Suma de las horas de todos los empleados añadidos, visible junto al listado
 - **Validación en tiempo real:** Campos requeridos
 - **Integración con Notion:** Creación directa en la BD
 
@@ -303,7 +304,15 @@ NODE_ENV=production
 
 ## 📝 Changelog
 
-### v1.4.1 - Sugerencias por nombre al añadir empleado en edición ⭐ **ACTUAL**
+### v1.4.4 - Fix: total de horas invisible al crear un parte ⭐ **ACTUAL**
+- 🐛 **Fix de estilo** - El texto "Horas totales: X" añadido en v1.4.3 reutilizaba la clase `.total-horas` (texto blanco, pensada para el fondo degradado morado de la vista de consulta) y quedaba blanco sobre blanco en el formulario de creación. Sustituido por estilo propio.
+- 📄 **Changelog**: [CHANGELOG_V1.4.4.md](CHANGELOG_V1.4.4.md)
+
+### v1.4.3 - Total de horas visible al crear un parte
+- ✅ **Suma en tiempo real** - Junto a "Empleados añadidos al parte" se muestra ahora el total de horas de todos los empleados del parte, actualizado al vuelo.
+- 📄 **Changelog**: [CHANGELOG_V1.4.3.md](CHANGELOG_V1.4.3.md)
+
+### v1.4.1 - Sugerencias por nombre al añadir empleado en edición
 - ✅ **Añadir empleado por nombre o ID en edición** - El campo introducido en v1.4.0 ahora también busca por nombre/apellidos, con sugerencias en vivo (debounce 300ms), igual que en creación de partes.
 - 📄 **Changelog**: [CHANGELOG_V1.4.1.md](CHANGELOG_V1.4.1.md)
 
