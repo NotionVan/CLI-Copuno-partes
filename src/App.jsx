@@ -566,6 +566,11 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	const [busquedaLibreJefesEdicion, setBusquedaLibreJefesEdicion] = useState(false)
 	// F5: toggle búsqueda libre de empleados en edición
 	const [busquedaLibreEmpleadosEdicion, setBusquedaLibreEmpleadosEdicion] = useState(false)
+	// Añadir empleado por ID Copuno directamente en edición
+	const [busquedaIdEdicion, setBusquedaIdEdicion] = useState('')
+	const [buscandoIdEdicion, setBuscandoIdEdicion] = useState(false)
+	const [errorBusquedaIdEdicion, setErrorBusquedaIdEdicion] = useState('')
+	const [empleadosAñadidosDetalleEdicion, setEmpleadosAñadidosDetalleEdicion] = useState({})
 	const [guardandoCambios, setGuardandoCambios] = useState(false)
 	const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
 	// Estado local para reflejar selección de estado inmediatamente en UI
@@ -1001,6 +1006,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 		registrarEmpleados(datos.empleados)
 		registrarEmpleados(empleadosObra)
+		registrarEmpleados(Object.values(empleadosAñadidosDetalleEdicion))
 
 		const detallesNormalizados = (detallesEmpleados || [])
 			.map(detalle => {
@@ -1038,6 +1044,47 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		setFirmantesObra([])
 		setBusquedaLibreJefesEdicion(false)
 		setBusquedaLibreEmpleadosEdicion(false)
+		setBusquedaIdEdicion('')
+		setErrorBusquedaIdEdicion('')
+		setEmpleadosAñadidosDetalleEdicion({})
+	}
+
+	// Añade un empleado al parte en edición buscándolo por su ID Copuno
+	const agregarEmpleadoPorIdEdicion = async () => {
+		const texto = busquedaIdEdicion.trim()
+		if (!/^\d{3,6}$/.test(texto)) {
+			setErrorBusquedaIdEdicion('Introduce un ID Copuno válido (3-6 dígitos)')
+			return
+		}
+
+		setBuscandoIdEdicion(true)
+		setErrorBusquedaIdEdicion('')
+		try {
+			const resultados = await buscarEmpleadoPorId(texto)
+			if (!resultados || resultados.length === 0) {
+				setErrorBusquedaIdEdicion(`No se encontró ningún empleado con ID ${texto}`)
+				return
+			}
+			if (resultados.length > 1) {
+				setErrorBusquedaIdEdicion(`Hay ${resultados.length} empleados con ID ${texto}. Resuélvelo en Notion antes de añadirlo.`)
+				return
+			}
+
+			const empleado = resultados[0]
+			if ((editandoParte.empleados || []).includes(empleado.id)) {
+				setErrorBusquedaIdEdicion('Este empleado ya está asignado al parte')
+				return
+			}
+
+			setEmpleadosAñadidosDetalleEdicion(prev => ({ ...prev, [empleado.id]: empleado }))
+			toggleEmpleado(empleado.id)
+			setBusquedaIdEdicion('')
+		} catch (error) {
+			console.error('Error al buscar empleado por ID:', error)
+			setErrorBusquedaIdEdicion('Error al buscar el empleado. Inténtalo de nuevo.')
+		} finally {
+			setBuscandoIdEdicion(false)
+		}
 	}
 
 	// Función para guardar cambios
@@ -1492,6 +1539,42 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 										{mostrarEmpleadosObra ? 'Ocultar' : 'Ver'} empleados de esta obra
 									</button>
 								</div>
+
+								{/* Añadir empleado por ID Copuno */}
+								<div className="empleados-search">
+									<Users size={18} />
+									<input
+										type="text"
+										className="empleados-search-input"
+										placeholder="Añadir empleado por ID Copuno (ej: 1234)"
+										value={busquedaIdEdicion}
+										onChange={(e) => {
+											setBusquedaIdEdicion(e.target.value)
+											setErrorBusquedaIdEdicion('')
+										}}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault()
+												agregarEmpleadoPorIdEdicion()
+											}
+										}}
+										disabled={buscandoIdEdicion}
+									/>
+									<button
+										className="btn btn-secondary"
+										onClick={agregarEmpleadoPorIdEdicion}
+										disabled={buscandoIdEdicion || !busquedaIdEdicion.trim()}
+									>
+										{buscandoIdEdicion ? (
+											<Loader2 size={16} className="loading-spinner" />
+										) : (
+											'Añadir'
+										)}
+									</button>
+								</div>
+								{errorBusquedaIdEdicion && (
+									<div className="message error">{errorBusquedaIdEdicion}</div>
+								)}
 
 								{/* Empleados actuales del parte */}
 								<div className="empleados-actuales">
