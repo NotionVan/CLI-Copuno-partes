@@ -566,10 +566,11 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	const [busquedaLibreJefesEdicion, setBusquedaLibreJefesEdicion] = useState(false)
 	// F5: toggle búsqueda libre de empleados en edición
 	const [busquedaLibreEmpleadosEdicion, setBusquedaLibreEmpleadosEdicion] = useState(false)
-	// Añadir empleado por ID Copuno directamente en edición
+	// Añadir empleado por ID Copuno o nombre directamente en edición (sugerencias, igual que en creación)
 	const [busquedaIdEdicion, setBusquedaIdEdicion] = useState('')
 	const [buscandoIdEdicion, setBuscandoIdEdicion] = useState(false)
 	const [errorBusquedaIdEdicion, setErrorBusquedaIdEdicion] = useState('')
+	const [resultadosBusquedaEdicion, setResultadosBusquedaEdicion] = useState([])
 	const [empleadosAñadidosDetalleEdicion, setEmpleadosAñadidosDetalleEdicion] = useState({})
 	const [guardandoCambios, setGuardandoCambios] = useState(false)
 	const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
@@ -1046,45 +1047,57 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		setBusquedaLibreEmpleadosEdicion(false)
 		setBusquedaIdEdicion('')
 		setErrorBusquedaIdEdicion('')
+		setResultadosBusquedaEdicion([])
 		setEmpleadosAñadidosDetalleEdicion({})
 	}
 
-	// Añade un empleado al parte en edición buscándolo por su ID Copuno
-	const agregarEmpleadoPorIdEdicion = async () => {
-		const texto = busquedaIdEdicion.trim()
-		if (!/^\d{3,6}$/.test(texto)) {
-			setErrorBusquedaIdEdicion('Introduce un ID Copuno válido (3-6 dígitos)')
+	// Búsqueda incremental con debounce para añadir empleados en edición (mismo patrón que en creación):
+	// - Si el texto son 3-6 dígitos: intenta primero ID Copuno; si no hay resultados, cae a búsqueda por nombre.
+	// - Si no es numérico: búsqueda directa por nombre/apellidos.
+	useEffect(() => {
+		if (!editandoParte || busquedaIdEdicion.trim().length < 3) {
+			setResultadosBusquedaEdicion([])
 			return
 		}
-
 		setBuscandoIdEdicion(true)
-		setErrorBusquedaIdEdicion('')
-		try {
-			const resultados = await buscarEmpleadoPorId(texto)
-			if (!resultados || resultados.length === 0) {
-				setErrorBusquedaIdEdicion(`No se encontró ningún empleado con ID ${texto}`)
-				return
+		const t = setTimeout(async () => {
+			try {
+				const texto = busquedaIdEdicion.trim()
+				const esIdCopuno = /^\d{3,6}$/.test(texto)
+				let resultados = []
+				if (esIdCopuno) {
+					resultados = await buscarEmpleadoPorId(texto)
+					if (!resultados || resultados.length === 0) {
+						resultados = await buscarEmpleados(texto, 20)
+					}
+				} else {
+					resultados = await buscarEmpleados(texto, 20)
+				}
+				setResultadosBusquedaEdicion(resultados || [])
+				setErrorBusquedaIdEdicion((resultados || []).length === 0 ? `Sin resultados para "${texto}"` : '')
+			} catch (error) {
+				console.error('Error al buscar empleado:', error)
+				setResultadosBusquedaEdicion([])
+				setErrorBusquedaIdEdicion('Error al buscar el empleado. Inténtalo de nuevo.')
+			} finally {
+				setBuscandoIdEdicion(false)
 			}
-			if (resultados.length > 1) {
-				setErrorBusquedaIdEdicion(`Hay ${resultados.length} empleados con ID ${texto}. Resuélvelo en Notion antes de añadirlo.`)
-				return
-			}
+		}, 300)
+		return () => clearTimeout(t)
+	}, [busquedaIdEdicion, editandoParte])
 
-			const empleado = resultados[0]
-			if ((editandoParte.empleados || []).includes(empleado.id)) {
-				setErrorBusquedaIdEdicion('Este empleado ya está asignado al parte')
-				return
-			}
+	// Candidatos de la búsqueda que aún no están asignados al parte
+	const getCandidatosBusquedaEdicion = () => {
+		const empleadosAsignados = editandoParte?.empleados || []
+		return resultadosBusquedaEdicion.filter(empleado => !empleadosAsignados.includes(empleado.id))
+	}
 
-			setEmpleadosAñadidosDetalleEdicion(prev => ({ ...prev, [empleado.id]: empleado }))
-			toggleEmpleado(empleado.id)
-			setBusquedaIdEdicion('')
-		} catch (error) {
-			console.error('Error al buscar empleado por ID:', error)
-			setErrorBusquedaIdEdicion('Error al buscar el empleado. Inténtalo de nuevo.')
-		} finally {
-			setBuscandoIdEdicion(false)
-		}
+	// Añade al parte en edición un empleado encontrado por la búsqueda (ID o nombre)
+	const añadirEmpleadoPorBusquedaEdicion = (empleado) => {
+		setEmpleadosAñadidosDetalleEdicion(prev => ({ ...prev, [empleado.id]: empleado }))
+		toggleEmpleado(empleado.id)
+		setBusquedaIdEdicion('')
+		setResultadosBusquedaEdicion([])
 	}
 
 	// Función para guardar cambios
@@ -1540,40 +1553,47 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 									</button>
 								</div>
 
-								{/* Añadir empleado por ID Copuno */}
+								{/* Añadir empleado por ID Copuno o por nombre/apellidos (sugerencias en vivo) */}
 								<div className="empleados-search">
-									<Users size={18} />
+									<Search size={18} />
 									<input
 										type="text"
 										className="empleados-search-input"
-										placeholder="Añadir empleado por ID Copuno (ej: 1234)"
+										placeholder="Añadir empleado por ID Copuno o nombre..."
 										value={busquedaIdEdicion}
 										onChange={(e) => {
 											setBusquedaIdEdicion(e.target.value)
 											setErrorBusquedaIdEdicion('')
 										}}
-										onKeyDown={(e) => {
-											if (e.key === 'Enter') {
-												e.preventDefault()
-												agregarEmpleadoPorIdEdicion()
-											}
-										}}
-										disabled={buscandoIdEdicion}
 									/>
-									<button
-										className="btn btn-secondary"
-										onClick={agregarEmpleadoPorIdEdicion}
-										disabled={buscandoIdEdicion || !busquedaIdEdicion.trim()}
-									>
-										{buscandoIdEdicion ? (
-											<Loader2 size={16} className="loading-spinner" />
-										) : (
-											'Añadir'
-										)}
-									</button>
+									{buscandoIdEdicion && <Loader2 size={16} className="loading-spinner" />}
 								</div>
 								{errorBusquedaIdEdicion && (
 									<div className="message error">{errorBusquedaIdEdicion}</div>
+								)}
+								{getCandidatosBusquedaEdicion().length > 0 && (
+									<div className="empleados-lista empleados-lista-compacta">
+										{getCandidatosBusquedaEdicion().map(empleado => (
+											<div key={empleado.id} className="empleado-item">
+												<span className="empleado-info">
+													<div className="empleado-nombre-estado">
+														<strong>
+															{empleado.idCopuno != null ? `${empleado.idCopuno} · ` : '— · '}
+															{empleado.nombre}
+														</strong>
+														<span className="categoria">{empleado.categoria || '—'}</span>
+													</div>
+												</span>
+												<button
+													type="button"
+													className="btn btn-success"
+													onClick={() => añadirEmpleadoPorBusquedaEdicion(empleado)}
+												>
+													<Plus size={14} /> Añadir
+												</button>
+											</div>
+										))}
+									</div>
 								)}
 
 								{/* Empleados actuales del parte */}
