@@ -222,6 +222,16 @@ const partesTrabajo = {
 	},
 
 	/**
+	 * Re-deriva el espejo de texto Vehiculos desde la relación antes de enviar a Make.
+	 * Solo live (en mock no hay relación real que consultar). Muta parteData en memoria.
+	 */
+	async sincronizarEspejoVehiculos(parteData) {
+		requireInit()
+		if (state.mode === 'mock') return { texto: '', actualizado: false }
+		return notion.partesTrabajo.sincronizarEspejoVehiculos({ client: state.notionClient, parteData })
+	},
+
+	/**
 	 * Devuelve { estado, ultimaEdicion } del parte.
 	 * Lanza Error con .status = 404 si no existe (mock) o Notion devuelve 404 (live).
 	 */

@@ -576,6 +576,18 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 		})
 	}
 
+	// Re-derivar el espejo de texto 'Vehiculos' desde la relación (fuente de verdad)
+	// justo antes de generar el PDF: cubre el caso de que la relación se editara a mano
+	// en Notion sin pasar por la app. No bloqueante — si falla, se usa el texto que ya había.
+	try {
+		const sync = await data.partesTrabajo.sincronizarEspejoVehiculos(parteData)
+		if (sync.actualizado) {
+			console.info(`[enviar-datos] Espejo Vehiculos re-derivado para ${parteId}: "${sync.texto}"`)
+		}
+	} catch (error) {
+		console.error(`[enviar-datos] No se pudo re-derivar el espejo Vehiculos (${parteId}):`, error.message)
+	}
+
 	const buttonEntries = Object.entries(parteData.properties || {}).filter(([, prop]) => prop?.type === 'button')
 	const safeButton = buttonEntries.find(([, prop]) => prop?.button?.type === 'checked') || buttonEntries[0] || []
 	const [buttonName, buttonProperty] = safeButton

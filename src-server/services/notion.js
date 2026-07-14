@@ -500,6 +500,24 @@ const vehiculos = {
 			page_size: limite
 		})
 		return data.results.map(mapVehiculo)
+	},
+
+	/**
+	 * Resuelve las matrículas (título de la BD Vehículos) de una lista de page IDs,
+	 * preservando el orden. Un ID ilegible aporta '' (no rompe el resto).
+	 */
+	async matriculasPorIds({ client, ids }) {
+		const matriculas = []
+		for (const id of (Array.isArray(ids) ? ids : [])) {
+			try {
+				const page = await client.request('GET', `/pages/${id}`)
+				matriculas.push(String(extractPropertyValue(page.properties['Matrícula']) || '').trim())
+			} catch (e) {
+				console.error(`No se pudo leer la matrícula del vehículo ${id}:`, e.message)
+				matriculas.push('')
+			}
+		}
+		return matriculas
 	}
 }
 
@@ -515,6 +533,37 @@ const partesTrabajo = {
 	/** Devuelve la página Notion cruda — necesario para enviar-datos que manda el payload completo a Make. */
 	async obtenerPagina({ client, parteId }) {
 		return client.request('GET', `/pages/${parteId}`)
+	},
+
+	/**
+	 * Re-deriva el espejo de texto 'Vehiculos' (rich_text) a partir de la relación
+	 * 'Vehiculos ' (fuente de verdad) justo antes de generar el PDF. Cubre el caso de
+	 * que la relación se edite a mano en Notion sin pasar por la app (el rich_text que
+	 * escribe el servidor se quedaría stale). Solo actúa si HAY relación: si está vacía
+	 * se respeta el texto existente (no borra datos de partes antiguos texto-sin-relación).
+	 * Devuelve { texto, actualizado }; muta `parteData.properties['Vehiculos']` en memoria
+	 * si reescribe, para que el payload a Make lleve el valor correcto.
+	 */
+	async sincronizarEspejoVehiculos({ client, parteData }) {
+		const rel = extractPropertyValue(parteData.properties['Vehiculos '])
+		const ids = Array.isArray(rel) ? rel.map(r => r.id).filter(Boolean) : []
+		const textoActual = String(extractPropertyValue(parteData.properties['Vehiculos']) || '')
+		if (ids.length === 0) {
+			return { texto: textoActual, actualizado: false }
+		}
+		const matriculas = await vehiculos.matriculasPorIds({ client, ids })
+		const textoEsperado = matriculas.filter(Boolean).join(', ')
+		if (textoEsperado === textoActual) {
+			return { texto: textoActual, actualizado: false }
+		}
+		await client.request('PATCH', `/pages/${parteData.id}`, {
+			properties: { 'Vehiculos': { rich_text: [{ text: { content: textoEsperado } }] } }
+		})
+		parteData.properties['Vehiculos'] = {
+			type: 'rich_text',
+			rich_text: textoEsperado ? [{ type: 'text', text: { content: textoEsperado }, plain_text: textoEsperado }] : []
+		}
+		return { texto: textoEsperado, actualizado: true }
 	},
 
 	async estado({ client, parteId }) {

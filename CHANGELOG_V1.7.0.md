@@ -27,6 +27,16 @@ Petición de Efrén/Javi: las matrículas del parte deben quedar **relacionadas*
 
 **Tests:** 1 smoke nuevo (persistencia de `vehiculosIds` + saneado de IDs no-UUID) — **37/37 en verde**.
 
+### Re-derivación del espejo antes del PDF (anti-desincronización)
+
+El espejo `Vehiculos` (rich_text) lo escribe el servidor al crear/editar, pero si alguien edita la **relación** directamente en Notion (saltándose la app), el texto se quedaría stale. Para cubrirlo sin migrar a fórmula (evaluado y descartado: no versionable + obliga a tocar Make en producción):
+
+- [src-server/services/notion.js](src-server/services/notion.js) — `vehiculos.matriculasPorIds({ids})` resuelve matrículas (título) por page ID preservando orden; `partesTrabajo.sincronizarEspejoVehiculos({parteData})` re-deriva el texto desde la relación y lo reescribe **solo si difiere** (idempotente); solo actúa si hay relación (no borra texto de partes antiguos sin relación).
+- [server.js](server.js) — `POST /enviar-datos` llama a la re-derivación tras validar Borrador y antes de armar el payload a Make. **No bloqueante**: si falla, se usa el texto existente. Muta `parteData` en memoria para que el PDF lleve el valor correcto.
+- Verificado E2E contra Notion real: parte con texto desincronizado → re-derivado a las matrículas de la relación; 2ª llamada no reescribe.
+
+**Nota de diseño (por qué no fórmula):** una fórmula Notion sería un espejo siempre sincronizado, pero (1) no se puede crear por API → no queda versionada en el repo y falla en silencio si se autora mal, y (2) obliga a reapuntar el path de lectura en el escenario Make PARTES1/4 (de `.rich_text[].plain_text` a `.formula.string`). La re-derivación en `enviar-datos` da la garantía en el único momento que importa (al generar el PDF) sin ninguno de esos costes.
+
 ## Dependencia manual (Notion) — resuelta 14/07
 
 En la BD Partes de trabajo conviven ahora las dos propiedades (verificado por API):

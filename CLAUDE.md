@@ -78,7 +78,7 @@ Propiedades críticas en **Partes de trabajo**:
 - `Detalle Horas` (relation) — horas por empleado.
 - `Notas` (rich_text).
 - `Vehiculos ` (relation, **OJO espacio final** — v1.7.0) — relación bidireccional con la BD Vehículos (inversa `Partes de trabajo`). **Fuente de verdad** del parte↔flota.
-- `Vehiculos` (rich_text, **SIN tilde** — v1.5.1) — **espejo de texto que escribe siempre el servidor** (matrículas `, `-separadas, sin coma final) a partir de la relación; es lo que consume Make → PDF. No editar a mano.
+- `Vehiculos` (rich_text, **SIN tilde** — v1.5.1) — **espejo de texto que escribe siempre el servidor** (matrículas `, `-separadas, sin coma final) a partir de la relación; es lo que consume Make → PDF. No editar a mano. En `enviar-datos` (v1.7.0) se **re-deriva** desde la relación justo antes del PDF, por si la relación se editó a mano en Notion (`partesTrabajo.sincronizarEspejoVehiculos`). Se descartó usar una fórmula Notion como espejo: no es versionable (la API no la crea) y obligaría a reapuntar el path de Make a `.formula.string`.
 
 ---
 
