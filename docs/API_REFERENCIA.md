@@ -166,6 +166,16 @@ Respuesta `200` (array, ordenado por fecha descendente):
 }]
 ```
 
+### Buscar vehículos (v1.6.0)
+
+`GET /api/vehiculos/buscar?q=<texto>&limite=<1-50>`
+
+Autocompletado del campo Vehículos. Mínimo 2 caracteres (si no, `[]`). Busca `Matrícula` (title contains) en la BD Vehículos de Notion. Cache corta (N4).
+
+```json
+[{ "id": "uuid", "matricula": "7072KLC", "tipo": "Furgoneta", "marcaModelo": "RENAULT KANGOO", "estado": "En taller" }]
+```
+
 ### Crear parte
 
 | Método | Ruta |

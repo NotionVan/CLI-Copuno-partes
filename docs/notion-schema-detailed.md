@@ -203,7 +203,7 @@
 - **Última edición**: last_edited_time (última edición)
 - **AUX Pr Encargado**: rollup (rollup)
 - **Notas**: rich_text (texto)
-- **Vehículos**: rich_text (texto) — matrículas separadas por comas (v1.5.0, creada 2026-07-14)
+- **Vehiculos**: rich_text (texto, SIN tilde desde v1.5.1 — el editor de Make trunca paths no-ASCII) — matrículas separadas por comas (creada 2026-07-14)
 - **Imp Horas Capataz**: formula (fórmula)
 - **Persona Autorizada**: relation (relación con otra BD)
 - **Horas Oficial 2ª **: formula (fórmula)
@@ -256,7 +256,7 @@
 - **Última edición**: 2025-08-25T11:43:00.000Z
 - **AUX Pr Encargado**: [rollup]
 - **Notas**: nota del parte
-- **Vehículos**: matrículas de los vehículos del parte (texto, separadas por comas)
+- **Vehiculos**: matrículas de los vehículos del parte (texto, separadas por comas)
 - **Imp Horas Capataz**: 
 - **Persona Autorizada**: [1 relaciones]
 - **Horas Oficial 2ª **: 
@@ -276,3 +276,11 @@
 - **Nombre**: Parte Pelayo97
 
 ---
+
+
+## BD Vehículos (flota) — v1.6.0
+
+- **ID:** `fa4028b246494415aee021f3569ce8f8` · Título: "Vehículos " (con espacio final)
+- Mantenida por el equipo de Copuno. Usada por `GET /api/vehiculos/buscar` (autocompletado del campo Vehículos del parte). Solo lectura desde la app.
+- Propiedades relevantes para la app: **Matrícula** (title), **Tipo** (select), **Marca / Modelo** (rich_text), **Estado** (status — se muestra ⚠️ en las sugerencias si no está operativo).
+- Otras propiedades (no usadas por la app): ITV/Próxima revisión, Talleres, Baliza, Conductor, Obra, Kilómetros… — base del futuro módulo de flota (Mapon/Solred).

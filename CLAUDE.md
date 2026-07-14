@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-07-14 (v1.5.0/v1.5.1 — campo `Vehiculos` (matrículas) en el parte: propiedad rich_text en Notion, creación/edición en la app, copia en rectificativos. **Pendiente lado Make**: propagar la variable PARTES1-4→3-4 y añadirla a `Plantilla Parte.docx` para que salga en el PDF. Changelog: [CHANGELOG_V1.5.0.md](CHANGELOG_V1.5.0.md))
+- **Última edición:** 2026-07-14 (v1.5.0→v1.6.1 — vehículos en el parte: propiedad `Vehiculos` (rich_text, SIN tilde) en Notion, campo con autocompletado de matrículas desde la BD de flota, matrículas en consulta de partes + filtro normalizado, copia en rectificativos, fila "Vehículos" en `Plantilla Parte.docx` (hecha). **Pendiente lado Make**: importar los 3 blueprints `LISTO-IMPORTAR-*` (ver I6). Changelogs: [V1.5.0](CHANGELOG_V1.5.0.md) · [V1.5.1](CHANGELOG_V1.5.1.md) · [V1.6.0](CHANGELOG_V1.6.0.md) · [V1.6.1](CHANGELOG_V1.6.1.md))
 
 ---
 
@@ -68,6 +68,7 @@ IDs hardcoded en [server.js#L27-33](server.js#L27-L33). Esquema detallado en [do
 | `EMPLEADOS` | Empleados | Plantilla, con categoría y estado |
 | `PARTES_TRABAJO` | Partes de trabajo | **Tabla principal**: un parte = una jornada en una obra |
 | `DETALLES_HORA` | Detalle Horas | Horas por empleado dentro de un parte (relación) |
+| `VEHICULOS` | Vehículos  | Flota (title = `Matrícula`) — fuente del autocompletado del campo Vehículos (v1.6.0). OJO: el nombre de la BD lleva espacio final |
 
 Propiedades críticas en **Partes de trabajo**:
 - `Estado` (status) — controla qué se puede editar.
@@ -76,6 +77,7 @@ Propiedades críticas en **Partes de trabajo**:
 - `Documento Firmado` (files) — PDF firmado subido tras la firma.
 - `Detalle Horas` (relation) — horas por empleado.
 - `Notas` (rich_text).
+- `Vehiculos` (rich_text, **SIN tilde** — v1.5.1) — matrículas separadas por comas; viajan al PDF vía Make.
 
 ---
 
@@ -92,6 +94,7 @@ Todos en [server.js](server.js), prefijo `/api/*`. Referencia completa en [docs/
 | GET | `/api/empleados/estado-opciones` | [server.js:400](server.js#L400) |
 | PUT | `/api/empleados/:id/estado` | [server.js:432](server.js#L432) |
 | GET | `/api/empleados/buscar` | **Etapa 2 — F5** (`?q=texto`, server-side `title.contains`) + **Etapa 3 — F2** (`?id=NNNN`, filtro `number.equals`, maneja duplicados) |
+| GET | `/api/vehiculos/buscar` | **v1.6.0** (`?q=texto`, mín. 2 chars, `Matrícula` title.contains contra BD Vehículos, cache corta) |
 | GET | `/api/obras/:id/empleados` | [server.js:482](server.js#L482) — **Etapa 1 — C3:** query filtrada (sin N+1) |
 | GET | `/api/obras/:id/firmantes-autorizados` | **Etapa 2 — F4.** Lee `OBRAS.Persona Autorizada` → JEFE_OBRAS, devuelve `{id, nombre, email, rol}` |
 | GET | `/api/partes-trabajo` | [server.js:534](server.js#L534) |
@@ -210,6 +213,7 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 - **El `Documento Firmado` lo sube Make, no el frontend.** Si ves que falta, mira el escenario Make.
 - **Errores `invalid_grant` en Make** suelen ser token Notion expirado/rotado o conexión OAuth de Make caducada. Diagnóstico: `@notion-integration-inspector`.
 - **`server.js` es un monolito de ~1.400 líneas.** No es bonito pero funciona. Refactor mayor está fuera del retainer (proyecto aparte).
+- **El editor de Make trunca los paths IML con caracteres no-ASCII** (tildes, etc.) al teclear o pegar en sus campos de mapeo — el motor los soporta, el editor no. Por eso la propiedad es `Vehiculos` sin tilde (v1.5.1). Regla: **propiedades Notion que viajen a Make, siempre sin tildes ni caracteres especiales**; para ediciones masivas de escenarios usar export → editar JSON → import blueprint.
 - **Nombres de propiedad Notion con espacios al final:** algunas propiedades tienen un espacio final en su nombre (`'Rectifica a '`, `'Rectificado por '`, `' Email'`, `'Horas Encargado '`, `'Horas Oficial 2ª '`). Hay que referenciarlas **exactamente** así o la lectura/escritura falla en silencio. Verificar siempre el nombre real vía API antes de usarlo.
 - **Banner de actualización:** la app compara `__APP_VERSION__` (embebida en build) con `version` de `/api/health` cada **1 minuto**; si difieren, muestra el banner. Por eso **cada deploy necesita un bump de versión** en `package.json` (ver Convenciones).
 - **Smart Polling en modal de detalles (v1.3.0):** usa polling adaptativo client-side (3 s/8 s/15 s) contra `GET /api/partes-trabajo/:id/estado`. El endpoint SSE ya no existe — devuelve 404 si se llama. El polling vive en `App.jsx` en el `useEffect` con `estadoPollRef`.
