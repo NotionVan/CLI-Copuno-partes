@@ -266,7 +266,7 @@ function mapParte(page) {
 		urlPDF: extractPropertyValue(page.properties['URL PDF']),
 		enviadoCliente: extractPropertyValue(page.properties['Enviado a cliente']),
 		notas: extractPropertyValue(page.properties['Notas']),
-		vehiculos: extractPropertyValue(page.properties['Vehículos']),
+		vehiculos: extractPropertyValue(page.properties['Vehiculos']),
 		firmarUrl: extractPropertyValue(page.properties['Firmar']),
 		rectificaAId,
 		rectificadoPorIds,
@@ -501,7 +501,7 @@ const partesTrabajo = {
 				estado: extractPropertyValue(parteData.properties['Estado']),
 				ultimaEdicion: extractPropertyValue(parteData.properties['Última edición']),
 				notas: extractPropertyValue(parteData.properties['Notas']),
-				vehiculos: extractPropertyValue(parteData.properties['Vehículos']),
+				vehiculos: extractPropertyValue(parteData.properties['Vehiculos']),
 				personaAutorizada: extractPropertyValue(parteData.properties['Persona Autorizada']),
 				firmarUrl: extractPropertyValue(parteData.properties['Firmar']),
 				horasTotales: extractPropertyValue(parteData.properties['RP Horas totales'])
@@ -519,7 +519,7 @@ const partesTrabajo = {
 				'Obras': { relation: [{ id: obraId }] },
 				'Persona Autorizada': { relation: [{ id: jefeObraId }] },
 				'Notas': { rich_text: [{ text: { content: notas || '' } }] },
-				'Vehículos': { rich_text: [{ text: { content: vehiculos || '' } }] }
+				'Vehiculos': { rich_text: [{ text: { content: vehiculos || '' } }] }
 			}
 		})
 
@@ -586,7 +586,7 @@ const partesTrabajo = {
 			'Obras': { relation: [{ id: obraId }] },
 			'Persona Autorizada': { relation: [{ id: personaAutorizadaId }] },
 			'Notas': { rich_text: [{ text: { content: notas || '' } }] },
-			'Vehículos': { rich_text: [{ text: { content: vehiculos || '' } }] }
+			'Vehiculos': { rich_text: [{ text: { content: vehiculos || '' } }] }
 		}
 		if (necesitaCambioEstado) {
 			propertiesToUpdate['Estado'] = { status: { name: 'Borrador' } }
@@ -707,7 +707,7 @@ const partesTrabajo = {
 		// Vehículos del original: se copian al rectificativo (prop puede no existir
 		// en partes antiguos; extractPropertyValue devuelve '' en ese caso). Mismo
 		// saneado de caracteres de control que las Notas (DEUDA_TECNICA M4/I6).
-		const vehiculosOriginal = String(extractPropertyValue(original.properties['Vehículos']) || '')
+		const vehiculosOriginal = String(extractPropertyValue(original.properties['Vehiculos']) || '')
 			.replace(/[\n\r\t]+/g, ' ')
 			.replace(/\s+/g, ' ')
 			.trim()
@@ -715,7 +715,7 @@ const partesTrabajo = {
 		const propsNuevo = {
 			'Nombre': { title: [{ text: { content: `Parte rectificativo - ${obraTexto}` } }] },
 			'Notas': { rich_text: [{ text: { content: notasRectificativo } }] },
-			'Vehículos': { rich_text: [{ text: { content: vehiculosOriginal || '' } }] },
+			'Vehiculos': { rich_text: [{ text: { content: vehiculosOriginal || '' } }] },
 			'Rectifica a ': { relation: [{ id: parteOriginalId }] }
 		}
 		if (fecha) propsNuevo['Fecha'] = { date: { start: fecha } }
