@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-07-14 (v1.5.0→v1.6.1 — vehículos en el parte: propiedad `Vehiculos` (rich_text, SIN tilde) en Notion, campo con autocompletado de matrículas desde la BD de flota, matrículas en consulta de partes + filtro normalizado, copia en rectificativos, fila "Vehículos" en `Plantilla Parte.docx` (hecha). **Pendiente lado Make**: importar los 3 blueprints `LISTO-IMPORTAR-*` (ver I6). Changelogs: [V1.5.0](CHANGELOG_V1.5.0.md) · [V1.5.1](CHANGELOG_V1.5.1.md) · [V1.6.0](CHANGELOG_V1.6.0.md) · [V1.6.1](CHANGELOG_V1.6.1.md))
+- **Última edición:** 2026-07-14 (v1.5.0→v1.6.1 — vehículos en el parte: propiedad `Vehiculos` (rich_text, SIN tilde) en Notion, campo con autocompletado de matrículas desde la BD de flota, matrículas en consulta de partes + filtro normalizado, copia en rectificativos, fila "Vehículos" en `Plantilla Parte.docx` (hecha). Pipeline Make completo y verificado E2E (PDF muestra la matrícula). Changelogs: [V1.5.0](CHANGELOG_V1.5.0.md) · [V1.5.1](CHANGELOG_V1.5.1.md) · [V1.6.0](CHANGELOG_V1.6.0.md) · [V1.6.1](CHANGELOG_V1.6.1.md))
 
 ---
 
