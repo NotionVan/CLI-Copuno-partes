@@ -27,6 +27,10 @@ Petición de Efrén/Javi: las matrículas del parte deben quedar **relacionadas*
 
 **Tests:** 1 smoke nuevo (persistencia de `vehiculosIds` + saneado de IDs no-UUID) — **37/37 en verde**.
 
-## Dependencia manual (Notion) — ⚠️ BLOQUEANTE para deploy
+## Dependencia manual (Notion) — resuelta 14/07
 
-La propiedad espejo `Vehiculos` (rich_text) fue **eliminada** al crear la relación y debe **recrearse** en la BD Partes de trabajo (tipo Texto, nombre exacto `Vehiculos`, sin tilde ni espacio) **antes de desplegar**: sin ella, la escritura de partes falla (validation_error de Notion) y el PDF sale sin matrículas.
+En la BD Partes de trabajo conviven ahora las dos propiedades (verificado por API):
+- `Vehiculos ` (relation, espacio final) — creada por Javi, bidireccional con la BD Vehículos.
+- `Vehiculos` (rich_text, sin espacio) — recreada como espejo que escribe el servidor.
+
+Verificación E2E de escritura contra Notion real ✔ (página de prueba creada con las dos propiedades y archivada). Make/PDF sin cambios: sigue leyendo `Vehiculos.rich_text`.
