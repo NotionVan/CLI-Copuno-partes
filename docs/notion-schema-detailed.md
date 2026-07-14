@@ -203,6 +203,7 @@
 - **Última edición**: last_edited_time (última edición)
 - **AUX Pr Encargado**: rollup (rollup)
 - **Notas**: rich_text (texto)
+- **Vehículos**: rich_text (texto) — matrículas separadas por comas (v1.5.0, creada 2026-07-14)
 - **Imp Horas Capataz**: formula (fórmula)
 - **Persona Autorizada**: relation (relación con otra BD)
 - **Horas Oficial 2ª **: formula (fórmula)
@@ -255,6 +256,7 @@
 - **Última edición**: 2025-08-25T11:43:00.000Z
 - **AUX Pr Encargado**: [rollup]
 - **Notas**: nota del parte
+- **Vehículos**: matrículas de los vehículos del parte (texto, separadas por comas)
 - **Imp Horas Capataz**: 
 - **Persona Autorizada**: [1 relaciones]
 - **Horas Oficial 2ª **: 

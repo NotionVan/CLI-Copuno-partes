@@ -266,6 +266,7 @@ function mapParte(page) {
 		urlPDF: extractPropertyValue(page.properties['URL PDF']),
 		enviadoCliente: extractPropertyValue(page.properties['Enviado a cliente']),
 		notas: extractPropertyValue(page.properties['Notas']),
+		vehiculos: extractPropertyValue(page.properties['Vehículos']),
 		firmarUrl: extractPropertyValue(page.properties['Firmar']),
 		rectificaAId,
 		rectificadoPorIds,
@@ -500,6 +501,7 @@ const partesTrabajo = {
 				estado: extractPropertyValue(parteData.properties['Estado']),
 				ultimaEdicion: extractPropertyValue(parteData.properties['Última edición']),
 				notas: extractPropertyValue(parteData.properties['Notas']),
+				vehiculos: extractPropertyValue(parteData.properties['Vehículos']),
 				personaAutorizada: extractPropertyValue(parteData.properties['Persona Autorizada']),
 				firmarUrl: extractPropertyValue(parteData.properties['Firmar']),
 				horasTotales: extractPropertyValue(parteData.properties['RP Horas totales'])
@@ -508,7 +510,7 @@ const partesTrabajo = {
 		}
 	},
 
-	async crear({ client, obra, obraId, fecha, jefeObraId, notas, empleados = [], empleadosHoras = {} }) {
+	async crear({ client, obra, obraId, fecha, jefeObraId, notas, vehiculos, empleados = [], empleadosHoras = {} }) {
 		const parteData = await client.request('POST', '/pages', {
 			parent: { database_id: DATABASES.PARTES_TRABAJO },
 			properties: {
@@ -516,7 +518,8 @@ const partesTrabajo = {
 				'Fecha': { date: { start: fecha } },
 				'Obras': { relation: [{ id: obraId }] },
 				'Persona Autorizada': { relation: [{ id: jefeObraId }] },
-				'Notas': { rich_text: [{ text: { content: notas || '' } }] }
+				'Notas': { rich_text: [{ text: { content: notas || '' } }] },
+				'Vehículos': { rich_text: [{ text: { content: vehiculos || '' } }] }
 			}
 		})
 
@@ -561,7 +564,7 @@ const partesTrabajo = {
 		return { parteData, nombreFinal, detallesCreados, erroresDetalles, asignadosObraIds }
 	},
 
-	async actualizar({ client, parteId, obraId, fecha, personaAutorizadaId, notas, empleados = [], empleadosHoras = {} }) {
+	async actualizar({ client, parteId, obraId, fecha, personaAutorizadaId, notas, vehiculos, empleados = [], empleadosHoras = {} }) {
 		const parteActual = await client.request('GET', `/pages/${parteId}`)
 		const estadoParte = extractPropertyValue(parteActual.properties['Estado'])
 
@@ -582,7 +585,8 @@ const partesTrabajo = {
 			'Fecha': { date: { start: fecha } },
 			'Obras': { relation: [{ id: obraId }] },
 			'Persona Autorizada': { relation: [{ id: personaAutorizadaId }] },
-			'Notas': { rich_text: [{ text: { content: notas || '' } }] }
+			'Notas': { rich_text: [{ text: { content: notas || '' } }] },
+			'Vehículos': { rich_text: [{ text: { content: vehiculos || '' } }] }
 		}
 		if (necesitaCambioEstado) {
 			propertiesToUpdate['Estado'] = { status: { name: 'Borrador' } }
@@ -700,9 +704,18 @@ const partesTrabajo = {
 			: prefijoRectificativo
 		const obraTexto = extractPropertyValue(original.properties['AUX Obra']) || 'Obra'
 
+		// Vehículos del original: se copian al rectificativo (prop puede no existir
+		// en partes antiguos; extractPropertyValue devuelve '' en ese caso). Mismo
+		// saneado de caracteres de control que las Notas (DEUDA_TECNICA M4/I6).
+		const vehiculosOriginal = String(extractPropertyValue(original.properties['Vehículos']) || '')
+			.replace(/[\n\r\t]+/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
+
 		const propsNuevo = {
 			'Nombre': { title: [{ text: { content: `Parte rectificativo - ${obraTexto}` } }] },
 			'Notas': { rich_text: [{ text: { content: notasRectificativo } }] },
+			'Vehículos': { rich_text: [{ text: { content: vehiculosOriginal || '' } }] },
 			'Rectifica a ': { relation: [{ id: parteOriginalId }] }
 		}
 		if (fecha) propsNuevo['Fecha'] = { date: { start: fecha } }

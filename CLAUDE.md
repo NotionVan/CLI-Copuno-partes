@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-07-01 (v1.4.3/v1.4.4 — total de horas visible al crear un parte, con fix de estilo (texto invisible por reutilizar `.total-horas` sobre fondo blanco). Changelogs: [CHANGELOG_V1.4.3.md](CHANGELOG_V1.4.3.md), [CHANGELOG_V1.4.4.md](CHANGELOG_V1.4.4.md))
+- **Última edición:** 2026-07-14 (v1.5.0 — campo `Vehículos` (matrículas) en el parte: propiedad rich_text en Notion, creación/edición en la app, copia en rectificativos. **Pendiente lado Make**: propagar la variable PARTES1-4→3-4 y añadirla a `Plantilla Parte.docx` para que salga en el PDF. Changelog: [CHANGELOG_V1.5.0.md](CHANGELOG_V1.5.0.md))
 
 ---
 

@@ -161,6 +161,7 @@ Respuesta `200` (array, ordenado por fecha descendente):
   "urlPDF": "",
   "enviadoCliente": false,
   "notas": "",
+  "vehiculos": "1234-ABC, 5678-DEF",
   "firmarUrl": "https://www.copuno.com/es/notion/?parteId=..."
 }]
 ```
@@ -179,6 +180,7 @@ Body:
   "fecha": "2026-05-27",
   "jefeObraId": "uuid-jefe",
   "notas": "Opcional",
+  "vehiculos": "Opcional — matrículas separadas por comas (v1.5.0)",
   "empleados": ["uuid-emp-1", "uuid-emp-2"],
   "empleadosHoras": { "uuid-emp-1": 8, "uuid-emp-2": 6 }
 }
@@ -302,6 +304,7 @@ Body:
   "fecha": "2026-05-27",
   "personaAutorizadaId": "uuid-jefe",
   "notas": "Opcional",
+  "vehiculos": "Opcional — matrículas separadas por comas (v1.5.0)",
   "empleados": ["uuid-emp-1"],
   "empleadosHoras": { "uuid-emp-1": 8 }
 }
@@ -324,7 +327,7 @@ Respuesta `200`: página Notion actualizada + `{ empleadosActualizados, detalles
 |--------|------|
 | POST | `/api/partes-trabajo/:parteId/rectificar` |
 
-Crea un **parte rectificativo** a partir de uno firmado: un parte nuevo en estado `Borrador` que copia cabecera (obra, fecha, persona autorizada, notas) y todos los `Detalle Horas` del original, enlazado a este vía la relación reflexiva `Rectifica a ` en Notion. El original queda referenciado por la relación inversa `Rectificado por ` y **se conserva intacto** (su PDF firmado no se toca).
+Crea un **parte rectificativo** a partir de uno firmado: un parte nuevo en estado `Borrador` que copia cabecera (obra, fecha, persona autorizada, notas, vehículos) y todos los `Detalle Horas` del original, enlazado a este vía la relación reflexiva `Rectifica a ` en Notion. El original queda referenciado por la relación inversa `Rectificado por ` y **se conserva intacto** (su PDF firmado no se toca).
 
 El campo `Notas` del rectificativo lleva siempre el prefijo `PARTE RECTIFICATIVO` (más las notas originales si las había), para identificarlo en Notion.
 

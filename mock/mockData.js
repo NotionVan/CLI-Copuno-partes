@@ -230,6 +230,7 @@ const mapParte = (parte) => ({
   urlPDF: parte.urlPDF,
   enviadoCliente: parte.enviadoCliente,
   notas: parte.notas,
+  vehiculos: parte.vehiculos || '',
   firmarUrl: parte.firmarUrl || buildFirmarUrl(parte),
   rectificaAId: parte.rectificaAId || null,
   rectificadoPorIds: parte.rectificadoPorIds || [],
@@ -407,6 +408,7 @@ const getParteDetallesCompletos = (parteId) => {
       estado: parte.estado,
       ultimaEdicion: parte.ultimaEdicion,
       notas: parte.notas,
+      vehiculos: parte.vehiculos || '',
       personaAutorizada: parte.personaAutorizadaId,
       firmarUrl: parte.firmarUrl || buildFirmarUrl(parte)
     },
@@ -425,7 +427,7 @@ const getParteEstado = (parteId) => {
   }
 }
 
-const createParteTrabajo = ({ obra, obraId, fecha, jefeObraId, notas, empleados = [], empleadosHoras = {} }) => {
+const createParteTrabajo = ({ obra, obraId, fecha, jefeObraId, notas, vehiculos, empleados = [], empleadosHoras = {} }) => {
   const obraInfo = findObra(obraId)
   const jefeInfo = findJefe(jefeObraId)
   if (!obraInfo) {
@@ -457,6 +459,7 @@ const createParteTrabajo = ({ obra, obraId, fecha, jefeObraId, notas, empleados 
     urlPDF: '',
     enviadoCliente: false,
     notas: notas || '',
+    vehiculos: vehiculos || '',
     firmarUrl: buildFirmarUrl({ id: parteId, obra: obra || obraInfo.nombre })
   }
 
@@ -492,7 +495,7 @@ const createParteTrabajo = ({ obra, obraId, fecha, jefeObraId, notas, empleados 
   }
 }
 
-const updateParteTrabajo = (parteId, { obraId, fecha, personaAutorizadaId, notas, empleados = [], empleadosHoras = {} }) => {
+const updateParteTrabajo = (parteId, { obraId, fecha, personaAutorizadaId, notas, vehiculos, empleados = [], empleadosHoras = {} }) => {
   const parte = findParte(parteId)
   if (!parte) {
     throw new Error('Parte no encontrado')
@@ -525,6 +528,7 @@ const updateParteTrabajo = (parteId, { obraId, fecha, personaAutorizadaId, notas
     parte.personaAutorizada = jefeInfo.nombre
   }
   parte.notas = notas || ''
+  parte.vehiculos = vehiculos || ''
 
   // Eliminar detalles existentes del parte
   for (let i = mockDetalles.length - 1; i >= 0; i--) {

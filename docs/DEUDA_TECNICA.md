@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-07-01 (v1.4.0/v1.4.1 — F2/F5 extendido a edición de partes: añadir empleado por ID/nombre)
+- **Última edición:** 2026-07-14 (v1.5.0 — campo Vehículos en el parte; registrado I6: dependencia manual Make para que las matrículas salgan en el PDF)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -119,6 +119,11 @@ Informativos en sección [aparte](#informativos).
 ---
 
 ### 🟡 Importantes
+
+#### I6 — Vehículos (v1.5.0): el PDF no muestra las matrículas hasta completar el lado Make
+
+- **Estado:** 🟡 Abierto (2026-07-14) — dependencia manual, mismo patrón que la marca RECTIFICATIVO (v1.2.x).
+- La app y Notion ya soportan el campo `Vehículos` (propiedad rich_text creada 2026-07-14, código v1.5.0), pero el PDF firmado — el entregable real de la petición de Efrén — no mostrará las matrículas hasta que se haga a mano: (1) mapear `Vehículos` en PARTES 1/4, (2) propagar la variable 1/4 → 2/4 → 3/4, (3) añadirla a `Plantilla Parte.docx`, (4) reexportar blueprints a [docs/Escenarios Make/](./Escenarios%20Make/). Nota: el valor es texto libre del usuario — al mapearlo en Make, aplicar el mismo criterio que las Notas respecto a caracteres de control (ver M4).
 
 #### I1 — `/api/datos-completos` hace HTTP a sí mismo
 
@@ -572,6 +577,7 @@ Reglas por tipo de cambio:
 | 2026-05-26 | Claude Code | Etapa 2 implementada en rama `etapa2/funcionalidades-minimo-viable-f4-f5-f6` (commit `8659f62`). F4 + F5 + F6 con edge cases. Sin PR hasta que merge de Etapa 1 desbloquee rebase sobre master. Regression-checker ÁMBAR. |
 | 2026-05-26 | Claude Code | Etapa 3 implementada en rama `etapa3/funcionalidades-extendidas-f1-f2-f3` (commits `aec81c5` + `38cf339`). F2 búsqueda por ID Copuno + manejo de duplicados (5848, 5760, 5917). F1 empleados libres con logging enriquecido. F3 verificado (Notion sin constraints UNIQUE). Sin PR hasta merge de Etapa 2. Regression-checker ÁMBAR cerrado con blindaje Array.isArray. |
 | 2026-05-27 | Claude Code | **Fase A consolidación arquitectónica.** Creados [docs/ARQUITECTURA.md](./ARQUITECTURA.md) + [ADR-001](./adr/ADR-001-notion-como-bbdd.md), [ADR-002](./adr/ADR-002-capa-abstraccion-datos.md), [ADR-003](./adr/ADR-003-supabase-destino-migracion.md). Introducida capa `src-server/services/{notion,data}.js` (ADR-002) — 6 endpoints piloto refactorizados (obras, jefes-obra, firmantes-autorizados, empleados, empleados/buscar, empleados/estado-opciones, obras/:id/empleados). Implementada **idempotencia** en `POST enviar-datos` ([src-server/lib/idempotency.js](../src-server/lib/idempotency.js)) — defensa frente a doble-click sin tocar frontend. Añadidos 9 **tests smoke** con supertest + `node:test` (`npm run test:smoke`, todos verdes). **C3 cerrado** (verificación + documentación), **H2 mitigado parcialmente**. |
+| 2026-07-14 | Claude Code | **v1.5.0 campo Vehículos en el parte** (proyecto aparte, petición Efrén 3-jul). Propiedad `Vehículos` (rich_text) creada en BD Partes vía API. Código: notion.js (mapParte/detalles/crear/actualizar/rectificar), server.js (POST/PUT), mockData.js, App.jsx (creación/edición/detalle). 33/33 smoke verdes + verificación mock E2E. Registrado I6 (dependencia manual Make/plantilla PDF). |
 | 2026-05-27 | Claude Code | **Fase B migración completa ADR-002.** Migrados los 11 endpoints restantes a `data.*`: `empleados/actualizarEstado`, todos los de `partesTrabajo` (listar, estado, empleados, detalles, crear, actualizar, actualizarEstado, obtenerPagina), `datos-completos` (reemplazado self-HTTP por llamadas directas). Dead code eliminado de `server.js` (`makeNotionRequest`, `DATABASES`, `getNotionHeaders`, `validateNotionResponse`, `buildEstadoUpdatePayload`, `extractPropertyValue` local). `server.js`: 1.453 → **830 líneas**. Creado [ADR-004](./adr/ADR-004-idempotencia-enviar-datos.md). Docs actualizadas: [API_REFERENCIA.md](./API_REFERENCIA.md), [ARQUITECTURA.md](./ARQUITECTURA.md), CLAUDE.md, DEUDA_TECNICA.md. 9/9 smoke tests verdes. |
 | 2026-05-27 | Claude Code | **Quick wins N5 + I5.** N5: eliminado `'enviado'` de `PARTE_NO_EDITABLES` en `notion.js` — alineado con schema real Notion (`['firmado', 'datos enviados']`). I5: reemplazado `window.location.reload()` post-edición parte ([src/App.jsx](../src/App.jsx)) por `onRefrescarPartes()` — recarga solo la lista de partes sin recargar la página completa ni perder estado UI. |
 | 2026-05-27 | Claude Code | **Smoke tests ampliados de 9 a 29.** Cobertura completa de todos los endpoints: catálogos (empleados, estado-opciones, datos-completos), obras/:id/empleados + firmantes-autorizados, búsqueda ?q= (hit/vacío/q<3), PUT empleados estado (ok+404), GET partes (listado, estado, detalles, empleados, 404s), PUT partes (ok, horas>24, bloqueo), enviar-datos con Idempotency-Key explícita + 404. 29/29 verdes. |

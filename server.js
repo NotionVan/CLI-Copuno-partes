@@ -23,6 +23,10 @@ const PARTES_DATOS_WEBHOOK_URL = process.env.PARTES_DATOS_WEBHOOK_URL || process
 const PARTES_WEBHOOK_TIMEOUT_MS = Number(process.env.PARTES_WEBHOOK_TIMEOUT_MS || 10000)
 const PARTES_WEBHOOK_CONFIGURED = Boolean(PARTES_DATOS_WEBHOOK_URL)
 const PARTE_ESTADO_BORRADOR = 'borrador'
+
+// Texto libre que viaja a Notion y que Make serializa aguas abajo: los caracteres
+// de control (\n\r\t) rompen ese JSON ("Bad control character"). Ver DEUDA_TECNICA M4/I6.
+const sanearTextoPlano = (valor) => String(valor || '').replace(/[\n\r\t]+/g, ' ').replace(/\s+/g, ' ').trim()
 const PARTE_ESTADO_PROCESANDO = 'Procesando'
 const PARTE_ESTADO_DATOS_ENVIADOS = 'Datos Enviados'
 
@@ -367,7 +371,7 @@ app.get('/api/partes-trabajo', async (req, res) => {
 // Crear un nuevo parte de trabajo — refactorizado a data.js (ADR-002)
 app.post('/api/partes-trabajo', async (req, res) => {
 	try {
-		const { obra, obraId, fecha, jefeObraId, notas, empleados, empleadosHoras } = req.body
+		const { obra, obraId, fecha, jefeObraId, notas, vehiculos, empleados, empleadosHoras } = req.body
 
 		if (!obra || !obraId || !fecha || !jefeObraId) {
 			return res.status(400).json({
@@ -376,7 +380,7 @@ app.post('/api/partes-trabajo', async (req, res) => {
 			})
 		}
 
-		const result = await data.partesTrabajo.crear({ obra, obraId, fecha, jefeObraId, notas, empleados, empleadosHoras })
+		const result = await data.partesTrabajo.crear({ obra, obraId, fecha, jefeObraId, notas, vehiculos: sanearTextoPlano(vehiculos), empleados, empleadosHoras })
 
 		// Mock devuelve una página Notion-like directamente; live devuelve { parteData, ... }
 		if (USE_MOCK_DATA) {
@@ -668,7 +672,7 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 	try {
 		const { parteId } = req.params
-		const { obraId, fecha, personaAutorizadaId, notas, empleados, empleadosHoras } = req.body
+		const { obraId, fecha, personaAutorizadaId, notas, vehiculos, empleados, empleadosHoras } = req.body
 
 		if (!obraId || !fecha || !personaAutorizadaId) {
 			return res.status(400).json({
@@ -694,7 +698,7 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 		}
 
 		const result = await data.partesTrabajo.actualizar(parteId, {
-			obraId, fecha, personaAutorizadaId, notas, empleados, empleadosHoras
+			obraId, fecha, personaAutorizadaId, notas, vehiculos: sanearTextoPlano(vehiculos), empleados, empleadosHoras
 		})
 
 		// Mock devuelve una página Notion-like directamente

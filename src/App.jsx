@@ -932,6 +932,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				obra: parte.obra,
 				personaAutorizadaId: personaAutorizadaId,
 				notas: detallesCompletos.parte.notas || '',
+				vehiculos: detallesCompletos.parte.vehiculos || '',
 				empleados: empleadosActuales,
 				empleadosHoras: horasActuales
 			})
@@ -953,6 +954,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				obra: parte.obra,
 				personaAutorizadaId: '',
 				notas: parte.notas || '',
+				vehiculos: parte.vehiculos || '',
 				empleados: [],
 				empleadosHoras: {}
 			})
@@ -1126,6 +1128,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				fecha: editandoParte.fecha,
 				personaAutorizadaId: editandoParte.personaAutorizadaId,
 				notas: editandoParte.notas || '',
+				vehiculos: editandoParte.vehiculos || '',
 				empleados: editandoParte.empleados || [],
 				empleadosHoras: editandoParte.empleadosHoras || {}
 			}
@@ -1518,6 +1521,17 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 							</div>
 
 							<div className="form-group">
+								<label className="form-label">Vehículos (matrículas):</label>
+								<input
+									type="text"
+									className="form-input"
+									value={editandoParte.vehiculos || ''}
+									onChange={(e) => handleEdicionChange('vehiculos', e.target.value)}
+									placeholder="Ej.: 1234-ABC, 5678-DEF (varias matrículas separadas por comas)"
+								/>
+							</div>
+
+							<div className="form-group">
 								<label className="form-label">Notas:</label>
 								<textarea
 									className="form-input"
@@ -1889,6 +1903,13 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 									</div>
 								)}
 							</div>
+
+							{parteSeleccionado.vehiculos && (
+								<div className="notas-section">
+									<h3>Vehículos:</h3>
+									<p>{parteSeleccionado.vehiculos}</p>
+								</div>
+							)}
 
 							{parteSeleccionado.notas && (
 								<div className="notas-section">
@@ -2265,7 +2286,8 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		personaAutorizada: '',
 		empleados: [],
 		empleadosHoras: {}, // Nuevo objeto para almacenar horas por empleado
-		notas: ''
+		notas: '',
+		vehiculos: ''
 	})
 	const [loading, setLoading] = useState(false)
 	const [message, setMessage] = useState('')
@@ -2540,6 +2562,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 				fecha: formData.fecha,
 				jefeObraId: formData.personaAutorizadaId,
 				notas: formData.notas,
+				vehiculos: formData.vehiculos,
 				empleados: formData.empleados,
 				empleadosHoras: formData.empleadosHoras
 			})
@@ -2573,7 +2596,8 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 			personaAutorizada: '',
 			empleados: [],
 			empleadosHoras: {},
-			notas: ''
+			notas: '',
+			vehiculos: ''
 		})
 		setEmpleadosObra([])
 		setFirmantesObra([])
@@ -2937,6 +2961,17 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 									)}
 								</>
 							)}
+						</div>
+
+						<div className="form-group">
+							<label className="form-label">Vehículos (matrículas):</label>
+							<input
+								type="text"
+								className="form-input"
+								value={formData.vehiculos}
+								onChange={(e) => setFormData({ ...formData, vehiculos: e.target.value })}
+								placeholder="Ej.: 1234-ABC, 5678-DEF (varias matrículas separadas por comas)"
+							/>
 						</div>
 
 						<div className="form-group">

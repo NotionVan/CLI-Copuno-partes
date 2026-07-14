@@ -227,6 +227,29 @@ test('POST /api/partes-trabajo crea parte y devuelve id', async () => {
 	assert.ok(res.body.id, 'el parte creado debería tener id')
 })
 
+test('POST /api/partes-trabajo sanea caracteres de control en vehículos', async () => {
+	// Los \n\r\t en texto libre rompen el JSON que Make serializa aguas abajo
+	// ("Bad control character"). Mismo criterio que Notas. Ver DEUDA_TECNICA M4/I6.
+	const res = await request(app)
+		.post('/api/partes-trabajo')
+		.send({
+			obra: 'Reforma Sede Central',
+			obraId: 'obra-1',
+			fecha: '2026-07-14',
+			jefeObraId: 'jefe-1',
+			vehiculos: '1234-ABC,\n5678-DEF\t9999-ZZZ\r',
+			empleados: []
+		})
+	assert.equal(res.status, 200)
+	const detalles = await request(app).get(`/api/partes-trabajo/${res.body.id}/detalles`)
+	assert.equal(detalles.status, 200)
+	assert.ok(
+		!/[\n\r\t]/.test(detalles.body.parte.vehiculos),
+		'vehículos no debe contener caracteres de control'
+	)
+	assert.equal(detalles.body.parte.vehiculos, '1234-ABC, 5678-DEF 9999-ZZZ')
+})
+
 test('POST /api/partes-trabajo sin campos requeridos devuelve 400', async () => {
 	const res = await request(app)
 		.post('/api/partes-trabajo')
