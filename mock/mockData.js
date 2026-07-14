@@ -103,6 +103,7 @@ const mockPartes = [
     urlPDF: '',
     enviadoCliente: false,
     notas: 'Cableado planta 1',
+    vehiculos: '1234-ABC, 5678-DEF',
     firmarUrl: 'https://mock.notion.local/firma/parte-1'
   },
   {

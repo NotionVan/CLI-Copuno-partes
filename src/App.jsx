@@ -97,7 +97,10 @@ function CampoVehiculos({ value, onChange }) {
 							<span className="empleado-info">
 								<div className="empleado-nombre-estado">
 									<strong>{v.matricula}</strong>
-									<span className="categoria">{[v.tipo, v.marcaModelo].filter(Boolean).join(' · ') || '—'}</span>
+									<span className="categoria">
+										{[v.tipo, v.marcaModelo].filter(Boolean).join(' · ') || '—'}
+										{v.estado && !/operativ|activ/i.test(v.estado) ? ` · ⚠️ ${v.estado}` : ''}
+									</span>
 								</div>
 							</span>
 							<button type="button" className="btn btn-success" onClick={() => seleccionar(v)}>
@@ -630,6 +633,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	const [filtroFecha, setFiltroFecha] = useState('')
 	const [filtroEstado, setFiltroEstado] = useState('')
 	const [filtroPersonaAutorizada, setFiltroPersonaAutorizada] = useState('')
+	const [filtroVehiculo, setFiltroVehiculo] = useState('')
 	const [fechaInput, setFechaInput] = useState('')
 	const [parteSeleccionado, setParteSeleccionado] = useState(null)
 	const [detallesEmpleados, setDetallesEmpleados] = useState([])
@@ -666,6 +670,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		setFechaInput('')
 		setFiltroEstado('')
 		setFiltroPersonaAutorizada('')
+		setFiltroVehiculo('')
 	}
 
 	// Mapea color de Notion a un color CSS visible
@@ -1345,13 +1350,19 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		}))
 	}
 
+	// Normaliza matrículas para comparar: mayúsculas, sin guiones ni espacios
+	// ("7072-klc" y "7072 KLC" encuentran "7072KLC"). Edge case cubierto:
+	// partes antiguos sin campo Vehículos quedan excluidos solo si se filtra.
+	const normalizarMatricula = (texto) => String(texto || '').toUpperCase().replace(/[\s-]/g, '')
+
 	// Filtrar partes según los criterios
 	const partesFiltrados = datos.partesTrabajo.filter(parte => {
 		const cumpleObra = !filtroObra || parte.obra === filtroObra
 		const cumpleFecha = !filtroFecha || normalizarFecha(parte.fecha) === filtroFecha
 		const cumpleEstado = !filtroEstado || (parte.estado || 'Pendiente') === filtroEstado
 		const cumplePersonaAutorizada = !filtroPersonaAutorizada || parte.personaAutorizada === filtroPersonaAutorizada
-		return cumpleObra && cumpleFecha && cumpleEstado && cumplePersonaAutorizada
+		const cumpleVehiculo = !filtroVehiculo.trim() || normalizarMatricula(parte.vehiculos).includes(normalizarMatricula(filtroVehiculo))
+		return cumpleObra && cumpleFecha && cumpleEstado && cumplePersonaAutorizada && cumpleVehiculo
 	})
 
 	// Obtener obras únicas para el filtro - usar todas las obras disponibles
@@ -2091,7 +2102,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 									<Search size={16} />
 									<span>Filtros</span>
 								</div>
-								{(filtroObra || filtroFecha || filtroEstado || filtroPersonaAutorizada) && (
+								{(filtroObra || filtroFecha || filtroEstado || filtroPersonaAutorizada || filtroVehiculo) && (
 									<button
 										className="btn-reset-filtros"
 										onClick={limpiarFiltros}
@@ -2154,6 +2165,16 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 										))}
 									</select>
 								</div>
+								<div className="form-group">
+									<label className="form-label">Filtrar por Vehículo (matrícula):</label>
+									<input
+										type="text"
+										className="form-input"
+										value={filtroVehiculo}
+										onChange={(e) => setFiltroVehiculo(e.target.value)}
+										placeholder="Ej.: 7072KLC (ignora guiones y mayúsculas)"
+									/>
+								</div>
 							</div>
 							{(filtroObra || filtroFecha || filtroEstado || filtroPersonaAutorizada) && (
 								<div className="filtros-activos">
@@ -2168,6 +2189,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 									)}
 									{filtroPersonaAutorizada && (
 										<span className="filtro-chip">Persona Autorizada: {filtroPersonaAutorizada}</span>
+									)}
+									{filtroVehiculo && (
+										<span className="filtro-chip">Vehículo: {filtroVehiculo}</span>
 									)}
 								</div>
 							)}
@@ -2250,6 +2274,12 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 													<Users size={20} />
 													<span><strong>Horas</strong> {horasTotalesCalculadas}</span>
 												</div>
+												{parte.vehiculos && (
+													<div className="info-item">
+														<FileText size={20} />
+														<span><strong>Vehículos</strong> {parte.vehiculos}</span>
+													</div>
+												)}
 											</div>
 
 											{/* Indicador visual si el parte no es editable */}
