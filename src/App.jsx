@@ -35,18 +35,18 @@ const formatearHorasTexto = (valor) => {
 
 // Campo de vehículos con autocompletado de matrículas desde la BD Vehículos
 // de Notion (mismo patrón de sugerencias en vivo que el buscador de empleados).
-// El valor final sigue siendo texto: matrículas separadas por comas — el
-// pipeline Make/PDF no cambia.
+// Desde v1.7.0 el valor es una lista de vehículos seleccionados [{id, matricula}]
+// que el servidor persiste como relación Notion (fuente de verdad) + espejo de
+// texto para el pipeline Make/PDF. Solo se pueden añadir vehículos de la flota.
 function CampoVehiculos({ value, onChange }) {
+	const seleccionados = Array.isArray(value) ? value : []
+	const [termino, setTermino] = useState('')
 	const [sugerencias, setSugerencias] = useState([])
 	const [buscando, setBuscando] = useState(false)
 	const timerRef = useRef(null)
 
-	// Término de búsqueda = último segmento tras la última coma
-	const termino = (value || '').split(',').pop().trim()
-
 	useEffect(() => {
-		if (termino.length < 2) {
+		if (termino.trim().length < 2) {
 			setSugerencias([])
 			return
 		}
@@ -54,10 +54,10 @@ function CampoVehiculos({ value, onChange }) {
 		timerRef.current = setTimeout(async () => {
 			try {
 				setBuscando(true)
-				const resultados = await buscarVehiculos(termino, 10)
-				// No sugerir matrículas ya incluidas en el campo
-				const yaIncluidas = (value || '').toUpperCase()
-				setSugerencias((resultados || []).filter(v => v.matricula && !yaIncluidas.includes(v.matricula.toUpperCase())))
+				const resultados = await buscarVehiculos(termino.trim(), 10)
+				// No sugerir vehículos ya seleccionados
+				const yaIds = new Set(seleccionados.map(s => s.id))
+				setSugerencias((resultados || []).filter(v => v.matricula && !yaIds.has(v.id)))
 			} catch (e) {
 				console.error('Error buscando vehículos:', e)
 				setSugerencias([])
@@ -66,27 +66,46 @@ function CampoVehiculos({ value, onChange }) {
 			}
 		}, 300)
 		return () => timerRef.current && clearTimeout(timerRef.current)
-	}, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [termino]) // eslint-disable-line react-hooks/exhaustive-deps
 
 	const seleccionar = (vehiculo) => {
-		const partes = (value || '').split(',')
-		partes.pop() // descartar el término a medio escribir
-		const previas = partes.map(t => t.trim()).filter(Boolean)
-		onChange([...previas, vehiculo.matricula].join(', ') + ', ')
+		onChange([...seleccionados, { id: vehiculo.id, matricula: vehiculo.matricula }])
+		setTermino('')
 		setSugerencias([])
+	}
+
+	const quitar = (id) => {
+		onChange(seleccionados.filter(s => s.id !== id))
 	}
 
 	return (
 		<div className="form-group">
 			<label className="form-label">Vehículos (matrículas):</label>
+			{seleccionados.length > 0 && (
+				<div className="filtros-activos" style={{ marginBottom: '8px' }}>
+					{seleccionados.map(s => (
+						<span key={s.id} className="filtro-chip">
+							{s.matricula}
+							<button
+								type="button"
+								onClick={() => quitar(s.id)}
+								style={{ marginLeft: '6px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+								aria-label={`Quitar ${s.matricula}`}
+							>
+								×
+							</button>
+						</span>
+					))}
+				</div>
+			)}
 			<div className="empleados-search">
 				<Search size={18} />
 				<input
 					type="text"
 					className="empleados-search-input"
-					value={value || ''}
-					onChange={(e) => onChange(e.target.value)}
-					placeholder="Escribe una matrícula para buscar en la flota (varias separadas por comas)"
+					value={termino}
+					onChange={(e) => setTermino(e.target.value)}
+					placeholder="Escribe una matrícula para buscar en la flota"
 				/>
 				{buscando && <Loader2 size={16} className="loading-spinner" />}
 			</div>
@@ -112,6 +131,17 @@ function CampoVehiculos({ value, onChange }) {
 			)}
 		</div>
 	)
+}
+
+// Reconstruye la lista [{id, matricula}] de un parte a partir de la relación
+// (vehiculosIds) y el espejo de texto (matrículas separadas por comas). El
+// servidor escribe ambos a la vez, así que el orden coincide; si divergen
+// (edición manual en Notion), se conservan los IDs con matrícula posicional
+// o un placeholder.
+function vehiculosDelParte(parte) {
+	const ids = Array.isArray(parte?.vehiculosIds) ? parte.vehiculosIds : []
+	const matriculas = String(parte?.vehiculos || '').split(',').map(t => t.trim()).filter(Boolean)
+	return ids.map((id, i) => ({ id, matricula: matriculas[i] || `Vehículo ${i + 1}` }))
 }
 
 function App() {
@@ -1016,7 +1046,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				obra: parte.obra,
 				personaAutorizadaId: personaAutorizadaId,
 				notas: detallesCompletos.parte.notas || '',
-				vehiculos: detallesCompletos.parte.vehiculos || '',
+				vehiculosSel: vehiculosDelParte(detallesCompletos.parte),
 				empleados: empleadosActuales,
 				empleadosHoras: horasActuales
 			})
@@ -1038,7 +1068,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				obra: parte.obra,
 				personaAutorizadaId: '',
 				notas: parte.notas || '',
-				vehiculos: parte.vehiculos || '',
+				vehiculosSel: vehiculosDelParte(parte),
 				empleados: [],
 				empleadosHoras: {}
 			})
@@ -1212,7 +1242,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				fecha: editandoParte.fecha,
 				personaAutorizadaId: editandoParte.personaAutorizadaId,
 				notas: editandoParte.notas || '',
-				vehiculos: editandoParte.vehiculos || '',
+				vehiculos: (editandoParte.vehiculosSel || []).map(v => v.matricula).join(', '),
+				vehiculosIds: (editandoParte.vehiculosSel || []).map(v => v.id),
 				empleados: editandoParte.empleados || [],
 				empleadosHoras: editandoParte.empleadosHoras || {}
 			}
@@ -1611,8 +1642,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 							</div>
 
 							<CampoVehiculos
-								value={editandoParte.vehiculos || ''}
-								onChange={(v) => handleEdicionChange('vehiculos', v)}
+								value={editandoParte.vehiculosSel || []}
+								onChange={(v) => handleEdicionChange('vehiculosSel', v)}
 							/>
 
 							<div className="form-group">
@@ -2390,7 +2421,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		empleados: [],
 		empleadosHoras: {}, // Nuevo objeto para almacenar horas por empleado
 		notas: '',
-		vehiculos: ''
+		vehiculosSel: [] // Vehículos seleccionados de la flota [{id, matricula}]
 	})
 	const [loading, setLoading] = useState(false)
 	const [message, setMessage] = useState('')
@@ -2665,7 +2696,8 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 				fecha: formData.fecha,
 				jefeObraId: formData.personaAutorizadaId,
 				notas: formData.notas,
-				vehiculos: formData.vehiculos,
+				vehiculos: (formData.vehiculosSel || []).map(v => v.matricula).join(', '),
+				vehiculosIds: (formData.vehiculosSel || []).map(v => v.id),
 				empleados: formData.empleados,
 				empleadosHoras: formData.empleadosHoras
 			})
@@ -2700,7 +2732,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 			empleados: [],
 			empleadosHoras: {},
 			notas: '',
-			vehiculos: ''
+			vehiculosSel: []
 		})
 		setEmpleadosObra([])
 		setFirmantesObra([])
@@ -3067,8 +3099,8 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 						</div>
 
 						<CampoVehiculos
-							value={formData.vehiculos}
-							onChange={(v) => setFormData({ ...formData, vehiculos: v })}
+							value={formData.vehiculosSel}
+							onChange={(v) => setFormData({ ...formData, vehiculosSel: v })}
 						/>
 
 						<div className="form-group">

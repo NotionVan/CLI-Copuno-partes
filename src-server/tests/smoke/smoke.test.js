@@ -263,6 +263,26 @@ test('POST /api/partes-trabajo sanea caracteres de control en vehículos', async
 	assert.equal(detalles.body.parte.vehiculos, '1234-ABC, 5678-DEF 9999-ZZZ')
 })
 
+test('POST /api/partes-trabajo persiste vehiculosIds (relación) y los devuelve en detalles', async () => {
+	// v1.7.0: la relación parte↔flota es la fuente de verdad; el texto es espejo para Make/PDF.
+	const res = await request(app)
+		.post('/api/partes-trabajo')
+		.send({
+			obra: 'Reforma Sede Central',
+			obraId: 'obra-1',
+			fecha: '2026-07-14',
+			jefeObraId: 'jefe-1',
+			vehiculos: '1234-ABC, 5678-DEF',
+			vehiculosIds: ['not-a-uuid', 'a'.repeat(32), '12345678-1234-1234-1234-123456789012'],
+			empleados: []
+		})
+	assert.equal(res.status, 200)
+	const detalles = await request(app).get(`/api/partes-trabajo/${res.body.id}/detalles`)
+	assert.equal(detalles.status, 200)
+	// 'not-a-uuid' se descarta por saneado; los dos con forma de UUID sobreviven.
+	assert.deepEqual(detalles.body.parte.vehiculosIds, ['a'.repeat(32), '12345678-1234-1234-1234-123456789012'])
+})
+
 test('POST /api/partes-trabajo sin campos requeridos devuelve 400', async () => {
 	const res = await request(app)
 		.post('/api/partes-trabajo')

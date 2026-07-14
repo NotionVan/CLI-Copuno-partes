@@ -267,7 +267,10 @@ function mapParte(page) {
 		urlPDF: extractPropertyValue(page.properties['URL PDF']),
 		enviadoCliente: extractPropertyValue(page.properties['Enviado a cliente']),
 		notas: extractPropertyValue(page.properties['Notas']),
+		// 'Vehiculos' (rich_text) es el espejo de texto que consume Make/PDF;
+		// 'Vehiculos ' (relation, OJO espacio final) es la fuente de verdad.
 		vehiculos: extractPropertyValue(page.properties['Vehiculos']),
+		vehiculosIds: (extractPropertyValue(page.properties['Vehiculos ']) || []).map?.(r => r.id) || [],
 		firmarUrl: extractPropertyValue(page.properties['Firmar']),
 		rectificaAId,
 		rectificadoPorIds,
@@ -465,6 +468,27 @@ const PARTE_NO_EDITABLES = ['firmado', 'datos enviados', 'procesando']
 // y el que ya tiene datos enviados/PDF generado.
 const PARTE_RECTIFICABLES = ['firmado', 'datos enviados']
 
+/**
+ * Propiedades Notion del campo Vehículos de un parte a partir del texto de
+ * matrículas y los page IDs de la BD Vehículos. Escribe siempre las dos caras:
+ * - 'Vehiculos ' (relation, OJO espacio final): fuente de verdad parte↔flota.
+ * - 'Vehiculos' (rich_text): espejo de texto que consume Make → PDF.
+ * El texto se normaliza (separador ', ', sin coma final ni caracteres de control).
+ */
+function buildVehiculosProps(vehiculosTexto, vehiculosIds) {
+	const texto = String(vehiculosTexto || '')
+		.replace(/[\n\r\t]+/g, ' ')
+		.split(',')
+		.map(t => t.trim())
+		.filter(Boolean)
+		.join(', ')
+	const ids = Array.isArray(vehiculosIds) ? vehiculosIds.filter(Boolean) : []
+	return {
+		'Vehiculos': { rich_text: [{ text: { content: texto } }] },
+		'Vehiculos ': { relation: ids.map(id => ({ id })) }
+	}
+}
+
 const vehiculos = {
 	/**
 	 * Búsqueda de vehículos por matrícula (title contains) para el
@@ -527,6 +551,10 @@ const partesTrabajo = {
 				ultimaEdicion: extractPropertyValue(parteData.properties['Última edición']),
 				notas: extractPropertyValue(parteData.properties['Notas']),
 				vehiculos: extractPropertyValue(parteData.properties['Vehiculos']),
+				vehiculosIds: (() => {
+					const rel = extractPropertyValue(parteData.properties['Vehiculos '])
+					return Array.isArray(rel) ? rel.map(r => r.id) : []
+				})(),
 				personaAutorizada: extractPropertyValue(parteData.properties['Persona Autorizada']),
 				firmarUrl: extractPropertyValue(parteData.properties['Firmar']),
 				horasTotales: extractPropertyValue(parteData.properties['RP Horas totales'])
@@ -535,7 +563,7 @@ const partesTrabajo = {
 		}
 	},
 
-	async crear({ client, obra, obraId, fecha, jefeObraId, notas, vehiculos, empleados = [], empleadosHoras = {} }) {
+	async crear({ client, obra, obraId, fecha, jefeObraId, notas, vehiculos, vehiculosIds, empleados = [], empleadosHoras = {} }) {
 		const parteData = await client.request('POST', '/pages', {
 			parent: { database_id: DATABASES.PARTES_TRABAJO },
 			properties: {
@@ -544,7 +572,7 @@ const partesTrabajo = {
 				'Obras': { relation: [{ id: obraId }] },
 				'Persona Autorizada': { relation: [{ id: jefeObraId }] },
 				'Notas': { rich_text: [{ text: { content: notas || '' } }] },
-				'Vehiculos': { rich_text: [{ text: { content: vehiculos || '' } }] }
+				...buildVehiculosProps(vehiculos, vehiculosIds)
 			}
 		})
 
@@ -589,7 +617,7 @@ const partesTrabajo = {
 		return { parteData, nombreFinal, detallesCreados, erroresDetalles, asignadosObraIds }
 	},
 
-	async actualizar({ client, parteId, obraId, fecha, personaAutorizadaId, notas, vehiculos, empleados = [], empleadosHoras = {} }) {
+	async actualizar({ client, parteId, obraId, fecha, personaAutorizadaId, notas, vehiculos, vehiculosIds, empleados = [], empleadosHoras = {} }) {
 		const parteActual = await client.request('GET', `/pages/${parteId}`)
 		const estadoParte = extractPropertyValue(parteActual.properties['Estado'])
 
@@ -611,7 +639,7 @@ const partesTrabajo = {
 			'Obras': { relation: [{ id: obraId }] },
 			'Persona Autorizada': { relation: [{ id: personaAutorizadaId }] },
 			'Notas': { rich_text: [{ text: { content: notas || '' } }] },
-			'Vehiculos': { rich_text: [{ text: { content: vehiculos || '' } }] }
+			...buildVehiculosProps(vehiculos, vehiculosIds)
 		}
 		if (necesitaCambioEstado) {
 			propertiesToUpdate['Estado'] = { status: { name: 'Borrador' } }
@@ -729,18 +757,17 @@ const partesTrabajo = {
 			: prefijoRectificativo
 		const obraTexto = extractPropertyValue(original.properties['AUX Obra']) || 'Obra'
 
-		// Vehículos del original: se copian al rectificativo (prop puede no existir
-		// en partes antiguos; extractPropertyValue devuelve '' en ese caso). Mismo
-		// saneado de caracteres de control que las Notas (DEUDA_TECNICA M4/I6).
+		// Vehículos del original: se copian al rectificativo — relación 'Vehiculos '
+		// (fuente de verdad) y espejo de texto 'Vehiculos' (props pueden no existir
+		// en partes antiguos; extractPropertyValue devuelve '' en ese caso).
 		const vehiculosOriginal = String(extractPropertyValue(original.properties['Vehiculos']) || '')
-			.replace(/[\n\r\t]+/g, ' ')
-			.replace(/\s+/g, ' ')
-			.trim()
+		const vehiculosRelOriginal = extractPropertyValue(original.properties['Vehiculos '])
+		const vehiculosIdsOriginal = Array.isArray(vehiculosRelOriginal) ? vehiculosRelOriginal.map(r => r.id) : []
 
 		const propsNuevo = {
 			'Nombre': { title: [{ text: { content: `Parte rectificativo - ${obraTexto}` } }] },
 			'Notas': { rich_text: [{ text: { content: notasRectificativo } }] },
-			'Vehiculos': { rich_text: [{ text: { content: vehiculosOriginal || '' } }] },
+			...buildVehiculosProps(vehiculosOriginal, vehiculosIdsOriginal),
 			'Rectifica a ': { relation: [{ id: parteOriginalId }] }
 		}
 		if (fecha) propsNuevo['Fecha'] = { date: { start: fecha } }

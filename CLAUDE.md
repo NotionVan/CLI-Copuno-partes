@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-07-14 (v1.5.0→v1.6.1 — vehículos en el parte: propiedad `Vehiculos` (rich_text, SIN tilde) en Notion, campo con autocompletado de matrículas desde la BD de flota, matrículas en consulta de partes + filtro normalizado, copia en rectificativos, fila "Vehículos" en `Plantilla Parte.docx` (hecha). Pipeline Make completo y verificado E2E (PDF muestra la matrícula). Changelogs: [V1.5.0](CHANGELOG_V1.5.0.md) · [V1.5.1](CHANGELOG_V1.5.1.md) · [V1.6.0](CHANGELOG_V1.6.0.md) · [V1.6.1](CHANGELOG_V1.6.1.md))
+- **Última edición:** 2026-07-14 (v1.7.0 — vehículos como **relación** Notion: `Vehiculos ` (relation, espacio final, bidireccional con la BD de flota) es la fuente de verdad; `Vehiculos` (rich_text) queda como **espejo de texto que escribe el servidor** para el pipeline Make/PDF (que no cambia). UI con chips (sin texto libre, adiós bug de la coma final). ⚠️ El espejo rich_text debe existir en Notion antes de desplegar. Changelogs: [V1.5.0](CHANGELOG_V1.5.0.md) · [V1.5.1](CHANGELOG_V1.5.1.md) · [V1.6.0](CHANGELOG_V1.6.0.md) · [V1.6.1](CHANGELOG_V1.6.1.md) · [V1.7.0](CHANGELOG_V1.7.0.md))
 
 ---
 
@@ -77,7 +77,8 @@ Propiedades críticas en **Partes de trabajo**:
 - `Documento Firmado` (files) — PDF firmado subido tras la firma.
 - `Detalle Horas` (relation) — horas por empleado.
 - `Notas` (rich_text).
-- `Vehiculos` (rich_text, **SIN tilde** — v1.5.1) — matrículas separadas por comas; viajan al PDF vía Make.
+- `Vehiculos ` (relation, **OJO espacio final** — v1.7.0) — relación bidireccional con la BD Vehículos (inversa `Partes de trabajo`). **Fuente de verdad** del parte↔flota.
+- `Vehiculos` (rich_text, **SIN tilde** — v1.5.1) — **espejo de texto que escribe siempre el servidor** (matrículas `, `-separadas, sin coma final) a partir de la relación; es lo que consume Make → PDF. No editar a mano.
 
 ---
 

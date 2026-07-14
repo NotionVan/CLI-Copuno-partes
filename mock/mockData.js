@@ -104,6 +104,7 @@ const mockPartes = [
     enviadoCliente: false,
     notas: 'Cableado planta 1',
     vehiculos: '1234-ABC, 5678-DEF',
+    vehiculosIds: ['vehiculo-1', 'vehiculo-2'],
     firmarUrl: 'https://mock.notion.local/firma/parte-1'
   },
   {
@@ -232,6 +233,7 @@ const mapParte = (parte) => ({
   enviadoCliente: parte.enviadoCliente,
   notas: parte.notas,
   vehiculos: parte.vehiculos || '',
+  vehiculosIds: parte.vehiculosIds || [],
   firmarUrl: parte.firmarUrl || buildFirmarUrl(parte),
   rectificaAId: parte.rectificaAId || null,
   rectificadoPorIds: parte.rectificadoPorIds || [],
@@ -410,6 +412,7 @@ const getParteDetallesCompletos = (parteId) => {
       ultimaEdicion: parte.ultimaEdicion,
       notas: parte.notas,
       vehiculos: parte.vehiculos || '',
+      vehiculosIds: parte.vehiculosIds || [],
       personaAutorizada: parte.personaAutorizadaId,
       firmarUrl: parte.firmarUrl || buildFirmarUrl(parte)
     },
@@ -436,7 +439,7 @@ const mockVehiculos = [
 
 const getVehiculos = () => mockVehiculos
 
-const createParteTrabajo = ({ obra, obraId, fecha, jefeObraId, notas, vehiculos, empleados = [], empleadosHoras = {} }) => {
+const createParteTrabajo = ({ obra, obraId, fecha, jefeObraId, notas, vehiculos, vehiculosIds, empleados = [], empleadosHoras = {} }) => {
   const obraInfo = findObra(obraId)
   const jefeInfo = findJefe(jefeObraId)
   if (!obraInfo) {
@@ -469,6 +472,7 @@ const createParteTrabajo = ({ obra, obraId, fecha, jefeObraId, notas, vehiculos,
     enviadoCliente: false,
     notas: notas || '',
     vehiculos: vehiculos || '',
+    vehiculosIds: vehiculosIds || [],
     firmarUrl: buildFirmarUrl({ id: parteId, obra: obra || obraInfo.nombre })
   }
 
@@ -504,7 +508,7 @@ const createParteTrabajo = ({ obra, obraId, fecha, jefeObraId, notas, vehiculos,
   }
 }
 
-const updateParteTrabajo = (parteId, { obraId, fecha, personaAutorizadaId, notas, vehiculos, empleados = [], empleadosHoras = {} }) => {
+const updateParteTrabajo = (parteId, { obraId, fecha, personaAutorizadaId, notas, vehiculos, vehiculosIds, empleados = [], empleadosHoras = {} }) => {
   const parte = findParte(parteId)
   if (!parte) {
     throw new Error('Parte no encontrado')
@@ -538,6 +542,7 @@ const updateParteTrabajo = (parteId, { obraId, fecha, personaAutorizadaId, notas
   }
   parte.notas = notas || ''
   parte.vehiculos = vehiculos || ''
+  parte.vehiculosIds = vehiculosIds || []
 
   // Eliminar detalles existentes del parte
   for (let i = mockDetalles.length - 1; i >= 0; i--) {
@@ -628,6 +633,8 @@ const rectificarParte = (parteOriginalId) => {
         .trim()
       return limpias ? `${prefijo} — ${limpias}` : prefijo
     })(),
+    vehiculos: original.vehiculos || '',
+    vehiculosIds: original.vehiculosIds || [],
     firmarUrl: buildFirmarUrl({ id: nuevoId, obra: original.obra }),
     rectificaAId: parteOriginalId,
     rectificadoPorIds: []
