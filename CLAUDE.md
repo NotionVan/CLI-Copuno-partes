@@ -6,7 +6,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
-- **Última edición:** 2026-07-14 (v1.7.0 — vehículos como **relación** Notion: `Vehiculos ` (relation, espacio final, bidireccional con la BD de flota) es la fuente de verdad; `Vehiculos` (rich_text) queda como **espejo de texto que escribe el servidor** para el pipeline Make/PDF (que no cambia). UI con chips (sin texto libre, adiós bug de la coma final). Ambas propiedades verificadas por API en Notion (relación + espejo rich_text). Changelogs: [V1.5.0](CHANGELOG_V1.5.0.md) · [V1.5.1](CHANGELOG_V1.5.1.md) · [V1.6.0](CHANGELOG_V1.6.0.md) · [V1.6.1](CHANGELOG_V1.6.1.md) · [V1.7.0](CHANGELOG_V1.7.0.md))
+- **Última edición:** 2026-07-14 (v1.7.1 — icono `Truck` junto a las matrículas en el listado. v1.7.0 — vehículos como **relación** Notion: `Vehiculos ` (relation, espacio final, bidireccional con la BD de flota) es la fuente de verdad; `Vehiculos` (rich_text) queda como **espejo de texto que escribe el servidor** para el pipeline Make/PDF (que no cambia). UI con chips (sin texto libre, adiós bug de la coma final). Ambas propiedades verificadas por API en Notion (relación + espejo rich_text). Changelogs: [V1.5.0](CHANGELOG_V1.5.0.md) · [V1.5.1](CHANGELOG_V1.5.1.md) · [V1.6.0](CHANGELOG_V1.6.0.md) · [V1.6.1](CHANGELOG_V1.6.1.md) · [V1.7.0](CHANGELOG_V1.7.0.md))
 
 ---
 
