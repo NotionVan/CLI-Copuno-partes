@@ -188,6 +188,23 @@ const empleados = {
 	}
 }
 
+const vehiculos = {
+	/**
+	 * Búsqueda de vehículos por matrícula para autocompletado.
+	 * Devuelve [{id, matricula, tipo, marcaModelo, estado}].
+	 */
+	async buscar(q, { limite = 20 } = {}) {
+		requireInit()
+		if (state.mode === 'mock') {
+			const todos = state.mockStore.getVehiculos ? state.mockStore.getVehiculos() : []
+			return todos
+				.filter(v => (v.matricula || '').toLowerCase().includes(q.toLowerCase()))
+				.slice(0, limite)
+		}
+		return notion.vehiculos.buscar({ client: state.notionClient, q, limite })
+	}
+}
+
 const partesTrabajo = {
 	async listar() {
 		requireInit()
@@ -326,5 +343,6 @@ module.exports = {
 	obras,
 	jefesObra,
 	empleados,
+	vehiculos,
 	partesTrabajo
 }

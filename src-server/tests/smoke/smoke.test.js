@@ -227,6 +227,19 @@ test('POST /api/partes-trabajo crea parte y devuelve id', async () => {
 	assert.ok(res.body.id, 'el parte creado debería tener id')
 })
 
+test('GET /api/vehiculos/buscar devuelve coincidencias por matrícula', async () => {
+	const res = await request(app).get('/api/vehiculos/buscar?q=1234')
+	assert.equal(res.status, 200)
+	assert.ok(Array.isArray(res.body))
+	assert.ok(res.body.some(v => v.matricula === '1234-ABC'), 'debería encontrar 1234-ABC en el mock')
+})
+
+test('GET /api/vehiculos/buscar con menos de 2 caracteres devuelve lista vacía', async () => {
+	const res = await request(app).get('/api/vehiculos/buscar?q=1')
+	assert.equal(res.status, 200)
+	assert.deepEqual(res.body, [])
+})
+
 test('POST /api/partes-trabajo sanea caracteres de control en vehículos', async () => {
 	// Los \n\r\t en texto libre rompen el JSON que Make serializa aguas abajo
 	// ("Bad control character"). Mismo criterio que Notas. Ver DEUDA_TECNICA M4/I6.

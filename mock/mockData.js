@@ -427,6 +427,14 @@ const getParteEstado = (parteId) => {
   }
 }
 
+const mockVehiculos = [
+  { id: 'vehiculo-1', matricula: '1234-ABC', tipo: 'Furgoneta', marcaModelo: 'Ford Transit', estado: 'Operativo' },
+  { id: 'vehiculo-2', matricula: '5678-DEF', tipo: 'Camión', marcaModelo: 'MAN TGX', estado: 'Operativo' },
+  { id: 'vehiculo-3', matricula: '9012-GHJ', tipo: 'Furgoneta', marcaModelo: 'Citroën Jumper', estado: 'En taller' }
+]
+
+const getVehiculos = () => mockVehiculos
+
 const createParteTrabajo = ({ obra, obraId, fecha, jefeObraId, notas, vehiculos, empleados = [], empleadosHoras = {} }) => {
   const obraInfo = findObra(obraId)
   const jefeInfo = findJefe(jefeObraId)
@@ -700,6 +708,7 @@ const sendParteDatos = (parteId) => {
 }
 
 module.exports = {
+  getVehiculos,
   getHealthStatus,
   getObras,
   getJefesObra,

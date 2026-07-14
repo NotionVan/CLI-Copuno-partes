@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw, X } from 'lucide-react'
-import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId } from './services/notionService'
+import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId, buscarVehiculos } from './services/notionService'
 
 // F4: helpers para agrupar firmantes por rol en el selector
 const ROLES_ORDEN = ['Encargado', 'Jefe de Obra', 'Jefe de Producción', 'Otros']
@@ -30,6 +30,85 @@ const formatearHorasTexto = (valor) => {
 
 	const textoLimpio = String(valor).replace(/\s*h\s*$/i, '').trim()
 	return textoLimpio || 'Sin horas registradas'
+}
+
+
+// Campo de vehículos con autocompletado de matrículas desde la BD Vehículos
+// de Notion (mismo patrón de sugerencias en vivo que el buscador de empleados).
+// El valor final sigue siendo texto: matrículas separadas por comas — el
+// pipeline Make/PDF no cambia.
+function CampoVehiculos({ value, onChange }) {
+	const [sugerencias, setSugerencias] = useState([])
+	const [buscando, setBuscando] = useState(false)
+	const timerRef = useRef(null)
+
+	// Término de búsqueda = último segmento tras la última coma
+	const termino = (value || '').split(',').pop().trim()
+
+	useEffect(() => {
+		if (termino.length < 2) {
+			setSugerencias([])
+			return
+		}
+		if (timerRef.current) clearTimeout(timerRef.current)
+		timerRef.current = setTimeout(async () => {
+			try {
+				setBuscando(true)
+				const resultados = await buscarVehiculos(termino, 10)
+				// No sugerir matrículas ya incluidas en el campo
+				const yaIncluidas = (value || '').toUpperCase()
+				setSugerencias((resultados || []).filter(v => v.matricula && !yaIncluidas.includes(v.matricula.toUpperCase())))
+			} catch (e) {
+				console.error('Error buscando vehículos:', e)
+				setSugerencias([])
+			} finally {
+				setBuscando(false)
+			}
+		}, 300)
+		return () => timerRef.current && clearTimeout(timerRef.current)
+	}, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+
+	const seleccionar = (vehiculo) => {
+		const partes = (value || '').split(',')
+		partes.pop() // descartar el término a medio escribir
+		const previas = partes.map(t => t.trim()).filter(Boolean)
+		onChange([...previas, vehiculo.matricula].join(', ') + ', ')
+		setSugerencias([])
+	}
+
+	return (
+		<div className="form-group">
+			<label className="form-label">Vehículos (matrículas):</label>
+			<div className="empleados-search">
+				<Search size={18} />
+				<input
+					type="text"
+					className="empleados-search-input"
+					value={value || ''}
+					onChange={(e) => onChange(e.target.value)}
+					placeholder="Escribe una matrícula para buscar en la flota (varias separadas por comas)"
+				/>
+				{buscando && <Loader2 size={16} className="loading-spinner" />}
+			</div>
+			{sugerencias.length > 0 && (
+				<div className="empleados-lista empleados-lista-compacta">
+					{sugerencias.map(v => (
+						<div key={v.id} className="empleado-item">
+							<span className="empleado-info">
+								<div className="empleado-nombre-estado">
+									<strong>{v.matricula}</strong>
+									<span className="categoria">{[v.tipo, v.marcaModelo].filter(Boolean).join(' · ') || '—'}</span>
+								</div>
+							</span>
+							<button type="button" className="btn btn-success" onClick={() => seleccionar(v)}>
+								<Plus size={14} /> Añadir
+							</button>
+						</div>
+					))}
+				</div>
+			)}
+		</div>
+	)
 }
 
 function App() {
@@ -1520,16 +1599,10 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 								)}
 							</div>
 
-							<div className="form-group">
-								<label className="form-label">Vehículos (matrículas):</label>
-								<input
-									type="text"
-									className="form-input"
-									value={editandoParte.vehiculos || ''}
-									onChange={(e) => handleEdicionChange('vehiculos', e.target.value)}
-									placeholder="Ej.: 1234-ABC, 5678-DEF (varias matrículas separadas por comas)"
-								/>
-							</div>
+							<CampoVehiculos
+								value={editandoParte.vehiculos || ''}
+								onChange={(v) => handleEdicionChange('vehiculos', v)}
+							/>
 
 							<div className="form-group">
 								<label className="form-label">Notas:</label>
@@ -2963,16 +3036,10 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 							)}
 						</div>
 
-						<div className="form-group">
-							<label className="form-label">Vehículos (matrículas):</label>
-							<input
-								type="text"
-								className="form-input"
-								value={formData.vehiculos}
-								onChange={(e) => setFormData({ ...formData, vehiculos: e.target.value })}
-								placeholder="Ej.: 1234-ABC, 5678-DEF (varias matrículas separadas por comas)"
-							/>
-						</div>
+						<CampoVehiculos
+							value={formData.vehiculos}
+							onChange={(v) => setFormData({ ...formData, vehiculos: v })}
+						/>
 
 						<div className="form-group">
 							<label className="form-label">Notas Adicionales:</label>

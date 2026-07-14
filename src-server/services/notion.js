@@ -35,7 +35,8 @@ const DATABASES = Object.freeze({
 	JEFE_OBRAS: '20882593a25781b4a3b9e0ff5589ea4e',
 	EMPLEADOS: '20882593a257814db882c4b70cb0cbab',
 	PARTES_TRABAJO: '20882593a25781258595e15abb37e87a',
-	DETALLES_HORA: '20882593a25781838da1fe6741abcfd9'
+	DETALLES_HORA: '20882593a25781838da1fe6741abcfd9',
+	VEHICULOS: 'fa4028b246494415aee021f3569ce8f8'
 })
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -274,6 +275,16 @@ function mapParte(page) {
 	}
 }
 
+function mapVehiculo(page) {
+	return {
+		id: page.id,
+		matricula: extractPropertyValue(page.properties['Matrícula']),
+		tipo: extractPropertyValue(page.properties['Tipo']),
+		marcaModelo: extractPropertyValue(page.properties['Marca / Modelo']),
+		estado: extractPropertyValue(page.properties['Estado'])
+	}
+}
+
 function mapDetalle(page) {
 	return {
 		id: page.id,
@@ -453,6 +464,20 @@ const PARTE_NO_EDITABLES = ['firmado', 'datos enviados', 'procesando']
 // Los dos estados "cerrados" (bloqueados para edición directa): el firmado
 // y el que ya tiene datos enviados/PDF generado.
 const PARTE_RECTIFICABLES = ['firmado', 'datos enviados']
+
+const vehiculos = {
+	/**
+	 * Búsqueda de vehículos por matrícula (title contains) para el
+	 * autocompletado del campo Vehículos del parte. Sin datos económicos.
+	 */
+	async buscar({ client, q, limite = 20 }) {
+		const data = await client.request('POST', `/databases/${DATABASES.VEHICULOS}/query`, {
+			filter: { property: 'Matrícula', title: { contains: q } },
+			page_size: limite
+		})
+		return data.results.map(mapVehiculo)
+	}
+}
 
 const partesTrabajo = {
 	async listar({ client }) {
@@ -796,5 +821,6 @@ module.exports = {
 	obras,
 	jefesObra,
 	empleados,
+	vehiculos,
 	partesTrabajo
 }

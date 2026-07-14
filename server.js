@@ -304,6 +304,27 @@ app.get('/api/empleados/buscar', async (req, res) => {
 	}
 })
 
+// Búsqueda de vehículos por matrícula (autocompletado del campo Vehículos del parte)
+app.get('/api/vehiculos/buscar', async (req, res) => {
+	try {
+		const limite = Math.min(Math.max(Number(req.query.limite) || 20, 1), 50)
+		const q = String(req.query.q || '').trim()
+		if (q.length < 2) {
+			return res.json([])
+		}
+		const cacheKey = `vehiculos-q:${q.toLowerCase()}:${limite}`
+		const cached = getCache(cacheKey)
+		if (cached) return res.json(cached)
+
+		const resultados = await data.vehiculos.buscar(q, { limite })
+		setCache(cacheKey, resultados)
+		res.json(resultados)
+	} catch (error) {
+		console.error('Error al buscar vehículos:', error.message)
+		res.status(500).json({ error: 'Error al buscar vehículos', details: error.message })
+	}
+})
+
 // Opciones válidas de Estado de empleados — refactorizado a data.js (ADR-002)
 app.get('/api/empleados/estado-opciones', async (req, res) => {
 	try {

@@ -179,6 +179,16 @@ export const getEmpleados = async () => {
 }
 
 // F5: búsqueda incremental de empleados por nombre (server-side)
+export const buscarVehiculos = async (q, limite = 20) => {
+	try {
+		const response = await apiClient.get('/api/vehiculos/buscar', { params: { q, limite } })
+		return response.data
+	} catch (error) {
+		console.error('Error al buscar vehículos:', error)
+		throw new Error(error.response?.data?.error || 'Error al buscar vehículos')
+	}
+}
+
 export const buscarEmpleados = async (q, limite = 20) => {
 	try {
 		if (!q || q.length < 3) return []
