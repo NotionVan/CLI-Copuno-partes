@@ -2,6 +2,8 @@
 
 Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen partes de trabajo diarios. Backend de datos en **Notion**, generación de PDFs y firma vía **Make.com**, hosting en **Vercel**.
 
+El contexto de negocio y las decisiones viven en `javintnvn/SB` (segundo cerebro).
+
 - **Producción:** https://partesobra.copuno.com
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
