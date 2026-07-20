@@ -1,7 +1,7 @@
 # Exportación de partes a CSV para Chorus (cuadrantes mensuales)
 
-**Última edición:** 2026-07-14
-**Estado:** procedimiento manual validado (junio 2026). Pendiente de sistematizar.
+**Última edición:** 2026-07-15
+**Estado:** formato validado por el cliente (15-07-2026). Pendiente de sistematizar el disparo mensual.
 **Script:** [`scripts/export-chorus-csv.py`](../scripts/export-chorus-csv.py)
 
 Documenta cómo se genera el CSV que Copuno (Tomeu) carga en sus **cuadrantes
@@ -45,6 +45,17 @@ codigo_obra,id_trabajador,horas,fecha
 20486,3435,9,01/06/2026
 ```
 
+**Reglas de contenido (no negociables):**
+1. **Una sola fila por `(codigo_obra, id_trabajador, fecha)`** — con las horas ya agregadas.
+   El CSV es *canónico*: la macro **sustituye** el valor de la celda, no suma. Así el
+   proceso es idempotente y un mes se puede reenviar corregido sin inflar el cuadrante.
+2. **Excluir los partes rectificados** (los que tienen `Rectificado por ` relleno).
+   Si no, sus horas se suman a las del rectificativo. Caso real: junio 2026, el
+   `Parte Las Palmas234` (45 h) convivía con su `Rectif.Parte Las Palmas236` (54 h)
+   y 5 trabajadores aparecían con 18 h el 1 de junio.
+3. **Excluir obras de prueba** (p. ej. Getares, `Código Obra` 123456): ese código no
+   existe en Chorus y solo genera "no encontrado" en la macro.
+
 **Decisiones de campo (importantes):**
 - `id_trabajador` = **`ID COPUNO`**, NO `ID Trabajador`. `ID Trabajador` es el
   `unique_id` autoincremental interno de Notion (~6400) y **no** casa con Chorus.
@@ -84,20 +95,39 @@ python3 scripts/export-chorus-csv.py 2026-06 Partes_junio_2026.csv
 
 El script (Notion API directa, sin SDK):
 1. Consulta `Partes de trabajo` filtrando `Fecha` dentro del mes.
-2. Por cada parte recorre su relación `Detalle Horas` → `Cantidad Horas` +
+2. **Descarta los partes rectificados** (`Rectificado por ` con valor) y avisa por
+   consola de cuáles ha excluido.
+3. Por cada parte restante recorre su relación `Detalle Horas` → `Cantidad Horas` +
    `Empleados` → `ID COPUNO`.
-3. Resuelve `Obras → Código Obra` (cacheado).
-4. Emite una fila por detalle, ordenado por fecha/obra/trabajador.
+4. Resuelve `Obras → Código Obra` (cacheado).
+5. Emite una fila por detalle, ordenado por fecha/obra/trabajador.
+
+> Pendiente menor: el script **no agrega todavía** por `(obra, trabajador, fecha)`.
+> Hoy no hace falta (junio salió con 0 claves repetidas tras excluir el rectificado),
+> pero si algún día hay dos partes legítimos del mismo trabajador, obra y día,
+> llegarían dos filas. Añadir la agregación cierra la regla 1 del §2 por construcción.
 
 Rinde ~1 llamada por parte + 1 por detalle + 1 por empleado/obra (cacheadas).
 Para un mes (~50 partes, ~260 detalles) tarda ~1–2 min. Si se sistematiza,
 conviene paralelizar o mover la lógica a un endpoint del servidor (§6).
 
-### Verificación junio 2026 (baseline)
-- 48 partes → **262 filas**. Cobertura 100% (código obra, ID COPUNO, horas, fecha).
-- Obras: Las Palmas (20486) 169 · Lentiscos (20422) 90 · Getares-Pruebas (123456) 3.
-- 14 trabajadores distintos, 22 días, 2.142 horas.
-- Getares (123456) es **obra de pruebas**: descartar en envíos reales si procede.
+### Verificación junio 2026 (baseline entregado)
+Cifras finales tras aplicar las reglas del §2 (fichero `Partes_junio_2026_FINAL.csv`):
+- 45 partes → **254 filas**, **2.083 h**. Cobertura 100% y **0 claves repetidas**.
+- Obras: Las Palmas (20486) 164 filas / 1.363 h · Lentiscos (20422) 90 / 720 h.
+- Excluidos: `Parte Las Palmas234` (rectificado, 45 h) y la obra de pruebas 123456.
+
+> Primera entrega (14-jul) fueron 262 filas / 2.142 h **con el bug del rectificado**.
+> Si Tomeu llegó a cargarla, hay que vaciar el rango del mes antes de recargar
+> (o confirmar que su macro sustituye en vez de sumar — ver regla 1 del §2).
+
+### Control de calidad recomendado antes de enviar
+Además de las reglas del §2, revisar **jornadas imposibles**: un mismo trabajador
+sumando >10 h entre todas sus obras en un mismo día suele delatar un parte cargado
+por duplicado contra dos obras. En junio 2026 aparecieron 6 casos (5 trabajadores
+con 9 h en Lentiscos **y** 9 h en Las Palmas el 01/06, más uno de 15 h el 25/06).
+La macro **no lo detecta** porque van a hojas distintas, pero Chorus lo reflejará
+en el resumen por trabajador.
 
 ---
 
@@ -142,6 +172,93 @@ Variantes que Tomeu podría pedir (fáciles de añadir al script):
 
 ---
 
+## 7. Vía alternativa: construir el CSV desde la exportación de Notion
+
+Cuándo usarla: cuando quien lo hace **no tiene acceso al token ni al script** (otra
+persona del equipo, o Javi desde un equipo sin el repo). Es más laboriosa y más
+frágil que la vía del script — leer los riesgos al final.
+
+### 7.1 Por qué no basta con exportar "Partes de trabajo"
+
+La exportación de `Partes de trabajo` da **una fila por parte**, con las horas ya
+agregadas por categoría (Oficial 1ª, Peón…). **No trae el desglose por trabajador**,
+que es justo lo que necesita el cuadrante. Ese desglose vive en `Detalle Horas`.
+
+### 7.2 Qué exportar
+
+Exportar **4 tablas** en CSV desde Notion (⋯ → Exportar → Markdown & CSV, **sin
+subpáginas**, marcando *incluir todas las propiedades* → genera el `_all.csv`):
+
+| Tabla | Para qué | Campos que interesan |
+|---|---|---|
+| **Detalle Horas** | Base del CSV — una fila por trabajador y parte | `Cantidad Horas`, `Fecha`, `Obra` (nombre), `Aux Empleado` (nombre), `Estado Parte`, `ID Parte Trabajo`, `Periodo de Cierre` |
+| **Partes de trabajo** | Saber qué partes están rectificados | `ID`, `Rectificado por ` |
+| **Empleados** | Traducir nombre → código Chorus | `Nombre Completo`, `ID COPUNO` |
+| **Obras** | Traducir nombre → código Chorus | `Obra - Codigo` (nombre), `Código Obra` |
+
+> ⚠️ `Detalle Horas` expone la obra y el empleado **por nombre, no por código**
+> (`Obra` = "Las Palmas", `Aux Empleado` = "JUAN CARLOS CRUZ BRICIO"). Por eso hacen
+> falta las exportaciones de Obras y Empleados para el cruce. Verificado por API 2026-07-15.
+
+### 7.3 Pasos
+
+1. **Filtrar el mes** en `Detalle Horas`: por `Periodo de Cierre` (formato `2026-06`)
+   o por `Fecha`. Es la tabla base; cada fila será una fila del CSV final.
+2. **Descartar rectificados**: cruzar `ID Parte Trabajo` contra la exportación de
+   `Partes de trabajo` y eliminar los detalles cuyo parte tenga `Rectificado por `
+   con valor. (Regla 2 del §2.)
+3. **Traducir la obra**: cruzar `Obra` (nombre) con `Obras.Obra - Codigo` → tomar
+   `Código Obra`. Descartar las obras de prueba.
+4. **Traducir el trabajador**: cruzar `Aux Empleado` (nombre) con
+   `Empleados.Nombre Completo` → tomar `ID COPUNO`.
+5. **Agregar** por `(codigo_obra, id_trabajador, fecha)` sumando `Cantidad Horas`,
+   para garantizar la regla 1 del §2 (una fila por combinación).
+6. **Emitir** las 4 columnas en este orden y con la fecha en `dd/mm/aaaa`:
+   `codigo_obra,id_trabajador,horas,fecha`
+7. **Comprobar antes de enviar**: cero claves `(obra, trabajador, fecha)` repetidas,
+   y ningún trabajador con más de ~10 h sumando todas las obras de un mismo día
+   (eso delata partes duplicados — ver §5).
+
+### 7.4 Riesgos de esta vía
+
+- **El cruce por nombre es frágil.** Es exactamente lo que obligó a la reconciliación
+  de mayo 2026 (`docs/revision_ids_empleados.csv`): hay nombres invertidos
+  ("JUAN FRANCISCO INFANTE ALONSO" vs "INFANTES ALONSO JUAN FRANCISCO"), tildes y
+  homónimos. Un cruce mal resuelto mete horas en el trabajador equivocado.
+- El script (§4) **no tiene este problema**: navega las relaciones de Notion y lee
+  `ID COPUNO` / `Código Obra` directamente, sin comparar texto.
+- **Recomendación:** usar el script siempre que se pueda; esta vía solo como respaldo.
+
+---
+
+## 8. Mejora propuesta en Notion (haría trivial la vía manual)
+
+Hoy los códigos no están accesibles desde `Detalle Horas`, y por eso hacen falta 4
+exportaciones y 3 cruces. Añadiendo **rollups** en el workspace del cliente, bastaría
+con **exportar una sola tabla**:
+
+| BD | Propiedad nueva | Cómo |
+|---|---|---|
+| `Partes de trabajo` | `Código Obra` (rollup) | Sobre la relación `Obras` → mostrar `Código Obra` |
+| `Detalle Horas` | `Código Obra` (rollup) | Sobre la relación `Partes de trabajo` → mostrar el rollup anterior |
+| `Detalle Horas` | `ID COPUNO` (rollup) | Sobre la relación `Empleados` → mostrar `ID COPUNO` |
+| `Detalle Horas` | `Parte rectificado` (rollup) | Sobre `Partes de trabajo` → contar `Rectificado por ` |
+
+Con eso, el procedimiento manual se reduce a: **exportar `Detalle Horas` filtrado por
+mes → descartar los marcados como rectificados → renombrar 4 columnas → agregar**.
+Sin cruces por nombre y sin las otras 3 exportaciones.
+
+> Es un cambio en el Notion del cliente: proponerlo a Efrén antes de tocarlo, y
+> verificar por API que los rollups quedan con el nombre exacto esperado.
+
+---
+
 ## Historial de cambios
+- **2026-07-15** — **Formato del CSV dado por bueno por el cliente.** Añadidas las
+  reglas de contenido del §2 (fila única por obra/trabajador/día + macro *sustituye*,
+  exclusión de rectificados y de obras de prueba). Corregido el script para excluir
+  partes con `Rectificado por `: junio pasa de 262 filas/2.142 h a 254/2.083 h.
+  Documentada la vía manual desde la exportación de Notion (§7) y propuesta la mejora
+  de rollups que la simplificaría (§8).
 - **2026-07-14** — Creación. Procedimiento validado con junio 2026 (262 filas).
   Script `scripts/export-chorus-csv.py`. CSV entregado a Javi para envío a Tomeu.

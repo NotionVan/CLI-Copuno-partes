@@ -77,8 +77,16 @@ def export(mes, salida):
         return obra_cache[oid]
 
     rows = []
+    excluidos = []
     for parte in partes:
         pp = parte["properties"]
+        # Excluir los partes RECTIFICADOS (los que tienen un rectificativo que los
+        # sustituye). Si no, sus horas se sumarían a las del rectificativo y el
+        # cuadrante quedaría inflado. OJO: el nombre lleva espacio final.
+        if pp.get("Rectificado por ", {}).get("relation", []):
+            a = pp.get("Nombre", {}).get("title", [])
+            excluidos.append(a[0]["plain_text"] if a else parte["id"])
+            continue
         fecha = (pp.get("Fecha", {}).get("date") or {}).get("start")
         obras_rel = pp.get("Obras", {}).get("relation", [])
         cod = obra(obras_rel[0]["id"]) if obras_rel else None
@@ -100,7 +108,9 @@ def export(mes, salida):
         w.writerow(["codigo_obra", "id_trabajador", "horas", "fecha"])
         for cod, idc, horas, fecha in rows:
             w.writerow([cod, idc, horas, dmy(fecha)])
-    print(f"OK -> {salida}  ({len(rows)} filas, {len(partes)} partes)")
+    print(f"OK -> {salida}  ({len(rows)} filas, {len(partes) - len(excluidos)} partes)")
+    if excluidos:
+        print(f"   Excluidos {len(excluidos)} parte(s) rectificado(s): {', '.join(excluidos)}")
 
 if __name__ == "__main__":
     mes = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y-%m")
