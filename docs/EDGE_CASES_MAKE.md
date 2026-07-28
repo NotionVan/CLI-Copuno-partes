@@ -17,9 +17,9 @@
 | E3 | ✅ **APLICADO 28-jul** (pend. E2E) — webhooks 2/4 y 3/4 sin data structure declarada | **Alta** | Sí — es la causa raíz de M8 |
 | E4 | Nombre de fichero sin sanear → caracteres inválidos en OneDrive | Media | No detectado aún |
 | E5 | ✅ **CORREGIDO 28-jul** — firma listaba solo 50 ficheros y la carpeta ya tiene ~61 PDFs | **Alta** | Umbral superado — habría fallado en silencio |
-| E8 | La limpieza borra el Word de partes aún sin firmar (10 en ese estado) | Media | Armado: días 1/6/10/15/20/25/30 |
+| E8 | La limpieza borra el Word de partes aún sin firmar (10 en ese estado) | Baja-Media | Javi lo lanza a mano — pero sigue programado |
 | E9 | Filtro del DataStore invertido: borra lo reciente, conserva lo viejo | Baja | — |
-| E10 | Envío al cliente: destinatario apunta a propiedad Notion inexistente | **Alta** | Sin ejecuciones — nunca ha funcionado |
+| E10 | Envío al cliente: destinatario apunta a propiedad Notion inexistente | Media | Funcionalidad **no operativa todavía** — a resolver antes de activarla |
 | E6 | Sincronización por `sleep(5s)` en PARTES2/4 | Media | No confirmado |
 | E7 | `Importe Total` viaja a Make pese al saneado económico de la app | Baja | Inconsistencia de política |
 
@@ -137,6 +137,8 @@ Comparación directa de los dos módulos que escriben JSON a mano:
 
 **El fallo:** borra **todos** los Word sin comprobar si su parte ya se firmó, y PARTES4/4 **necesita el `.docx`** para firmar (lo descarga y lo convierte a PDF). Programación: días `1, 6, 10, 15, 20, 25, 30` a las `18:27`. Un parte que quede pendiente de firma cruzando uno de esos días **pierde su documento de origen y ya no se puede firmar** — otra vez en silencio, porque el filtro del módulo 17 simplemente no casa. Hoy hay **10 partes en `Listo para firmar`**.
 
+**Aclaración de Javi (28-jul):** este escenario lo lanza él **a mano**, no confía en la programación, por lo que en la práctica controla cuándo se ejecuta y el riesgo es bajo. **Pero la programación sigue puesta**: verificado por API el 28-jul, `isActive: true`, `isPaused: false`, `nextExec: 2026-07-30T16:27Z`. Mientras eso siga así, puede dispararse sin que nadie lo lance. Conviene o quitar la programación (dejarlo realmente manual) o asumirla de forma consciente.
+
 **Fix:** añadir al filtro una condición de antigüedad (solo ficheros de más de N días), o mejor, borrar el Word desde PARTES4/4 justo tras generar el PDF firmado — el momento en que deja de hacer falta.
 
 **Nota de método:** este escenario se analizó primero como "borra todo, incluidos los PDF" — conclusión errónea. Los filtros de Make viven en la clave `filter` del módulo, fuera de `mapper`/`parameters`, y la extracción inicial no los leía. Corregido; los filtros de módulo de todos los escenarios activos están ahora inventariados.
@@ -168,7 +170,9 @@ Comparación directa de los dos módulos que escriben JSON a mano:
 - **Módulo muerto:** el `12` (`onedrive:searchFilesFolders`, `limit: 1`) busca el PDF, pero el `13` no usa su salida — vuelve a partir de `2.data.properties.\`AUX ID PDF Onedrive\``. Es una operación desperdiciada en cada envío.
 - **Filtro de cliente por `contains` sobre una relación:** `Obras |&*^%$#@| relation contains {{2.data.properties.Obras.relation[].id}}`. Si el parte tuviera varias obras, el array se aplana y el `contains` puede casar con clientes que no tocan → **el parte de un cliente podría acabar en el correo de otro**. Hoy no ocurre (ninguna obra tiene más de un cliente asignado, verificado), pero el filtro no lo garantiza; lo correcto es igualdad sobre un único id.
 
-**Fix:** apuntar el destinatario al campo de email correcto (decisión de negocio), eliminar el módulo 12 y cambiar el filtro a igualdad. **Validar en un entorno de prueba: es el único escenario que envía correo al exterior.**
+**Aclaración de Javi (28-jul):** la funcionalidad de envío al cliente **todavía no está operativa ni en uso**, así que hoy no hay riesgo de que un parte llegue a quien no debe. Queda como **requisito a resolver antes de ponerla en marcha**, no como incidencia activa.
+
+**Fix:** apuntar el destinatario al campo de email correcto (decisión de negocio: `Email Director/Delegado`, `Email Compras`, `Email persona Compras` o `Administración`), eliminar el módulo 12 y cambiar el filtro a igualdad. **Validar en un entorno de prueba antes de activarlo: es el único escenario que envía correo al exterior.**
 
 ---
 
@@ -212,9 +216,7 @@ Para no dar una falsa sensación de cobertura:
 
 Lo que queda, por orden:
 
-1. **E10** — la funcionalidad de envío al cliente está rota (destinatario inexistente) y nunca se ha usado. Requiere **decisión de negocio**: a cuál de los cuatro emails de la BD Clientes se manda. Es lo único que impacta a un tercero.
-2. **E8** — la limpieza puede dejar sin firmar un parte pendiente que cruce un día de barrido (1/6/10/15/20/25/30 a las 18:27). Hay 10 partes en ese estado.
-3. **E1** — token Notion en 5 sitios de 3 escenarios. Bloqueado por un paso manual en la UI de Make (editar la key `210119`).
+1. **E1** — token Notion en 5 sitios de 3 escenarios. Bloqueado por un paso manual en la UI de Make (editar la key `210119`).
 4. **E4** — acoplar 3/4↔4/4 por `AUX ID PDF Onedrive` en vez de por nombre. Cierra de raíz lo que E5 solo ha aplazado, y de paso el problema de caracteres inválidos.
 5. **E9, E6, E7** — cuando toque.
 
