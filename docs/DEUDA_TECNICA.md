@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-07-14 (noche — I6 CERRADO: 3 blueprints importados, scheduling revertido a instant, prueba E2E verificada (PDF muestra la matrícula), blueprints reexportados al repo)
+- **Última edición:** 2026-07-28 (tarde — M5 CERRADO por completo: el 400 `Bad control character` afectaba a PARTES1/4 **y PARTES2/4**, ambos resueltos con `escapeJSON()`, y los **5 partes ya están relanzados y funcionando**. Nuevo **M8 🟠 prioritario**: `Vehiculos del parte` llega vacío en PARTES2/4 → PDF sin matrículas. Siguen abiertos M6 (blueprint del repo) y M7 (saneado en servidor))
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -45,6 +45,10 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [M2](#m2--body-módulo-249-frágil-campos-numéricos-sin-fallback) | 🔵 | Body módulo 249: campos numéricos sin fallback + \n en Notas | ✅ | — | Cerrado 2026-06-20 |
 | [M3](#m3--webhook-partes44-eliminado--página-de-firma-rota) | 🔴 | Webhook PARTES4/4 eliminado → página firma devolvía 410 | ✅ | — | Cerrado 2026-06-18 |
 | [M4](#m4--n-en-notas-de-rectificativos-rompe-el-json-de-make--fix-raíz-en-servidor) | 🟠 | `\n` en Notas de rectificativos rompe JSON de Make (fix raíz en servidor) | ✅ | — | Cerrado 2026-06-20 |
+| [M5](#m5--reincidencia-del-400-bad-control-character-en-partes14-notas-multilínea-de-partes-normales) | 🟠 | Reincidencia 400 `Bad control character`: Notas multilínea de partes **normales** (M4 solo cubría rectificativos) | ✅ | — | Cerrado 2026-07-28 vía `escapeJSON()` en Make |
+| [M8](#m8--vehiculos-del-parte-llega-vacío-en-partes24-estructura-de-datos-del-webhook-8-sin-redeterminar) | 🟠 | `Vehiculos del parte` vacío en PARTES2/4 → PDF sin matrículas | ❌ | 0,5 h | **Prioritario** — funcionalidad facturada (v1.6.0/v1.7.0) que puede no estar llegando |
+| [M6](#m6--blueprint-partes14-del-repo-desactualizado-respecto-a-producción) | 🟡 | Blueprint PARTES1/4 del repo desactualizado (aún tiene el `replace` roto) | ❌ | 0,5 h | Reexportar desde la org del cliente |
+| [M7](#m7--el-saneado-de-notas-en-servidor-solo-cubre-la-ruta-rectificar) | 🔵 | Saneado de Notas en servidor solo cubre `rectificar`; crear/editar escriben crudo | ❌ | 0,5–1 h | Decidir: innecesario tras M5, o defensa en profundidad |
 
 Informativos en sección [aparte](#informativos).
 
@@ -602,6 +606,7 @@ Reglas por tipo de cambio:
 | 2026-06-20 | Claude Code + Javi Collado | **M4 cerrado + v1.3.3 — fix raíz `\n` en servidor + referencia al parte original.** La mitigación M2 (`replace` en Make) no era fiable (el editor de Make no sustituía el 0x0A real; 400 reincidente en parte 249 posición 378). Fix raíz movido al servidor: `notion.js`/`mockData.js` colapsan `[\n\r\t]` a espacio antes de escribir Notas. Nuevo requisito de negocio: todo rectificativo referencia al original → `PARTE RECTIFICATIVO DEL PARTE #<ID> — <notas>`. Parte 249 desbloqueado (Notas saneadas + IEQ vaciada, 14 bundles) → "Listo para firmar". Pendiente no bloqueante: refresco UI tras `replayed:true` + verificar `URL PDF` del 249. |
 | 2026-06-18 | Claude Code + Javi Collado | **M3 cerrado — webhook PARTES4/4 eliminado.** Webhook `cgh4ss6k73d5...` devolvía 410 Gone → página de firma rota (CORS + "Failed to fetch"). Creado nuevo webhook en Make (`qx6gv2yuia61...`), actualizado HTML de firma en WordPress. Código versionado en `docs/firma-parte.html`. |
 | 2026-06-18 | Claude Code + Javi Collado | **M1 cerrado — bug paginación Make PARTES1/4.** Módulos 9 y 15 del escenario "PARTES 1/4" convertidos de `POST .../query` (sin paginar, límite 100) a `GET /v1/pages/{id}` directo. BD de Obras tenía 133 registros → obras en posición >100 nunca llegaban al iterador → módulo 249 nunca se ejecutaba → escenario 2 sin datos → sin PDF ni firma. Verificado en producción con dos obras (Las Palmas pos.130, Lentiscos): 200 OK en módulo 249, escenario 2 recibe datos. Operaciones: 137 → 12 por ejecución. **M2 registrado** como deuda baja: body módulo 249 con campos numéricos sin fallback (no falla con partes reales, pero frágil). Blueprint del repo pendiente de actualizar con los cambios de producción. |
+| 2026-07-28 | Claude Code + Javi Collado | **M5 cerrado — reincidencia del 400 `Bad control character` en PARTES1/4 (org cliente `eu2`/`2014883`, escenario `5595847`).** 5 ejecuciones incompletas el 27/07/2026 (23:48–23:56), 3 reintentos agotados y `ExecutionInterruptedError` acumulando cola; partes 269, 272, 276 y otros dos, obra Lentiscos. Causa: JSON escrito a mano en el módulo HTTP con `{{replace(39.Notas; "\n"; " ")}}` — patrón que **no captura el 0x0A real** (mismo fallo que M2 y M4, tercera reincidencia). Fix: `escapeJSON()` en los 5 campos de texto libre (Obra, Cliente, Jefe de obra, Vehiculos, Notas); los saltos de línea ahora se conservan escapados en vez de perderse. **Hallazgo de causa:** el fix raíz de M4 solo cubría la ruta `rectificar` — `crear`/`actualizar` escriben `notas` crudas (`sanearTextoPlano` se aplica a `vehiculos`, no a `notas`) → por eso reincidió con partes ordinarios. Abiertos dos hallazgos derivados: **M6** (blueprint PARTES1/4 del repo aún contiene el `replace` roto → reimportarlo reintroduciría el bug) y **M7** (decidir si el saneado en servidor sigue teniendo sentido tras `escapeJSON`, o si conviene dejar de mutilar los saltos de línea del usuario). **Alcance ampliado (28/07 tarde):** el fallo afectaba también a **PARTES2/4** (id `5595873`, módulo #37 "Envío a automatización 3"), el otro escenario de la cadena que escribe JSON a mano; PARTES3/4 (`5682485`) y PARTES4/4 (`5682572`) quedan fuera porque usan mapeo nativo. `escapeJSON()` aplicado en ambos. **Excepción registrada:** `"Detalle del parte": [{{2.text}}]` de PARTES2/4 **no** se escapa — es estructura JSON del Text aggregator y escaparla rompería el body. Corregido también un dato: el parte **293 es de la obra Las Palmas**, no Lentiscos. **Nuevo hallazgo M8 🟠:** al tocar PARTES2/4 se detectó que `Vehiculos del parte` figura como variable desconocida en el webhook #8 y resuelve vacío → el PDF puede estar saliendo sin matrículas, justo la funcionalidad de v1.6.0/v1.7.0 que I6 dio por verificada el 14/07. **Confirmado el 28/07 11:10:** los reintentos desde la cola **no aplican el arreglo** — cada ejecución incompleta guarda copia del blueprint vigente al fallar; el reintento de `ffe9fc8569d94b1d9cc9d8ab1b99acb4` volvió a dar el mismo error, y Make no ofrece "reintentar con la versión actual". **Recuperación completada el 28/07:** los 5 partes (269, 272, 276, 278 de Lentiscos y 293 de Las Palmas) fueron relanzados desde Notion y funcionan correctamente; queda validada la vía de recuperación frente al reintento desde cola. |
 | 2026-07-01 | Claude Code | **v1.4.0/v1.4.1 — Añadir empleado por ID/nombre en edición de partes.** Extiende F2/F5 (Etapa 2/3, antes solo en `CrearParte`) a la edición (`ConsultaPartes`): campo de búsqueda con debounce 300 ms que detecta ID Copuno (3-6 dígitos, `buscarEmpleadoPorId`) o nombre (`buscarEmpleados`), muestra sugerencias con botón "Añadir" y reutiliza `toggleEmpleado()` sin tocar el payload de `guardarCambios()`. Caché local `empleadosAñadidosDetalleEdicion` resuelve nombre/categoría aunque el empleado no esté en los primeros 100 de `datos.empleados`. Sin cambios en server.js/notion.js/Make. Regression-checker: 🟡 GO con cautela — señala que, igual que en creación, no hay validación que impida añadir por ID a un empleado de otra obra (no es regresión nueva, es paridad con el comportamiento ya existente en `CrearParte`); pendiente decidir con Efrén si debe bloquearse. Solicitado fuera de scope del retainer según `scope-guardian` (`.claude/scope-rules.md` ya lo tenía presupuestado en 18h/1.800€); implementado igualmente a petición explícita de Javi Collado. Bump 1.3.3 → 1.4.0 → 1.4.1. Changelogs: [CHANGELOG_V1.4.0.md](../CHANGELOG_V1.4.0.md), [CHANGELOG_V1.4.1.md](../CHANGELOG_V1.4.1.md). |
 
 ---
@@ -655,6 +660,101 @@ Reglas por tipo de cambio:
   3. Paridad aplicada en `mock/mockData.js`.
 - **Desbloqueo del parte 249:** Notas saneadas vía API Notion (`\n` → ` `), estado reseteado a Borrador, IEQ de PARTES1/4 vaciada (14 bundles con JSON pre-computado roto eliminados — un "Resolve" reintenta el bundle guardado, no re-evalúa la plantilla). Reenvío desde la app → parte avanzó a "Listo para firmar".
 - **Pendiente (no bloqueante):** (a) el frontend no refresca el estado tras una respuesta `replayed: true` del store de idempotencia → muestra estado obsoleto (Borrador) aunque Notion ya avanzó; registrado como observación, fix aparte. (b) verificar que PARTES3/4 grabó `URL PDF` en Notion para el 249 (estaba vacío en la última lectura).
+- **Reincidió:** ver [M5](#m5--reincidencia-del-400-bad-control-character-en-partes14-notas-multilínea-de-partes-normales) (2026-07-28). El fix de M4 solo cubría la ruta `rectificar`; las Notas de partes normales seguían llegando crudas a Notion.
+
+---
+
+#### M5 — Reincidencia del 400 `Bad control character` en PARTES1/4: Notas multilínea de partes normales
+
+- **Estado:** ✅ Cerrado 2026-07-28
+- **Detectado:** 2026-07-28 (mañana, al revisar la cola de incompletas de la noche anterior)
+- **Severidad:** 🟠
+- **Dónde:** Make, **org del cliente** (`eu2.make.com`, org `2014883`). Afecta a **los dos escenarios de la cadena que construyen el body JSON a mano**:
+  - **PARTES1/4 – Recojo cabecera del parte** (id `5595847`) → módulo **#249** *"Envía Datos a automat. 2"* (HTTP legacy, POST a `hook.eu2.make.com/nsk6ov…`)
+  - **PARTES2/4 – Recupero detalles parte** (id `5595873`) → módulo **#37** *"Envío a automatización 3"*
+
+  **NO afectados:** PARTES3/4 (id `5682485`) y PARTES4/4 (id `5682572`) — usan mapeo nativo de campos (Drive / PDF / Notion), no JSON escrito a mano.
+  > Nota de entorno: los escenarios duplicados en la org personal *Javi & Tamara* (`eu1.make.com`, org `581441`; PARTES1/4 = id `3218313`) son **backup**, no producción. El fix se aplicó sobre la org del cliente.
+- **Síntoma:** 5 ejecuciones incompletas el 27/07/2026 entre 23:48 y 23:56, todas con los 3 reintentos agotados y el mismo error en el módulo HTTP:
+  - `Error: 400 Bad Request`
+  - `Bad control character in string literal in JSON at position N` (líneas **16 | 19 | 20 | 21**, columna 23 — la línea varía según el escenario y el campo que rompe)
+  - `Code: DataError`
+
+  Agotados los reintentos, el manejador *Flow Control → Retry* devolvía `ExecutionInterruptedError` ("Not allowed to create another incomplete execution unless the issue is solved"), por lo que las ejecuciones se acumulaban en la cola de incompletas. Partes implicados: **269**, **272**, **276** y **278** (obra Lentiscos) y **293** (obra **Las Palmas**) — todos del cliente COPUNO. Tabla completa en el *Pendiente* de abajo.
+- **Causa raíz:** el cuerpo de la petición se construye como **JSON escrito a mano** (Body type: Raw, Content-type: `application/json`). El campo `"Notas del parte"` (línea 16) se alimenta de `39.Notas`, texto libre procedente de Notion que contiene saltos de línea reales (`\n` / `\r`). Un carácter de control sin escapar dentro de una cadena invalida el JSON y el webhook receptor responde 400.
+
+  El saneado que había previsto, `replace(39.Notas; "\n"; " ")`, **no funcionaba**: en Make ese `"\n"` se interpreta como el texto literal barra-invertida + `n`, no como el byte 0x0A, así que el `replace` nunca encontraba nada que sustituir. Es exactamente el mismo fallo ya diagnosticado en [M2](#m2--body-módulo-249-frágil-campos-numéricos-sin-fallback) y [M4](#m4--n-en-notas-de-rectificativos-rompe-el-json-de-make--fix-raíz-en-servidor). Por eso solo fallaban los partes con notas de varias líneas; los de nota en una sola línea pasaban sin problema.
+- **Por qué reincidió pese a M4:** el fix raíz de M4 (2026-06-20) sanea las Notas **únicamente en la ruta `rectificar`** ([notion.js](../src-server/services/notion.js) función `rectificar`) y en `mock/mockData.js`. Las rutas de **creación** ([notion.js](../src-server/services/notion.js) `crear`) y **edición** (`actualizar`) escriben `notas` **tal cual llegan del cliente**: en [server.js](../server.js) el helper `sanearTextoPlano` se aplica a `vehiculos`, **no a `notas`**. Conclusión: M4 tapó el caso rectificativo y dejó abierto el caso general — que es el que ha estallado ahora con partes ordinarios de Lentiscos.
+- **Solución aplicada (2026-07-28):** se sustituye el saneado manual por la función nativa `escapeJSON()`, que escapa comillas, barras invertidas y caracteres de control conforme a JSON, aplicada a **todos** los campos de texto libre del cuerpo:
+
+  | Campo | Antes | Después |
+  |---|---|---|
+  | `Obra` | `{{32.Obra}}` | `{{escapeJSON(32.Obra)}}` |
+  | `Cliente` | `{{39.Cliente}}` | `{{escapeJSON(39.Cliente)}}` |
+  | `Jefe de obra` | `{{26.Este es el Jefe de obra}}` | `{{escapeJSON(26.Este es el Jefe de obra)}}` |
+  | `Vehiculos del parte` | `{{39.Vehiculos}}` | `{{escapeJSON(39.Vehiculos)}}` |
+  | `Notas del parte` | `{{replace(39.Notas; "\n"; " ")}}` | `{{escapeJSON(39.Notas)}}` |
+
+  **Qué NO se escapa (importante):**
+  - Campos **numéricos** → mantienen `ifempty(…; 0)`.
+  - `Fecha Parte` e `ID Pag Notion Parte` → formato controlado, no es texto libre.
+  - `"Detalle del parte": [{{2.text}}]` en PARTES2/4 → **es estructura JSON generada por el Text aggregator, no una cadena**. Envolverlo en `escapeJSON()` escaparía los corchetes y comillas del propio array y **rompería el body**.
+
+  **Mejora colateral:** las notas conservan ahora sus saltos de línea, correctamente escapados como `\n` dentro del JSON, en lugar de perderse — a diferencia del saneado de M4, que los colapsaba a espacio.
+- **Regla para el futuro:** todo valor de **texto libre** que se inserte en un JSON escrito a mano en Make debe ir envuelto en `escapeJSON()`. Alternativa preferible en módulos nuevos: construir el cuerpo con el módulo **JSON → Create JSON** (con Data structure), que escapa automáticamente. **No usar `replace(texto; "\n"; " ")` como saneado** — no captura saltos de línea reales (tercera vez que este patrón falla: M2, M4, M5).
+- **⚠️ Los reintentos desde la cola NO aplican el arreglo (confirmado empíricamente):** cada ejecución incompleta de Make guarda **una copia congelada del blueprint vigente en el momento del fallo**. Reintentarla desde la cola reejecuta esa copia, con el mapeo antiguo `replace(39.Notas; "\n"; " ")` — no la plantilla corregida. Verificado el **28/07/2026 11:10** reintentando la ejecución `ffe9fc8569d94b1d9cc9d8ab1b99acb4`: falló con el mismo error. **Make no ofrece ninguna opción de "reintentar con la versión actual" en la UI**, y además **cada intento consume una operación** del plan. Es el mismo comportamiento ya observado en M4 con la IEQ (14 bundles con JSON pre-computado roto), ahora confirmado también para la cola de incompletas.
+- **✅ Recuperación completada (2026-07-28):** los **5 partes fueron relanzados desde Notion y funcionan correctamente**. Se confirma así la vía de recuperación: borrar/resolver las entradas de la cola de incompletas y **volver a disparar el webhook desde Notion**, de modo que la ejecución nazca de cero con el blueprint corregido (reintentar desde la cola nunca habría funcionado — ver punto anterior).
+
+  | Parte | Fecha | Obra | ID página Notion |
+  |---|---|---|---|
+  | 269 | 11-06-2026 | Lentiscos | `39282593-a257-8102-8522-ec82f2105ed5` |
+  | 272 | 16-06-2026 | Lentiscos | `39282593-a257-81ef-8dcd-c16e603d3c7b` |
+  | 276 | 22-06-2026 | Lentiscos | `39282593-a257-8153-a571-ea062e40587e` |
+  | 278 | 24-06-2026 | Lentiscos | `39282593-a257-810d-ae03-ddeb2e603889` |
+  | 293 | 07-07-2026 | **Las Palmas** | `39e82593-a257-813a-a5eb-f2b223ca2ab0` |
+
+---
+
+#### M8 — `Vehiculos del parte` llega vacío en PARTES2/4: estructura de datos del webhook #8 sin redeterminar
+
+- **Estado:** ❌ Abierto
+- **Detectado:** 2026-07-28 (al aplicar el fix de [M5](#m5--reincidencia-del-400-bad-control-character-en-partes14-notas-multilínea-de-partes-normales) sobre PARTES2/4)
+- **Severidad:** 🟠
+- **Coste estimado:** 0,5 h
+- **Dónde:** Make, org del cliente, **PARTES2/4 – Recupero detalles parte** (id `5595873`), **webhook #8**.
+- **Qué:** el campo `Vehiculos del parte` aparece en el mapeo como **variable desconocida** y **resuelve vacío**. La estructura de datos del webhook no se ha redeterminado tras los cambios de payload, así que Make no reconoce el campo que le llega.
+- **Impacto:** las matrículas viajan por la cadena pero **se pierden en el tramo 2/4**. Aguas abajo, PARTES3/4 monta el PDF con el dato vacío → **el parte se genera sin vehículos**. Es justo la funcionalidad que se entregó en v1.6.0/v1.7.0 (relación `Vehiculos ` + espejo de texto) y que I6 dio por verificada el 14/07 con una prueba E2E en la que *"el PDF muestra la matrícula"*. Conviene comprobar si esto es una regresión posterior o si afecta solo a ciertos partes.
+- **Recomendación:** ejecutar *Redetermine data structure* en el webhook #8 con un payload real, volver a mapear `Vehiculos del parte` y validar E2E que la matrícula aparece en el PDF. Media hora. **Prioridad alta pese a la severidad 🟠**: es funcionalidad facturada que hoy podría no estar llegando al cliente.
+
+---
+
+#### M6 — Blueprint PARTES1/4 del repo desactualizado respecto a producción
+
+- **Estado:** ❌ Abierto
+- **Detectado:** 2026-07-28 (durante la documentación de [M5](#m5--reincidencia-del-400-bad-control-character-en-partes14-notas-multilínea-de-partes-normales))
+- **Severidad:** 🟡
+- **Coste estimado:** 0,5 h
+- **Dónde:** [docs/Escenarios Make/PARTES1-4 - Recojo cabecera del parte.blueprint.json](Escenarios%20Make/PARTES1-4%20-%20Recojo%20cabecera%20del%20parte.blueprint.json)
+- **Qué:** el blueprint versionado en el repo **todavía contiene `{{replace(39.Notas; …)}}`**, el saneado roto que causó M5. No refleja el `escapeJSON()` aplicado en producción. El `CLAUDE.md` declara que estos blueprints son "la referencia canónica del lado Make" y que "el escenario activo en producción debe coincidir con estos archivos" — hoy no coinciden.
+- **Riesgo:** si alguien reimporta el blueprint del repo para restaurar o clonar el escenario, **reintroduce el bug de M5**. Es un rastrillo esperando a que lo pisen.
+- **Recomendación:** reexportar PARTES1/4 desde la org del cliente (`eu2`, org `2014883`) y sustituir el archivo. Aprovechar para verificar si M1 (paginación, cerrado 2026-06-18) sí está reflejado, ya que aquel cierre dejó anotado "blueprint del repo pendiente de actualizar" — indicio de que el drift viene de antes.
+
+---
+
+#### M7 — El saneado de Notas en servidor solo cubre la ruta `rectificar`
+
+- **Estado:** ❌ Abierto (decisión pendiente)
+- **Detectado:** 2026-07-28 (análisis de causa de [M5](#m5--reincidencia-del-400-bad-control-character-en-partes14-notas-multilínea-de-partes-normales))
+- **Severidad:** 🔵
+- **Coste estimado:** 0,5–1 h
+- **Dónde:** [server.js](../server.js) (`sanearTextoPlano`, aplicado a `vehiculos` en las líneas de `crear` y `actualizar`) + [src-server/services/notion.js](../src-server/services/notion.js) (`crear` / `actualizar` escriben `'Notas': notas || ''`).
+- **Qué:** asimetría de saneado. `vehiculos` pasa por `sanearTextoPlano`; `notas` no. Solo la ruta `rectificar` limpia caracteres de control.
+- **Decisión a tomar:** con `escapeJSON()` ya en Make (M5), **el saneado en servidor deja de ser necesario** para evitar el 400 — y de hecho es *peor*, porque destruye los saltos de línea que el usuario escribió a propósito. Dos caminos:
+  1. **Recomendado — no tocar nada y dejarlo documentado:** Make ya escapa correctamente; el servidor no debe mutilar el texto del usuario. Se cierra M7 como "no aplica".
+  2. **Defensa en profundidad:** aplicar saneado también en crear/editar, aceptando la pérdida de saltos de línea, por si algún otro consumidor construye JSON a mano.
+
+  Nota: si se elige (1), conviene además **revisar el colapso `[\n\r\t] → ' '` que M4 dejó en `rectificar`**, que hoy sigue destruyendo saltos de línea sin necesidad.
+- **Recomendación:** opción (1). Registrar y cerrar en la próxima revisión.
 
 ---
 
