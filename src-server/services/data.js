@@ -205,6 +205,32 @@ const vehiculos = {
 	}
 }
 
+const exportaciones = {
+	/**
+	 * Contexto del rango: partes rectificados (a excluir) y recuento por estado
+	 * (para avisar de partes sin firmar). Ver docs/EXPORT_CHORUS_CSV.md.
+	 */
+	async contextoRango({ desde, hasta }) {
+		requireInit()
+		if (state.mode === 'mock') return { rectificadosIds: [], estados: {} }
+		return notion.exportaciones.contextoRango({ client: state.notionClient, desde, hasta })
+	},
+
+	/**
+	 * Una página de filas del CSV de Chorus. El cliente itera con `cursor` hasta
+	 * `done`, para que ninguna petición se acerque al timeout serverless.
+	 */
+	async chorusPagina({ desde, hasta, cursor, rectificadosIds }) {
+		requireInit()
+		if (state.mode === 'mock') {
+			return { filas: [], incidencias: [], descartadas: { rectificadas: 0, prueba: 0 }, leidos: 0, cursor: null, done: true }
+		}
+		return notion.exportaciones.chorusPagina({
+			client: state.notionClient, desde, hasta, cursor, rectificadosIds
+		})
+	}
+}
+
 const partesTrabajo = {
 	async listar() {
 		requireInit()
@@ -354,5 +380,6 @@ module.exports = {
 	jefesObra,
 	empleados,
 	vehiculos,
-	partesTrabajo
+	partesTrabajo,
+	exportaciones
 }

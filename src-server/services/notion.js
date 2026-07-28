@@ -489,6 +489,263 @@ function buildVehiculosProps(vehiculosTexto, vehiculosIds) {
 	}
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Exportación a CSV para los cuadrantes de Chorus (macro de Copuno)
+//
+// Contrato del CSV y reglas de negocio: docs/EXPORT_CHORUS_CSV.md
+//
+// POR QUÉ SE PAGINA: no se puede resolver un mes entero en una sola petición
+// HTTP. Atacar `Partes de trabajo` parte a parte cuesta ~300 llamadas (1-2 min).
+// Incluso atacando `Detalle Horas` directamente, un mes de 3 obras son ~11 s y el
+// crecimiento previsto (de 3 a 140 obras) lo multiplica. Por eso el endpoint
+// devuelve UNA página de Notion por llamada y el cliente itera: cada request
+// queda muy por debajo del timeout de la función serverless, sea cual sea el plan.
+//
+// La agregación final por (obra, trabajador, fecha) la hace el cliente cuando ya
+// tiene todas las páginas — es la única parte que necesita ver el conjunto entero.
+// ────────────────────────────────────────────────────────────────────────────
+
+// Cache de resolución de páginas por ID (empleado/obra). Los mismos IDs se
+// repiten muchísimo entre páginas de detalles (en junio 2026: 17 empleados para
+// 260 detalles), así que la primera página resuelve casi todo y el resto es
+// prácticamente gratis. TTL amplio: son datos maestros que cambian poco y una
+// exportación completa puede durar más que el TTL de catálogos (30 s).
+const RESOLUCION_TTL_MS = 10 * 60 * 1000
+const resolucionCache = new Map()
+
+// IDs de propiedad para `filter_properties`: Notion devuelve TODAS las propiedades
+// de cada página salvo que se le pidan explícitamente unas pocas, y estas BDs tienen
+// ~60 propiedades. Acotarlas baja el payload de un mes de 410 KB a 37 KB y el tiempo
+// de 3,9 s a 0,6 s (medido sobre junio 2026). Los IDs son estables aunque se renombre
+// la propiedad; vienen ya URL-encoded tal y como los devuelve la API.
+// Obtenerlos con: GET /v1/databases/<id> → .properties['<nombre>'].id
+const PROPS_EXPORT = Object.freeze({
+	PARTES: ['vFUO', 'i~K%3E'], // Estado, 'Rectificado por '
+	DETALLES: ['T_%5Bi', 'A%7DJl', '%3BpXM', 'HF%5Dc', 'rerm'], // Cantidad Horas, Fecha, Empleados, Partes de trabajo, AUX Obra del parte
+	EMPLEADOS: ['ttZi', 'title'], // ID COPUNO, Nombre Completo
+	OBRAS: ['hNqa', 'title'] // Código Obra, Obra - Codigo
+})
+
+/** Añade filter_properties a un endpoint (los IDs ya vienen URL-encoded). */
+function conProps(endpoint, propIds) {
+	const sep = endpoint.includes('?') ? '&' : '?'
+	return endpoint + sep + propIds.map(id => `filter_properties=${id}`).join('&')
+}
+
+function getResuelto(id) {
+	const e = resolucionCache.get(id)
+	if (!e) return undefined
+	if (Date.now() - e.ts > RESOLUCION_TTL_MS) {
+		resolucionCache.delete(id)
+		return undefined
+	}
+	return e.value
+}
+
+function setResuelto(id, value) {
+	resolucionCache.set(id, { ts: Date.now(), value })
+}
+
+/** Resuelve N páginas por ID con concurrencia acotada (evita ráfagas a Notion). */
+async function resolverPaginas({ client, ids, mapear, propIds, concurrencia = 5 }) {
+	const pendientes = ids.filter(id => getResuelto(id) === undefined)
+	for (let i = 0; i < pendientes.length; i += concurrencia) {
+		const lote = pendientes.slice(i, i + concurrencia)
+		const paginas = await Promise.all(
+			lote.map(id => client.request('GET', conProps(`/pages/${id}`, propIds)).catch(() => null))
+		)
+		lote.forEach((id, idx) => setResuelto(id, paginas[idx] ? mapear(paginas[idx]) : null))
+	}
+	const salida = new Map()
+	ids.forEach(id => salida.set(id, getResuelto(id)))
+	return salida
+}
+
+/** Primer id de una relación, o null. */
+function primeraRelacion(property) {
+	const rel = property?.relation
+	return Array.isArray(rel) && rel[0] ? rel[0].id : null
+}
+
+/** Primer id de una relación que viaja dentro de un rollup array, o null. */
+function primeraRelacionEnRollup(property) {
+	const array = property?.rollup?.array
+	if (!Array.isArray(array)) return null
+	for (const item of array) {
+		if (Array.isArray(item.relation) && item.relation[0]) return item.relation[0].id
+	}
+	return null
+}
+
+const exportaciones = {
+	/**
+	 * Contexto del rango, necesario para filtrar y avisar. Se calcula UNA vez
+	 * (en la primera página) y el endpoint lo cachea para las siguientes.
+	 *
+	 * - `rectificadosIds`: partes con `Rectificado por ` relleno. Sus horas las
+	 *   sustituye el rectificativo; incluirlos duplicaría la jornada.
+	 * - `estados`: recuento por estado para avisar de partes sin firmar.
+	 */
+	async contextoRango({ client, desde, hasta }) {
+		const rectificadosIds = new Set()
+		const estados = {}
+		let cursor
+		do {
+			const body = {
+				filter: {
+					and: [
+						{ property: 'Fecha', date: { on_or_after: desde } },
+						{ property: 'Fecha', date: { on_or_before: hasta } }
+					]
+				},
+				page_size: 100
+			}
+			if (cursor) body.start_cursor = cursor
+			const data = await client.request(
+				'POST',
+				conProps(`/databases/${DATABASES.PARTES_TRABAJO}/query`, PROPS_EXPORT.PARTES),
+				body
+			)
+			for (const page of data.results) {
+				const estado = page.properties?.Estado?.status?.name || 'Sin estado'
+				estados[estado] = (estados[estado] || 0) + 1
+				// OJO: el nombre de la propiedad lleva un espacio final.
+				const rectificadoPor = page.properties['Rectificado por ']?.relation
+				if (Array.isArray(rectificadoPor) && rectificadoPor.length > 0) {
+					rectificadosIds.add(page.id)
+				}
+			}
+			cursor = data.has_more ? data.next_cursor : null
+		} while (cursor)
+
+		return { rectificadosIds: Array.from(rectificadosIds), estados }
+	},
+
+	/**
+	 * Devuelve UNA página de filas listas para el CSV.
+	 *
+	 * Ataca `Detalle Horas` (no `Partes de trabajo`) porque es la única tabla con
+	 * el desglose por trabajador, y se puede filtrar por su fórmula `Fecha`.
+	 */
+	async chorusPagina({ client, desde, hasta, cursor, rectificadosIds = [] }) {
+		const rectificados = new Set(rectificadosIds)
+
+		const body = {
+			filter: {
+				and: [
+					{ property: 'Fecha', formula: { date: { on_or_after: desde } } },
+					{ property: 'Fecha', formula: { date: { on_or_before: hasta } } }
+				]
+			},
+			page_size: 100
+		}
+		if (cursor) body.start_cursor = cursor
+
+		const data = await client.request(
+			'POST',
+			conProps(`/databases/${DATABASES.DETALLES_HORA}/query`, PROPS_EXPORT.DETALLES),
+			body
+		)
+
+		// Los detalles traen la obra y el empleado por RELACIÓN (id de página), no
+		// por código. Hay que resolver esas páginas para leer `Código Obra` e
+		// `ID COPUNO`, que son los que casan con Chorus.
+		const crudos = data.results.map(page => {
+			const p = page.properties
+			return {
+				parteId: primeraRelacion(p['Partes de trabajo']),
+				empleadoId: primeraRelacion(p['Empleados']),
+				obraId: primeraRelacionEnRollup(p['AUX Obra del parte']),
+				horas: p['Cantidad Horas']?.number ?? null,
+				// `Fecha` es una fórmula de tipo date: extractPropertyValue no cubre
+				// ese caso (solo string/number/boolean), así que se lee directamente.
+				// Notion puede devolverla como 'AAAA-MM-DD' o con hora completa
+				// ('AAAA-MM-DDT00:00:00.000+00:00'): se normaliza SIEMPRE a AAAA-MM-DD.
+				fecha: (p['Fecha']?.formula?.date?.start || '').slice(0, 10) || null
+			}
+		})
+
+		const empleadoIds = [...new Set(crudos.map(d => d.empleadoId).filter(Boolean))]
+		const obraIds = [...new Set(crudos.map(d => d.obraId).filter(Boolean))]
+
+		const [mapaEmpleados, mapaObras] = await Promise.all([
+			resolverPaginas({
+				client,
+				ids: empleadoIds,
+				propIds: PROPS_EXPORT.EMPLEADOS,
+				// `ID COPUNO` puede venir vacío: se conserva null a propósito para
+				// poder reportarlo como incidencia (extractPropertyValue lo volvería 0).
+				mapear: page => ({
+					idCopuno: page.properties['ID COPUNO']?.number ?? null,
+					nombre: page.properties['Nombre Completo']?.title?.[0]?.plain_text || ''
+				})
+			}),
+			resolverPaginas({
+				client,
+				ids: obraIds,
+				propIds: PROPS_EXPORT.OBRAS,
+				mapear: page => ({
+					codigo: page.properties['Código Obra']?.number ?? null,
+					nombre: page.properties['Obra - Codigo']?.title?.[0]?.plain_text || ''
+				})
+			})
+		])
+
+		const filas = []
+		const incidencias = []
+		let descartadasRectificadas = 0
+		let descartadasPrueba = 0
+
+		for (const d of crudos) {
+			if (d.parteId && rectificados.has(d.parteId)) {
+				descartadasRectificadas++
+				continue
+			}
+			const empleado = d.empleadoId ? mapaEmpleados.get(d.empleadoId) : null
+			const obra = d.obraId ? mapaObras.get(d.obraId) : null
+
+			// Obras de prueba: su código no existe en Chorus y la macro solo daría
+			// un "no encontrado". Se descartan por nombre, no por código hardcodeado.
+			if (obra && /prueba/i.test(obra.nombre || '')) {
+				descartadasPrueba++
+				continue
+			}
+
+			const faltan = []
+			if (!obra || obra.codigo === null) faltan.push('código de obra')
+			if (!empleado || empleado.idCopuno === null) faltan.push('ID trabajador')
+			if (d.horas === null) faltan.push('horas')
+			if (!d.fecha) faltan.push('fecha')
+
+			if (faltan.length > 0) {
+				incidencias.push({
+					obra: obra?.nombre || '(sin obra)',
+					trabajador: empleado?.nombre || '(sin trabajador)',
+					fecha: d.fecha || '',
+					falta: faltan.join(', ')
+				})
+				continue
+			}
+
+			filas.push({
+				codigo_obra: obra.codigo,
+				id_trabajador: empleado.idCopuno,
+				horas: d.horas,
+				fecha: d.fecha // ISO; el formato dd/mm/aaaa se aplica al serializar
+			})
+		}
+
+		return {
+			filas,
+			incidencias,
+			descartadas: { rectificadas: descartadasRectificadas, prueba: descartadasPrueba },
+			leidos: crudos.length,
+			cursor: data.has_more ? data.next_cursor : null,
+			done: !data.has_more
+		}
+	}
+}
+
 const vehiculos = {
 	/**
 	 * Búsqueda de vehículos por matrícula (title contains) para el
@@ -898,5 +1155,6 @@ module.exports = {
 	jefesObra,
 	empleados,
 	vehiculos,
-	partesTrabajo
+	partesTrabajo,
+	exportaciones
 }

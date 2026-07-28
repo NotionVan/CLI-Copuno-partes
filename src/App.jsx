@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw, X, Truck } from 'lucide-react'
-import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId, buscarVehiculos } from './services/notionService'
+import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw, X, Truck, Download, AlertTriangle } from 'lucide-react'
+import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId, buscarVehiculos, exportarChorus, componerCsvChorus } from './services/notionService'
 
 // F4: helpers para agrupar firmantes por rol en el selector
 const ROLES_ORDEN = ['Encargado', 'Jefe de Obra', 'Jefe de Producción', 'Otros']
@@ -144,6 +144,234 @@ function vehiculosDelParte(parte) {
 	return ids.map((id, i) => ({ id, matricula: matriculas[i] || `Vehículo ${i + 1}` }))
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Exportación de partes al CSV de los cuadrantes de Chorus.
+// Contrato del CSV y reglas de negocio: docs/EXPORT_CHORUS_CSV.md
+// ────────────────────────────────────────────────────────────────────────────
+
+const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+const hoyISO = () => {
+	const d = new Date()
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Por defecto: día 1 del mes en curso → hoy. Petición expresa de Tomeu, para
+// evitar mezclar meses y cerrar por error un mes ya cargado en Chorus.
+const primerDiaDelMesISO = () => {
+	const d = new Date()
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+}
+
+const mesAnyo = (iso) => iso.slice(0, 7) // 'AAAA-MM'
+
+/** Partes_MM-AAAA.csv; si el rango cruza meses, Partes_MM-AAAA_a_MM-AAAA.csv */
+const nombreFicheroCsv = (desde, hasta) => {
+	const fmt = (iso) => `${iso.slice(5, 7)}-${iso.slice(0, 4)}`
+	return mesAnyo(desde) === mesAnyo(hasta)
+		? `Partes_${fmt(desde)}.csv`
+		: `Partes_${fmt(desde)}_a_${fmt(hasta)}.csv`
+}
+
+function ModalExportarCsv({ onCerrar }) {
+	const [desde, setDesde] = useState(primerDiaDelMesISO())
+	const [hasta, setHasta] = useState(hoyISO())
+	const [exportando, setExportando] = useState(false)
+	const [progreso, setProgreso] = useState(null)
+	const [error, setError] = useState(null)
+	const [resultado, setResultado] = useState(null)
+	// Confirmación explícita cuando el rango abarca más de un mes natural.
+	const [confirmandoMeses, setConfirmandoMeses] = useState(false)
+
+	const rangoInvalido = desde > hasta
+	const cruzaMeses = mesAnyo(desde) !== mesAnyo(hasta)
+
+	const descargar = (contenido, nombre) => {
+		const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' })
+		const url = URL.createObjectURL(blob)
+		const a = document.createElement('a')
+		a.href = url
+		a.download = nombre
+		document.body.appendChild(a)
+		a.click()
+		document.body.removeChild(a)
+		URL.revokeObjectURL(url)
+	}
+
+	const ejecutarExportacion = async () => {
+		setConfirmandoMeses(false)
+		setExportando(true)
+		setError(null)
+		setResultado(null)
+		setProgreso({ filas: 0, paginas: 0 })
+		try {
+			const { filas, incidencias, descartadas, estados } = await exportarChorus(
+				desde, hasta, (p) => setProgreso(p)
+			)
+			if (filas.length === 0) {
+				setError('No hay horas registradas en el rango seleccionado.')
+				return
+			}
+			const { contenido, total } = componerCsvChorus(filas)
+			descargar(contenido, nombreFicheroCsv(desde, hasta))
+
+			const sinFirmar = Object.entries(estados || {})
+				.filter(([nombre]) => ['Borrador', 'Procesando', 'Listo para firmar'].includes(nombre))
+				.reduce((suma, [, n]) => suma + n, 0)
+
+			setResultado({
+				total,
+				horas: filas.reduce((s, f) => s + f.horas, 0),
+				incidencias,
+				descartadas,
+				sinFirmar,
+				nombre: nombreFicheroCsv(desde, hasta)
+			})
+		} catch (e) {
+			setError(e.response?.data?.error || e.message || 'Error al generar la exportación')
+		} finally {
+			setExportando(false)
+			setProgreso(null)
+		}
+	}
+
+	const onPulsarExportar = () => {
+		if (rangoInvalido) return
+		// Aviso + confirmación antes de continuar si se mezclan meses.
+		if (cruzaMeses) setConfirmandoMeses(true)
+		else ejecutarExportacion()
+	}
+
+	return (
+		<div className="modal-overlay" onClick={() => !exportando && onCerrar()}>
+			<div className="modal-content export-modal" onClick={(e) => e.stopPropagation()}>
+				<div className="modal-header">
+					<h3><Download size={18} /> Exportar partes a CSV</h3>
+					<button className="btn-close-modal" onClick={onCerrar} disabled={exportando}>
+						<X size={18} />
+					</button>
+				</div>
+
+				<div className="modal-body">
+					<p className="modal-intro">
+						Genera el CSV de horas para los cuadrantes de Chorus.
+					</p>
+
+					<div className="export-rango">
+						<label>
+							<span>Desde</span>
+							<input type="date" value={desde} disabled={exportando}
+								onChange={(e) => setDesde(e.target.value)} />
+						</label>
+						<label>
+							<span>Hasta</span>
+							<input type="date" value={hasta} disabled={exportando}
+								onChange={(e) => setHasta(e.target.value)} />
+						</label>
+					</div>
+
+					{rangoInvalido && (
+						<div className="export-aviso export-aviso-error">
+							<AlertTriangle size={15} />
+							<span>La fecha de inicio es posterior a la de fin.</span>
+						</div>
+					)}
+
+					{cruzaMeses && !rangoInvalido && !resultado && (
+						<div className="export-aviso export-aviso-warn">
+							<AlertTriangle size={15} />
+							<span>El rango abarca <strong>meses distintos</strong>. Se pedirá confirmación.</span>
+						</div>
+					)}
+
+					{exportando && (
+						<div className="export-progreso">
+							<Loader2 size={16} className="loading-spinner" />
+							<span>
+								Leyendo partes… {progreso?.filas || 0} líneas
+								{progreso?.paginas ? ` (${progreso.paginas} bloques)` : ''}
+							</span>
+						</div>
+					)}
+
+					{error && (
+						<div className="export-aviso export-aviso-error">
+							<AlertTriangle size={15} />
+							<span>{error}</span>
+						</div>
+					)}
+
+					{resultado && (
+						<div className="export-resultado">
+							<p className="export-ok">
+								✅ <strong>{resultado.nombre}</strong> descargado — {resultado.total} líneas, {resultado.horas} horas.
+							</p>
+							<ul className="export-detalle">
+								{resultado.descartadas.rectificadas > 0 && (
+									<li>{resultado.descartadas.rectificadas} línea(s) de partes rectificados excluidas (cuentan las del rectificativo).</li>
+								)}
+								{resultado.descartadas.prueba > 0 && (
+									<li>{resultado.descartadas.prueba} línea(s) de obras de prueba excluidas.</li>
+								)}
+								{resultado.sinFirmar > 0 && (
+									<li className="export-detalle-warn">
+										⚠️ {resultado.sinFirmar} parte(s) del rango aún no están firmados. Si se firman después, vuelve a exportar: la macro sustituye las horas.
+									</li>
+								)}
+								{resultado.incidencias.length > 0 && (
+									<li className="export-detalle-warn">
+										⚠️ {resultado.incidencias.length} línea(s) sin exportar por datos incompletos:
+										<ul>
+											{resultado.incidencias.slice(0, 5).map((inc, i) => (
+												<li key={i}>{inc.trabajador} · {inc.obra} · falta {inc.falta}</li>
+											))}
+											{resultado.incidencias.length > 5 && <li>…y {resultado.incidencias.length - 5} más.</li>}
+										</ul>
+									</li>
+								)}
+							</ul>
+						</div>
+					)}
+				</div>
+
+				<div className="modal-confirm-actions">
+					<button className="btn btn-secondary" onClick={onCerrar} disabled={exportando}>
+						{resultado ? 'Cerrar' : 'Cancelar'}
+					</button>
+					<button className="btn btn-primary" onClick={onPulsarExportar}
+						disabled={exportando || rangoInvalido}>
+						{exportando ? 'Generando…' : resultado ? 'Exportar de nuevo' : 'Exportar CSV'}
+					</button>
+				</div>
+
+				{confirmandoMeses && (
+					<div className="modal-overlay modal-overlay-anidado" onClick={() => setConfirmandoMeses(false)}>
+						<div className="modal-confirm" onClick={(e) => e.stopPropagation()}>
+							<h4><AlertTriangle size={18} /> El rango mezcla meses</h4>
+							<p>
+								Vas a exportar horas de <strong>{MESES_ES[Number(desde.slice(5, 7)) - 1]} {desde.slice(0, 4)}</strong> a{' '}
+								<strong>{MESES_ES[Number(hasta.slice(5, 7)) - 1]} {hasta.slice(0, 4)}</strong>.
+							</p>
+							<p>
+								Un CSV con varios meses puede reabrir un mes ya cerrado en Chorus. Lo habitual es
+								exportar un mes completo cada vez.
+							</p>
+							<div className="modal-confirm-actions">
+								<button className="btn btn-secondary" onClick={() => setConfirmandoMeses(false)}>
+									Revisar fechas
+								</button>
+								<button className="btn btn-primary" onClick={ejecutarExportacion}>
+									Exportar de todos modos
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+			</div>
+		</div>
+	)
+}
+
 function App() {
 	const [activeSection, setActiveSection] = useState('main') // Forzar pantalla principal
 	const [datos, setDatos] = useState({
@@ -159,6 +387,7 @@ function App() {
 	const [syncMode, setSyncMode] = useState('rápido') // Estado del modo de sincronización
 	const [refrescando, setRefrescando] = useState(false) // Estado para el botón de refrescar
 	const [mostrarInfoSync, setMostrarInfoSync] = useState(false) // Estado para el popup de info de sincronización
+	const [mostrarExportar, setMostrarExportar] = useState(false) // Modal de exportación CSV para Chorus
 	const [hayActualizacion, setHayActualizacion] = useState(false)
 
 	// Smart Polling: ajusta frecuencia según actividad
@@ -474,6 +703,16 @@ function App() {
 									<span>{syncMode}</span>
 								</button>
 							)}
+							{!loading && !error && connectivity.status === 'ok' && (
+								<button
+									className="btn-refresh btn-exportar"
+									onClick={() => setMostrarExportar(true)}
+									title="Exportar horas a CSV para los cuadrantes de Chorus"
+								>
+									<Download size={16} />
+									Exportar CSV
+								</button>
+							)}
 							{!loading && (
 								<button
 									className="btn-refresh"
@@ -556,6 +795,8 @@ function App() {
 					</div>
 				</div>
 			</main>
+
+			{mostrarExportar && <ModalExportarCsv onCerrar={() => setMostrarExportar(false)} />}
 
 			{/* Modal de información de sincronización */}
 			{mostrarInfoSync && (

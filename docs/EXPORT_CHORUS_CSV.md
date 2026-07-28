@@ -1,7 +1,7 @@
 # Exportación de partes a CSV para Chorus (cuadrantes mensuales)
 
-**Última edición:** 2026-07-15
-**Estado:** formato validado por el cliente (15-07-2026). Pendiente de sistematizar el disparo mensual.
+**Última edición:** 2026-07-28
+**Estado:** formato validado por el cliente (15-07-2026) y **sistematizado en la app (v1.8.0, botón "Exportar CSV")**. La macro de Copuno entra en producción en agosto 2026 con las 3 obras del parte electrónico.
 **Script:** [`scripts/export-chorus-csv.py`](../scripts/export-chorus-csv.py)
 
 Documenta cómo se genera el CSV que Copuno (Tomeu) carga en sus **cuadrantes
@@ -87,6 +87,22 @@ de cada fila para que caiga en la columna del día correcto.
 
 ## 4. Cómo se genera
 
+### 4.0 Vía principal (v1.8.0): botón "Exportar CSV" en la app
+
+**Es la forma recomendada desde julio 2026.** En la cabecera de la app, junto a
+*Refrescar*: se elige el rango (por defecto **día 1 del mes en curso → hoy**) y se
+descarga `Partes_MM-AAAA.csv`. Aplica todas las reglas del §2 automáticamente y
+avisa de partes sin firmar e incidencias.
+
+Si el rango abarca **más de un mes natural**, la app pide **confirmación explícita**
+antes de generar el fichero: un CSV con varios meses puede reabrir un mes ya
+cerrado en Chorus.
+
+Implementación: `GET /api/exportaciones/chorus` (paginado; el cliente itera las
+páginas y compone el CSV). Detalle en [CHANGELOG_V1.8.0.md](../CHANGELOG_V1.8.0.md).
+
+### 4.1 Vía script (respaldo)
+
 ```bash
 # token del cliente en .env (NUNCA el MCP de Notion — apunta al workspace de Javi)
 export $(grep -E "^NOTION_TOKEN=" .env | xargs)
@@ -152,12 +168,12 @@ descuadres → se corrigen los códigos en Notion.
 
 Opciones, de menor a mayor esfuerzo:
 
-1. **Script bajo demanda** (estado actual): `export-chorus-csv.py <mes>`.
-   Suficiente para envíos mensuales manuales.
-2. **Endpoint en el servidor**: `GET /api/export/chorus?mes=YYYY-MM` en
-   [`server.js`](../server.js) que devuelva el CSV (reutilizando
-   `src-server/services/notion.js`). Permite un botón "Exportar mes" en la app.
-   Mantener la regla de saneado (este CSV **no** lleva importes).
+1. ~~**Script bajo demanda**: `export-chorus-csv.py <mes>`.~~ Queda como respaldo (§4.1).
+2. ~~**Endpoint en el servidor** + botón "Exportar mes" en la app.~~
+   **HECHO en v1.8.0**: `GET /api/exportaciones/chorus` + botón en la cabecera.
+   Ojo: se implementó **paginado** (una página de Notion por petición) en lugar de
+   devolver el CSV entero — un mes completo no cabe en el timeout de una función
+   serverless, y menos según crezca el nº de obras. El CSV sigue sin llevar importes.
 3. **Escenario Make programado**: mensual, genera el CSV y lo deja en la carpeta
    OneDrive/Drive que vigila la macro de Copuno (encaja con el "poner las salidas
    en una carpeta" que se habló en diciembre). Es el objetivo final "sin manos".
@@ -254,6 +270,12 @@ Sin cruces por nombre y sin las otras 3 exportaciones.
 ---
 
 ## Historial de cambios
+- **2026-07-28** — **v1.8.0: exportación integrada en la app** (botón "Exportar CSV"
+  con rango de fechas y confirmación al cruzar meses). Las reglas del §2 se aplican
+  ahora en el servidor. Nuevo endpoint paginado `GET /api/exportaciones/chorus`.
+  Verificado contra junio 2026: salida idéntica al CSV validado (254 filas / 2.083 h).
+  Corregido de paso un fallo de fechas con hora (`AAAA-MM-DDT00:00…`) que rompía el
+  formato `dd/mm/aaaa`.
 - **2026-07-15** — **Formato del CSV dado por bueno por el cliente.** Añadidas las
   reglas de contenido del §2 (fila única por obra/trabajador/día + macro *sustituye*,
   exclusión de rectificados y de obras de prueba). Corregido el script para excluir

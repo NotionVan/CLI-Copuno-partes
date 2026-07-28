@@ -353,6 +353,84 @@ export const actualizarParteTrabajo = async (parteId, datos) => {
 }
 
 // Obtener datos completos para la aplicación
+// ────────────────────────────────────────────────────────────────────────────
+// Exportación CSV para los cuadrantes de Chorus
+// Contrato y reglas: docs/EXPORT_CHORUS_CSV.md
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Descarga TODAS las páginas del rango y devuelve las filas crudas + avisos.
+ * Se pagina en el cliente a propósito: cada request queda lejos del timeout
+ * serverless, y así el volumen puede crecer con el nº de obras sin romperse.
+ *
+ * @param {string}   desde      AAAA-MM-DD
+ * @param {string}   hasta      AAAA-MM-DD
+ * @param {Function} onProgreso Callback({ filas, paginas }) para la barra de progreso.
+ */
+export const exportarChorus = async (desde, hasta, onProgreso) => {
+	const filas = []
+	const incidencias = []
+	const descartadas = { rectificadas: 0, prueba: 0 }
+	let estados = null
+	let cursor
+	let paginas = 0
+
+	do {
+		const params = { desde, hasta }
+		if (cursor) params.cursor = cursor
+		const { data } = await apiClient.get('/api/exportaciones/chorus', { params })
+
+		filas.push(...data.filas)
+		incidencias.push(...data.incidencias)
+		descartadas.rectificadas += data.descartadas?.rectificadas || 0
+		descartadas.prueba += data.descartadas?.prueba || 0
+		if (data.estados) estados = data.estados
+		cursor = data.cursor
+		paginas++
+		if (onProgreso) onProgreso({ filas: filas.length, paginas })
+	} while (cursor)
+
+	return { filas, incidencias, descartadas, estados }
+}
+
+/**
+ * Agrega por (obra, trabajador, fecha) y serializa al CSV que espera la macro.
+ *
+ * La agregación es obligatoria (regla 1 del contrato): el CSV es canónico y la
+ * macro SUSTITUYE el valor de la celda. Si llegaran dos filas de la misma
+ * combinación, la macro las dejaría en "partes pendientes" para revisión manual.
+ */
+export const componerCsvChorus = (filas) => {
+	const agregado = new Map()
+	for (const f of filas) {
+		// Defensivo: el servidor ya normaliza, pero si llegara una fecha con hora
+		// ('AAAA-MM-DDT00:00…') la clave de agregación y el formato se romperían.
+		const fecha = String(f.fecha).slice(0, 10)
+		const clave = `${f.codigo_obra}|${f.id_trabajador}|${fecha}`
+		const previo = agregado.get(clave)
+		if (previo) previo.horas += f.horas
+		else agregado.set(clave, { ...f, fecha })
+	}
+
+	const ordenadas = Array.from(agregado.values()).sort((a, b) =>
+		a.fecha.localeCompare(b.fecha) ||
+		a.codigo_obra - b.codigo_obra ||
+		a.id_trabajador - b.id_trabajador
+	)
+
+	const aDdMmAaaa = (iso) => {
+		const [y, m, d] = iso.split('-')
+		return `${d}/${m}/${y}`
+	}
+
+	const lineas = ['codigo_obra,id_trabajador,horas,fecha']
+	for (const f of ordenadas) {
+		lineas.push(`${f.codigo_obra},${f.id_trabajador},${f.horas},${aDdMmAaaa(f.fecha)}`)
+	}
+	// BOM para que Excel abra el CSV con la codificación correcta.
+	return { contenido: '﻿' + lineas.join('\r\n') + '\r\n', total: ordenadas.length }
+}
+
 export const getDatosCompletos = async () => {
 	try {
 		// Primero verificar conectividad

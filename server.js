@@ -329,6 +329,55 @@ app.get('/api/vehiculos/buscar', async (req, res) => {
 	}
 })
 
+// Exportación de partes al CSV que consume la macro de los cuadrantes de Chorus.
+// Contrato y reglas de negocio: docs/EXPORT_CHORUS_CSV.md
+//
+// Devuelve UNA página de Notion por llamada; el cliente itera con `cursor` hasta
+// `done` y compone el CSV. Así ninguna petición se acerca al timeout serverless,
+// independientemente del plan de Vercel y del número de obras activas.
+const FECHA_ISO_RE = /^\d{4}-\d{2}-\d{2}$/
+
+app.get('/api/exportaciones/chorus', async (req, res) => {
+	try {
+		const desde = String(req.query.desde || '').trim()
+		const hasta = String(req.query.hasta || '').trim()
+		const cursor = String(req.query.cursor || '').trim() || undefined
+
+		if (!FECHA_ISO_RE.test(desde) || !FECHA_ISO_RE.test(hasta)) {
+			return res.status(400).json({ error: 'Parámetros "desde" y "hasta" requeridos en formato AAAA-MM-DD' })
+		}
+		if (desde > hasta) {
+			return res.status(400).json({ error: 'La fecha de inicio no puede ser posterior a la de fin' })
+		}
+
+		// El contexto del rango (partes rectificados + estados) es constante para
+		// toda la exportación: se calcula en la primera página y se cachea para las
+		// siguientes. TTL propio: una exportación larga supera el TTL de catálogos.
+		const ctxKey = `export-chorus-ctx:${desde}:${hasta}`
+		let contexto = getCache(ctxKey)
+		if (!contexto) {
+			contexto = await data.exportaciones.contextoRango({ desde, hasta })
+			setCache(ctxKey, contexto)
+		}
+
+		const pagina = await data.exportaciones.chorusPagina({
+			desde,
+			hasta,
+			cursor,
+			rectificadosIds: contexto.rectificadosIds
+		})
+
+		res.json({
+			...pagina,
+			// Solo en la primera página: permite avisar en la UI antes de descargar.
+			estados: cursor ? undefined : contexto.estados
+		})
+	} catch (error) {
+		console.error('Error al exportar CSV de Chorus:', error.message)
+		res.status(500).json({ error: 'Error al generar la exportación', details: error.message })
+	}
+})
+
 // Opciones válidas de Estado de empleados — refactorizado a data.js (ADR-002)
 app.get('/api/empleados/estado-opciones', async (req, res) => {
 	try {
