@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-07-28 (tarde — **M5 y M8 CERRADOS**: el 400 `Bad control character` afectaba a PARTES1/4 **y PARTES2/4**, ambos resueltos con `escapeJSON()`, los **5 partes relanzados y funcionando**, y el webhook #8 de PARTES2/4 redeterminado para recuperar `Vehiculos del parte`. Siguen abiertos M6 (blueprint del repo) y M7 (saneado en servidor), ambos 🟡/🔵 y sin impacto en cliente)
+- **Última edición:** 2026-07-28 (noche — **M9 registrado: auditoría preventiva de edge cases del pipeline Make** ([EDGE_CASES_MAKE.md](EDGE_CASES_MAKE.md), E1–E7 sobre blueprints vivos de eu2) con **dos fixes aplicados en producción el mismo día**: E2 (`ifempty` en los 9 numéricos del mod 37 de PARTES2/4, vía PATCH API) y E3 (data structures explícitas `608077`/`608078` asociadas a los webhooks de 2/4 y 3/4 — cierra la clase de fallo de M8), pendiente E2E con el primer parte. **M6 CERRADO**: los 5 blueprints re-descargados desde producción vía API; además se corrigió la premisa — la referencia canónica es producción, no el repo (blueprints en `.gitignore` a propósito: contienen token Notion en claro → E1). Quedan abiertos M7 🔵 y, de M9: E1 🟠, E4–E7)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -47,8 +47,9 @@ Leyenda estado: ⏳ Pendiente · 🔧 En progreso · ✅ Hecho · ⏭️ Aplazad
 | [M4](#m4--n-en-notas-de-rectificativos-rompe-el-json-de-make--fix-raíz-en-servidor) | 🟠 | `\n` en Notas de rectificativos rompe JSON de Make (fix raíz en servidor) | ✅ | — | Cerrado 2026-06-20 |
 | [M5](#m5--reincidencia-del-400-bad-control-character-en-partes14-notas-multilínea-de-partes-normales) | 🟠 | Reincidencia 400 `Bad control character`: Notas multilínea de partes **normales** (M4 solo cubría rectificativos) | ✅ | — | Cerrado 2026-07-28 vía `escapeJSON()` en Make |
 | [M8](#m8--vehiculos-del-parte-llega-vacío-en-partes24-estructura-de-datos-del-webhook-8-sin-redeterminar) | 🟠 | `Vehiculos del parte` vacío en PARTES2/4 → PDF sin matrículas | ✅ | — | Cerrado 2026-07-28 (webhook #8 redeterminado) |
-| [M6](#m6--blueprint-partes14-del-repo-desactualizado-respecto-a-producción) | 🟡 | Blueprint PARTES1/4 del repo desactualizado (aún tiene el `replace` roto) | ❌ | 0,5 h | Reexportar desde la org del cliente |
+| [M6](#m6--blueprint-partes14-del-repo-desactualizado-respecto-a-producción) | 🟡 | Blueprint PARTES1/4 del repo desactualizado (aún tiene el `replace` roto) | ✅ | — | Cerrado 2026-07-28 — blueprints re-descargados de producción vía API |
 | [M7](#m7--el-saneado-de-notas-en-servidor-solo-cubre-la-ruta-rectificar) | 🔵 | Saneado de Notas en servidor solo cubre `rectificar`; crear/editar escriben crudo | ❌ | 0,5–1 h | Decidir: innecesario tras M5, o defensa en profundidad |
+| [M9](#m9--auditoría-de-edge-cases-del-pipeline-make-e1e7) | 🟠 | Auditoría edge cases pipeline Make (E1–E7): E2+E3 cerrados, E1 abierto (token Notion en claro), E4–E7 a valorar | 🔧 | ver doc | E1 retainer; E4–E6 pasar por `@scope-guardian` |
 
 Informativos en sección [aparte](#informativos).
 
@@ -577,6 +578,7 @@ Reglas por tipo de cambio:
 
 | Fecha | Quién | Cambio |
 |---|---|---|
+| 2026-07-28 | Claude Code + Javi Collado | **M9 registrado + E2/E3 aplicados en producción + M6 cerrado (noche).** Auditoría preventiva de edge cases sobre los blueprints vivos de eu2 (acceso API nuevo con token `MAKE_TOKEN` en `.env` — org cliente `4157465`, team `2014883`): 7 hallazgos en [EDGE_CASES_MAKE.md](EDGE_CASES_MAKE.md). Aplicados el mismo día: **E2** (`ifempty` en los 9 numéricos del mod 37 de PARTES2/4 — el espejo del M2 de junio, que solo blindó 1/4 — vía PATCH API con verificación byte a byte) y **E3** (data structures `608077`/`608078` con todos los campos `required`, asociadas a los hooks de 2/4 y 3/4 — cierra la **clase** de fallo de M8: los campos perdidos ahora fallan en la puerta en vez de resolver vacío). **M6 cerrado**: los 5 blueprints re-descargados desde producción vía API; doctrina corregida en CLAUDE.md — la referencia canónica es producción, el repo es una foto y **no debe versionarse** (los blueprints contienen el token Notion de E1 en claro; el `.gitignore` era deliberado). Contrato completo de webhooks en [E3_CONTRATO_WEBHOOKS.md](E3_CONTRATO_WEBHOOKS.md), con payloads canónicos y formato verificado de `Detalle del parte`. Pendiente: E2E con el primer parte tras el cambio. |
 | 2026-05-11 | `@senior-architect-auditor` | Auditoría inicial — registrados 3 bloqueantes (H1-H3), 3 críticos (C1-C3), 5 importantes (I1-I5), 6 informativos. |
 | 2026-05-26 | `@senior-architect-auditor` | Auditoría de plan semanal (arranque 1 jun con Andrés Ríos). Añadidos N1-N5. Reclasificadas prioridades de C3, H2 (quick win) e I3. Verificaciones Notion (1.331 empleados, 27% con ID COPUNO; 55 obras activas; JEFE_OBRAS con 7 entradas mayormente de prueba; estados PARTES confirmados). |
 | 2026-05-26 | Javi Collado | Registrado stopper S1 (acceso Vercel bloqueado). |
@@ -730,7 +732,7 @@ Reglas por tipo de cambio:
 
 #### M6 — Blueprint PARTES1/4 del repo desactualizado respecto a producción
 
-- **Estado:** ❌ Abierto
+- **Estado:** ✅ Cerrado 2026-07-28 — los 5 blueprints (PARTES1/4–4/4 + Envío al cliente) re-descargados desde producción (`eu2`, org `4157465`) vía `GET /scenarios/{id}/blueprint` con el token de API del `.env` (`MAKE_TOKEN`). El del repo ya contiene `escapeJSON()`. **Cambio de doctrina asociado (CLAUDE.md):** la referencia canónica pasa a ser **producción**, no el repo — los blueprints locales son una foto, están en `.gitignore` a propósito (contienen el token Notion de E1 en claro y las URLs de webhook) y hay que re-descargarlos antes de cualquier auditoría.
 - **Detectado:** 2026-07-28 (durante la documentación de [M5](#m5--reincidencia-del-400-bad-control-character-en-partes14-notas-multilínea-de-partes-normales))
 - **Severidad:** 🟡
 - **Coste estimado:** 0,5 h
@@ -763,3 +765,14 @@ Reglas por tipo de cambio:
 - **Estado:** ✅ Cerrado 2026-05-29 (v1.3.2)
 - **Qué:** `/api/obras` hacía `query` sin filtro con `page_size: 100`. La BD tiene >100 obras, Notion devuelve las primeras 100 por orden de creación. Obras nuevas (p.ej. "Getares - Pruebas NotionVan") quedaban fuera del desplegable.
 - **Solución:** añadido `filter: { Estado: Activa }` → 56 obras activas, caben en una página, desplegable limpio sin obras finalizadas/paradas.
+
+#### M9 — Auditoría de edge cases del pipeline Make (E1–E7)
+
+- **Estado:** 🔧 En progreso — E2 y E3 cerrados el mismo día; E1 abierto; E4–E7 a valorar
+- **Detectado:** 2026-07-28 (auditoría preventiva a raíz de M5/M8, sobre los blueprints **vivos** de producción)
+- **Severidad:** 🟠 (por E1; el resto media/baja)
+- **Dónde:** informe completo con severidades, evidencia y fixes en [EDGE_CASES_MAKE.md](EDGE_CASES_MAKE.md); contrato de webhooks en [E3_CONTRATO_WEBHOOKS.md](E3_CONTRATO_WEBHOOKS.md)
+- **Qué:** 7 hallazgos estructurales del pipeline PARTES1/4→4/4. Los tres graves: **E1** token de integración Notion (`ntn_…`) hardcodeado en los módulos HTTP 9/15 de PARTES1/4 (viaja en cada export de blueprint — es el motivo real del `.gitignore` de `docs/Escenarios Make/`); **E2** los 9 numéricos del mod 37 de PARTES2/4 sin `ifempty()` (mismo mecanismo que M5, disparado por ausencia en vez de por `\n` — el M2 de junio solo blindó 1/4); **E3** webhooks de 2/4 y 3/4 sin data structure declarada (`udt: null`, estructura aprendida → causa raíz de M8; la interfaz aprendida de 3/4 seguía sin conocer `Cliente`, `Horas Peon` ni `Vehiculos del parte` incluso después del fix de M8). Menores: E4 nombre de fichero OneDrive sin sanear + acoplamiento 3/4↔4/4 por nombre, E5 búsqueda OneDrive `limit:50` sin paginación (ver clon inactivo `9407545`), E6 sincronización por `sleep(5s)` en 2/4, E7 `Importe Total` viaja a Make pese al saneado económico de la app.
+- **Aplicado el 2026-07-28:** **E2** vía `PATCH /api/v2/scenarios/5595873` con blueprint editado en JSON (verificado byte a byte re-descargando). **E3**: data structures `608077` (2/4, 16 campos `required`) y `608078` (3/4, +`Detalle del parte`) creadas vía API (`POST /data-structures`) y asociadas a los hooks `2480016`/`2480024` por UI (la asociación no es posible por API: `PATCH /hooks/{id}` ignora `data.udt` en silencio). Desde entonces los webhooks **validan en la puerta**: campo ausente o tipo equivocado = error visible en el emisor, no vacío silencioso.
+- **Pendiente:** validación E2E con el primer parte tras el cambio (mirar ejecuciones + PDF). **E1**: migrar módulos 9/15 a conexión nativa Notion y **solo después** rotar el token (el orden inverso tumba PARTES1/4). E4–E6: endurecimiento preventivo, pasar por `@scope-guardian`. E7: decidir política.
+- **Regla nueva derivada de E3:** para añadir un campo al pipeline, el orden es **actualizar la Data structure del receptor primero**, luego el payload del emisor. Al revés, el emisor recibirá 400 — comportamiento diseñado, no bug.

@@ -1,6 +1,22 @@
 # E3 — Contrato de datos de los webhooks internos del pipeline PARTES
 
-**Fecha:** 2026-07-28 · **Estado: PREPARADO, NO APLICADO** · Hallazgo origen: [EDGE_CASES_MAKE.md](EDGE_CASES_MAKE.md) → E3
+**Fecha:** 2026-07-28 · **Estado: APLICADO — pendiente solo la validación E2E con un parte** · Hallazgo origen: [EDGE_CASES_MAKE.md](EDGE_CASES_MAKE.md) → E3
+
+> **Aplicado el 28-jul en producción:**
+> - Data structures creadas vía API: `608077` = "PARTES2-4 entrada (contrato E3)" ·
+>   `608078` = "PARTES3-4 entrada (contrato E3)". Todos los campos `required`, sin `strict`
+>   (rechazo de extras no cubre ningún fallo nuestro y añade riesgo).
+> - **La asociación estructura↔hook no es posible por API** (`PATCH /hooks/{id}` solo actualiza `name`
+>   y descarta `data.udt` en silencio — verificado). Se hizo por UI (Claude en Chrome, solo desplegable):
+>   webhook de 2/4 → 608077, webhook de 3/4 → 608078. Guardado y persistencia confirmados tras recarga.
+> - Verificado por API: `GET /hooks/2480016` → `udt: 608077` ✓ · `GET /hooks/2480024` → `udt: 608078` ✓.
+>   Ambos hooks `enabled`, cola 0, escenarios ON.
+> - **Pendiente: E2E con el primer parte** (de prueba o real). Desde ahora el webhook valida en la puerta:
+>   un payload con campo ausente o tipo equivocado se rechaza con error visible en el emisor, en vez de
+>   entrar y resolver vacío. El primer envío es el momento de mirar ejecuciones y PDF.
+>
+> Limpieza opcional: las estructuras huérfanas `378120` ("Detalle del parte") y `449748` ("EmpleadoArray"),
+> ambas de un solo campo y sin ningún uso, parecen un intento anterior abandonado de esto mismo — borrables.
 **Objetivo:** que los webhooks de PARTES2/4 y PARTES3/4 dejen de operar con estructura *aprendida* (`udt: null`) y pasen a un contrato explícito, para que un campo ausente produzca un **error visible** en vez de un vacío silencioso (causa raíz de M8).
 
 ---
@@ -81,12 +97,12 @@ El mismo objeto anterior más:
 ```json
 {
   "Detalle del parte": [
-    { "empleado": "0042 - Nombre Apellido - Oficial 1ª - 8h" },
-    { "empleado": "0107 - Nombre Apellido - Peón - 8h" }
+    { "empleado": "Nombre Apellido - Oficial 1ª - 8 horas" },
+    { "empleado": "Nombre Apellido - Peón - 8 horas" }
   ]
 }
 ```
-*(el formato exacto del string `empleado` lo compone PARTES1/4 al grabar en el DataStore; verificar contra un registro real antes de aplicar)*
+*Formato verificado contra el blueprint (28-jul): lo compone el feeder 225 de PARTES1/4 como `{{Aux Empleado.title}} - {{AUX_Categoria}} - {{Cantidad Horas}} horas`, se graba en `Registro Horas` del DataStore `82996` (módulo 253) y 2/4 lo envuelve en `{"empleado": "..."}` (Text aggregator, separador `,`).*
 
 ---
 

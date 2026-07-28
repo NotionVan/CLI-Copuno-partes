@@ -14,7 +14,7 @@
 |---|---|---|---|
 | E1 | Token de Notion hardcodeado en módulos HTTP de PARTES1/4 | **Alta** | No, pero viaja en cada export |
 | E2 | ✅ **CORREGIDO 28-jul** — PARTES2/4 reenviaba 9 numéricos sin `ifempty()` | **Alta** | Es el mismo mecanismo que M5 |
-| E3 | Los webhooks 2/4 y 3/4 **no tienen data structure declarada** (`udt: null`) | **Alta** | Sí — es la causa raíz de M8 |
+| E3 | ✅ **APLICADO 28-jul** (pend. E2E) — webhooks 2/4 y 3/4 sin data structure declarada | **Alta** | Sí — es la causa raíz de M8 |
 | E4 | Nombre de fichero sin sanear → caracteres inválidos en OneDrive | Media | No detectado aún |
 | E5 | Búsqueda en OneDrive con `limit: 50` y sin paginación | Media | Probable origen del clon inactivo |
 | E6 | Sincronización por `sleep(5s)` en PARTES2/4 | Media | No confirmado |
