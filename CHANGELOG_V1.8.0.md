@@ -95,9 +95,25 @@ Ejecutada contra los datos reales de **junio 2026**:
 
 Sintaxis de `App.jsx` / `notionService.js` validada con `@babel/parser`.
 
-> **Pendiente de verificación visual:** `npm run build` no se pudo ejecutar en el
-> equipo de desarrollo — esbuild falla al arrancar su subproceso
-> (`Error: The service was stopped`) **antes de leer el código del proyecto**, ya
-> con `vite.config.js`. Es un problema del entorno (binario en Google Drive /
-> permisos de macOS), no de estos cambios: el mismo error se reproduce sin
-> sandbox. **Hay que compilar y probar el modal en un navegador antes de desplegar.**
+### Verificación visual (28-07-2026)
+
+Compilado (`✓ built in 4m 5s`, v1.8.0 embebida en el bundle) y probado en navegador
+contra el servidor local con datos reales:
+- Botón visible en cabecera; modal con rango por defecto **01/07 → hoy**. ✓
+- Exportación de julio: `Partes_07-2026.csv` — 63 líneas, 507 h, aviso de
+  **2 partes sin firmar** (coincide con los estados reales de julio). ✓
+- Rango 15/06 → 28/07: salta el **diálogo de confirmación "El rango mezcla meses"**
+  (Revisar fechas / Exportar de todos modos). Confirmando: 
+  `Partes_06-2026_a_07-2026.csv` — 198 líneas, 1.575 h, con la línea de la obra de
+  pruebas excluida y reportada. ✓
+
+### Nota de entorno (resuelta): esbuild moría con SIGKILL
+
+`npm run build` fallaba con `Error: The service was stopped`. Diagnóstico: el
+binario `node_modules/@esbuild/darwin-arm64/bin/esbuild` moría con **exit 137
+(SIGKILL)** al ejecutarse desde la ruta de Google Drive, pero funcionaba copiado a
+/tmp — Drive había **desmaterializado** el fichero (contenido offloaded a la nube)
+y macOS mata los ejecutables mapeados desde placeholders del File Provider.
+Arreglo: **releer el fichero para re-hidratarlo** (p. ej. `cat <binario> > /dev/null`
+o `find node_modules -type f | xargs cat > /dev/null`). Si reaparece, marcar la
+carpeta del proyecto como "Disponible sin conexión" en Google Drive.
