@@ -1,6 +1,6 @@
 # Referencia de API — Copuno Gestión de Partes
 
-**Última edición:** 2026-07-01
+**Última edición:** 2026-07-28 (v1.8.0 — nuevo endpoint `GET /api/exportaciones/chorus`)
 **Base URL (producción):** `https://partesobra.copuno.com`
 **Base URL (local):** `http://localhost:3001`
 
@@ -355,6 +355,45 @@ Errores:
 - `404` — parte no encontrado.
 
 > **Dependencia Notion (manual):** requiere la relación reflexiva `Rectifica a` / `Rectificado por` en la BD `Partes de trabajo`. Sin ella, la creación falla en live (funciona en mock). Ver [DEUDA_TECNICA.md](DEUDA_TECNICA.md).
+
+---
+
+## Exportaciones
+
+### Exportar CSV para Chorus (v1.8.0)
+
+| Método | Ruta |
+|--------|------|
+| GET | `/api/exportaciones/chorus` |
+
+Genera las filas del CSV que consume la macro de los cuadrantes de Chorus. Contrato y reglas de negocio: [EXPORT_CHORUS_CSV.md](EXPORT_CHORUS_CSV.md).
+
+**Query params:**
+- `desde` (requerido) — `AAAA-MM-DD`.
+- `hasta` (requerido) — `AAAA-MM-DD`. Debe ser ≥ `desde`.
+- `cursor` (opcional) — cursor de paginación de la llamada anterior.
+
+**PAGINADO:** devuelve UNA página de Notion (~100 detalles) por llamada; el cliente itera con `cursor` hasta `done: true` y compone el CSV (`exportarChorus()` + `componerCsvChorus()` en `src/services/notionService.js`). Diseño deliberado: un mes entero no cabe en el timeout de una función serverless y el volumen crece con el nº de obras.
+
+Respuesta `200`:
+```json
+{
+  "filas": [ { "codigo_obra": 20486, "id_trabajador": 5452, "horas": 9, "fecha": "2026-07-01" } ],
+  "incidencias": [ { "obra": "…", "trabajador": "…", "fecha": "…", "falta": "ID trabajador" } ],
+  "descartadas": { "rectificadas": 0, "prueba": 0 },
+  "leidos": 100,
+  "cursor": "…|null",
+  "done": false,
+  "estados": { "Firmado": 14, "Borrador": 2 }
+}
+```
+
+- `estados` solo llega en la **primera** página (sin `cursor`); permite avisar de partes sin firmar antes de descargar.
+- Reglas aplicadas en servidor: excluye partes **rectificados** (`Rectificado por ` relleno) y **obras de prueba**; las filas con datos incompletos van a `incidencias`, nunca se descartan en silencio.
+- `fecha` sale normalizada a `AAAA-MM-DD`; el formato `dd/mm/aaaa` del CSV lo aplica el cliente al serializar.
+
+Errores:
+- `400` — fechas ausentes/mal formadas o `desde` > `hasta`.
 
 ---
 
