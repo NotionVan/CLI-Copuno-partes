@@ -16,7 +16,10 @@
 | E2 | ✅ **CORREGIDO 28-jul** — PARTES2/4 reenviaba 9 numéricos sin `ifempty()` | **Alta** | Es el mismo mecanismo que M5 |
 | E3 | ✅ **APLICADO 28-jul** (pend. E2E) — webhooks 2/4 y 3/4 sin data structure declarada | **Alta** | Sí — es la causa raíz de M8 |
 | E4 | Nombre de fichero sin sanear → caracteres inválidos en OneDrive | Media | No detectado aún |
-| E5 | Búsqueda en OneDrive con `limit: 50` y sin paginación | Media | Probable origen del clon inactivo |
+| E5 | Firma: lista 50 ficheros sin `search`; la carpeta ya tiene ~61 PDFs | **Alta** | Umbral superado — falla en silencio |
+| E8 | La limpieza borra el Word de partes aún sin firmar (10 en ese estado) | Media | Armado: días 1/6/10/15/20/25/30 |
+| E9 | Filtro del DataStore invertido: borra lo reciente, conserva lo viejo | Baja | — |
+| E10 | Envío al cliente: destinatario apunta a propiedad Notion inexistente | **Alta** | Sin ejecuciones — nunca ha funcionado |
 | E6 | Sincronización por `sleep(5s)` en PARTES2/4 | Media | No confirmado |
 | E7 | `Importe Total` viaja a Make pese al saneado económico de la app | Baja | Inconsistencia de política |
 
@@ -108,15 +111,60 @@ Comparación directa de los dos módulos que escriben JSON a mano:
 
 ---
 
-## E5 — Búsqueda en OneDrive limitada a 50 sin paginación · Media
+## E5 — Búsqueda en OneDrive limitada a 50 sin paginación · **Alta** (reclasificado 28-jul: el umbral ya está superado)
 
-**Dónde:** PARTES4/4 módulo `34` (`onedrive:searchFilesFolders`, `limit: "50"`) sobre la carpeta de partes.
+**Dónde:** PARTES4/4 módulo `34` (`onedrive:searchFilesFolders`, `limit: "50"`, **campo `search` vacío**) sobre `PARTES FINALES` (`/01YTENQUNABJXN5WYBCNHIQWBCNBHYGXDK`), seguido del módulo `17` con filtro de módulo `{{34.name}} contains {{36.<nombre del parte>}}`.
 
-**El fallo:** si la carpeta supera los 50 ficheros que la búsqueda devuelve, el parte buscado puede no estar entre ellos y la firma falla sin explicación clara. La carpeta acumula un PDF por parte, así que **crece de forma monótona**.
+**El mecanismo exacto:** el módulo 34 **lista** hasta 50 ficheros de la carpeta (no busca — el campo `search` existe en el módulo pero está sin rellenar) y el filtro del 17 selecciona después el que casa por nombre. Si el `.docx` del parte no está entre esos 50, **el filtro no casa con nada, el flujo se detiene y la firma no ocurre, sin error visible**.
 
-**Señal de que ya ha dado problemas:** existe un escenario inactivo llamado `PARTES1/4 - Recojo cabecera del parte [CLON FIX PAGINACION]` (`9407545`). Alguien ya se topó con un problema de paginación y dejó un clon a medio hacer. Conviene revisar ese clon antes de rehacer el trabajo.
+**Por qué ya no es teórico:** la carpeta solo se vacía de `.doc` (la limpieza filtra por `.doc`, ver E8), así que **los PDF firmados se acumulan indefinidamente**. Con **61 partes en estado `Firmado`** (recuento en Notion, 28-jul) la carpeta supera holgadamente los 50 ficheros. Que la firma siga funcionando hoy depende del orden en que OneDrive devuelva los resultados, no de ninguna garantía.
 
-**Fix:** filtrar la búsqueda por nombre en vez de listar y filtrar después, o usar el ID de OneDrive persistido (ver E4).
+**Señales corroborantes:** el escenario inactivo `PARTES1/4 [CLON FIX PAGINACION]` (`9407545`) — alguien ya se topó con un problema de paginación y lo dejó a medias; y el escenario de limpieza, editado el 27-jul, que parece nacido para contener el crecimiento de esta misma carpeta pero solo borra Word.
+
+**Fix (barato y definitivo):** rellenar el campo `search` del módulo 34 con el nombre del parte (`{{36.\`Construyo el nombre del parte a raiz de la firma\`}}`) — exactamente lo que el filtro del 17 comprueba después. Deja de depender del límite y de la ordenación; el filtro se mantiene como red de seguridad. Alternativa de fondo: acoplar por `AUX ID PDF Onedrive` (ver E4).
+
+---
+
+## E8 — La limpieza borra el Word de partes aún sin firmar · Media
+
+**Dónde:** `Limpio Archivos temporales generados del dia` (`5682602`, activo), módulos `8` + `7`.
+
+**Qué hace realmente:** lista `PARTES FINALES` y borra los ficheros cuyo nombre contiene `.doc` — filtro de módulo `«Filtro los word»`. **Los PDF, incluidos los firmados, NO se tocan**: el `Documento Firmado` de Notion (un enlace compartido a OneDrive, `44.link.webUrl`) no corre peligro.
+
+**El fallo:** borra **todos** los Word sin comprobar si su parte ya se firmó, y PARTES4/4 **necesita el `.docx`** para firmar (lo descarga y lo convierte a PDF). Programación: días `1, 6, 10, 15, 20, 25, 30` a las `18:27`. Un parte que quede pendiente de firma cruzando uno de esos días **pierde su documento de origen y ya no se puede firmar** — otra vez en silencio, porque el filtro del módulo 17 simplemente no casa. Hoy hay **10 partes en `Listo para firmar`**.
+
+**Fix:** añadir al filtro una condición de antigüedad (solo ficheros de más de N días), o mejor, borrar el Word desde PARTES4/4 justo tras generar el PDF firmado — el momento en que deja de hacer falta.
+
+**Nota de método:** este escenario se analizó primero como "borra todo, incluidos los PDF" — conclusión errónea. Los filtros de Make viven en la clave `filter` del módulo, fuera de `mapper`/`parameters`, y la extracción inicial no los leía. Corregido; los filtros de módulo de todos los escenarios activos están ahora inventariados.
+
+---
+
+## E9 — El filtro del DataStore conserva lo viejo y borra lo reciente · Baja
+
+**Dónde:** `Limpio Archivos temporales generados del dia`, módulos `2` → `3`.
+
+**Qué:** el filtro es `Fecha Creación` **`greater`** `{{setHour(now; -24)}}`: selecciona los registros creados **desde ayer** — y son esos los que borra el módulo 3. Los más antiguos **nunca se borran** y se acumulan en el DataStore `82996` (el mismo que usa el pipeline). Si la intención era limpiar lo viejo, el operador está invertido (`less`).
+
+**Riesgo adicional:** al borrar lo reciente, si el escenario coincide con un parte en vuelo puede eliminar sus registros de horas entre que 1/4 los escribe y 2/4 los lee (la ventana de los `sleep` de E6) → PDF sin líneas de detalle, con todo en verde.
+
+---
+
+## E10 — «Envío del parte al cliente»: el destinatario apunta a una propiedad inexistente · **Alta**
+
+**Dónde:** `Envío del parte al cliente - botón enviar email` (`6534716`, activo), módulos `3` y `5`.
+
+**El fallo:** el módulo 5 (`microsoft-email:createAndSendAMessage`) resuelve el destinatario con
+`{{3.properties_value.\`Correo electrónico\`}}`, pero **la BD Clientes de Notion no tiene ninguna propiedad llamada `Correo electrónico`** (verificado por API el 28-jul). Las que existen son `Administración`, `Email Compras`, `Email Director/Delegado` y `Email persona Compras` — cuatro emails, ninguno con ese nombre. El campo se renombró o nunca se llamó así.
+
+**Consecuencia:** el destinatario resuelve **vacío**. El botón "Enviar email" del parte no entrega nada — o falla en el módulo de correo, o envía a nadie. **No hay ni una sola ejecución registrada** del escenario ni entradas en su cola de errores, lo que sugiere que la funcionalidad **nunca se ha usado en producción**, no que funcione.
+
+**Riesgo añadido al arreglarlo:** hay que **decidir a cuál de los cuatro emails** se manda (`Director/Delegado`, `Compras`, `persona Compras`, `Administración`) — es una decisión de negocio, no técnica. Y conviene confirmarlo con el cliente antes de activar un envío automático hacia fuera.
+
+**Otros dos defectos del mismo escenario:**
+- **Módulo muerto:** el `12` (`onedrive:searchFilesFolders`, `limit: 1`) busca el PDF, pero el `13` no usa su salida — vuelve a partir de `2.data.properties.\`AUX ID PDF Onedrive\``. Es una operación desperdiciada en cada envío.
+- **Filtro de cliente por `contains` sobre una relación:** `Obras |&*^%$#@| relation contains {{2.data.properties.Obras.relation[].id}}`. Si el parte tuviera varias obras, el array se aplana y el `contains` puede casar con clientes que no tocan → **el parte de un cliente podría acabar en el correo de otro**. Hoy no ocurre (ninguna obra tiene más de un cliente asignado, verificado), pero el filtro no lo garantiza; lo correcto es igualdad sobre un único id.
+
+**Fix:** apuntar el destinatario al campo de email correcto (decisión de negocio), eliminar el módulo 12 y cambiar el filtro a igualdad. **Validar en un entorno de prueba: es el único escenario que envía correo al exterior.**
 
 ---
 
@@ -146,7 +194,8 @@ No llega a la plantilla del PDF (el módulo `11` no lo mapea), así que no hay f
 
 Para no dar una falsa sensación de cobertura:
 
-- **No he verificado el escenario `Envío del parte al cliente`** (`6534716`) ni `Limpio Archivos temporales` (`5682602`), que está **activo y no documentado** en `CLAUDE.md`.
+- ~~No he verificado los escenarios activos `Envío del parte al cliente` y `Limpio Archivos temporales`~~ → **auditados el 28-jul**: de ahí salen E8, E9 y E10, y la reclasificación de E5.
+- **Punto ciego corregido:** el primer barrido no leía los **filtros de módulo** (clave `filter`, fuera de `mapper`/`parameters`), lo que produjo una conclusión errónea sobre el escenario de limpieza. Ya están inventariados en los 6 escenarios activos. Cualquier análisis futuro debe incluirlos.
 - **No he revisado los escenarios inactivos** (`9407545`, `8558385`, `7899695`) más allá de mencionar el clon de paginación.
 - **Análisis estático únicamente.** No he ejecutado nada ni mirado ejecuciones reales. Un fallo que solo aparezca con datos concretos no está aquí.
 - **No he revisado la plantilla `Plantilla Parte.docx`**, que es donde se materializa el PDF y donde vive la deuda pendiente de la marca "RECTIFICATIVO".
