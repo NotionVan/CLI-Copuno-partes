@@ -17,7 +17,7 @@
 | E3 | ✅ **APLICADO 28-jul** (pend. E2E) — webhooks 2/4 y 3/4 sin data structure declarada | **Alta** | Sí — es la causa raíz de M8 |
 | E4 | Nombre de fichero sin sanear → caracteres inválidos en OneDrive | Media | No detectado aún |
 | E5 | ✅ **CORREGIDO 28-jul** — firma listaba solo 50 ficheros y la carpeta ya tiene ~61 PDFs | **Alta** | Umbral superado — habría fallado en silencio |
-| E8 | La limpieza borra el Word de partes aún sin firmar (10 en ese estado) | Baja-Media | Javi lo lanza a mano — pero sigue programado |
+| E8 | ✅ **MITIGADO 28-jul** — programación retirada; la limpieza ya solo corre a mano | Baja | Riesgo residual solo si se reactiva |
 | E9 | Filtro del DataStore invertido: borra lo reciente, conserva lo viejo | Baja | — |
 | E10 | Envío al cliente: destinatario apunta a propiedad Notion inexistente | Media | Funcionalidad **no operativa todavía** — a resolver antes de activarla |
 | E6 | Sincronización por `sleep(5s)` en PARTES2/4 | Media | No confirmado |
@@ -137,7 +137,9 @@ Comparación directa de los dos módulos que escriben JSON a mano:
 
 **El fallo:** borra **todos** los Word sin comprobar si su parte ya se firmó, y PARTES4/4 **necesita el `.docx`** para firmar (lo descarga y lo convierte a PDF). Programación: días `1, 6, 10, 15, 20, 25, 30` a las `18:27`. Un parte que quede pendiente de firma cruzando uno de esos días **pierde su documento de origen y ya no se puede firmar** — otra vez en silencio, porque el filtro del módulo 17 simplemente no casa. Hoy hay **10 partes en `Listo para firmar`**.
 
-**Aclaración de Javi (28-jul):** este escenario lo lanza él **a mano**, no confía en la programación, por lo que en la práctica controla cuándo se ejecuta y el riesgo es bajo. **Pero la programación sigue puesta**: verificado por API el 28-jul, `isActive: true`, `isPaused: false`, `nextExec: 2026-07-30T16:27Z`. Mientras eso siga así, puede dispararse sin que nadie lo lance. Conviene o quitar la programación (dejarlo realmente manual) o asumirla de forma consciente.
+**✅ MITIGADO el 2026-07-28.** Javi lanza este escenario **a mano**, pero la programación seguía activa y contradecía ese uso: `isActive: true`, `nextExec: 2026-07-30T16:27Z`. Desactivado por API (`POST /scenarios/5682602/stop`) → `isActive: false`, `nextExec: null`. La configuración de días/hora queda guardada pero inerte, y el uso manual no cambia: *Run once* funciona con el escenario apagado.
+
+**Riesgo residual:** si alguien vuelve a activar el escenario, la programación antigua (días 1/6/10/15/20/25/30 a las 18:27) revive tal cual. El fix de fondo sigue pendiente: condicionar el borrado a la antigüedad del fichero, o borrar el Word desde PARTES4/4 justo tras generar el PDF firmado.
 
 **Fix:** añadir al filtro una condición de antigüedad (solo ficheros de más de N días), o mejor, borrar el Word desde PARTES4/4 justo tras generar el PDF firmado — el momento en que deja de hacer falta.
 
