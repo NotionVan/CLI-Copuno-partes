@@ -233,7 +233,7 @@
         {
             "id": 34,
             "mapper": {
-                "limit": "50",
+                "limit": "1000",
                 "folder": "/01YTENQUNABJXN5WYBCNHIQWBCNBHYGXDK",
                 "select": "my",
                 "select1": "no",

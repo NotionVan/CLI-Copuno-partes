@@ -16,7 +16,7 @@
 | E2 | ✅ **CORREGIDO 28-jul** — PARTES2/4 reenviaba 9 numéricos sin `ifempty()` | **Alta** | Es el mismo mecanismo que M5 |
 | E3 | ✅ **APLICADO 28-jul** (pend. E2E) — webhooks 2/4 y 3/4 sin data structure declarada | **Alta** | Sí — es la causa raíz de M8 |
 | E4 | Nombre de fichero sin sanear → caracteres inválidos en OneDrive | Media | No detectado aún |
-| E5 | Firma: lista 50 ficheros sin `search`; la carpeta ya tiene ~61 PDFs | **Alta** | Umbral superado — falla en silencio |
+| E5 | ✅ **CORREGIDO 28-jul** — firma listaba solo 50 ficheros y la carpeta ya tiene ~61 PDFs | **Alta** | Umbral superado — habría fallado en silencio |
 | E8 | La limpieza borra el Word de partes aún sin firmar (10 en ese estado) | Media | Armado: días 1/6/10/15/20/25/30 |
 | E9 | Filtro del DataStore invertido: borra lo reciente, conserva lo viejo | Baja | — |
 | E10 | Envío al cliente: destinatario apunta a propiedad Notion inexistente | **Alta** | Sin ejecuciones — nunca ha funcionado |
@@ -121,7 +121,11 @@ Comparación directa de los dos módulos que escriben JSON a mano:
 
 **Señales corroborantes:** el escenario inactivo `PARTES1/4 [CLON FIX PAGINACION]` (`9407545`) — alguien ya se topó con un problema de paginación y lo dejó a medias; y el escenario de limpieza, editado el 27-jul, que parece nacido para contener el crecimiento de esta misma carpeta pero solo borra Word.
 
-**Fix (barato y definitivo):** rellenar el campo `search` del módulo 34 con el nombre del parte (`{{36.\`Construyo el nombre del parte a raiz de la firma\`}}`) — exactamente lo que el filtro del 17 comprueba después. Deja de depender del límite y de la ordenación; el filtro se mantiene como red de seguridad. Alternativa de fondo: acoplar por `AUX ID PDF Onedrive` (ver E4).
+**✅ CORREGIDO en producción el 2026-07-28** — `limit: "50"` → `"1000"` en el módulo 34 (`PATCH /scenarios/5682572`, verificado byte a byte; el diff versionado es de **una sola línea**). El filtro del módulo 17 se conserva intacto.
+
+**Por qué NO se usó el campo `search`, que parecía el fix elegante:** `search` en OneDrive consulta el **índice de búsqueda de Microsoft, que es asíncrono** — un fichero recién subido puede tardar minutos en indexarse. El caso normal aquí es justo ese (3/4 sube el Word y el jefe firma poco después), así que habría cambiado un fallo latente en partes antiguos por uno **inmediato en los recientes**. Subir el límite mantiene el listado determinista, no depende de ningún índice, y es un valor ya probado en esta cuenta: el escenario de limpieza usa `limit: 1000` sobre **la misma carpeta y el mismo módulo**.
+
+**Lo que esto NO arregla:** la carpeta sigue creciendo sin límite (los PDF firmados no se borran nunca). 1000 da margen de años al ritmo actual (~190 partes acumulados), pero la solución de fondo sigue siendo acoplar por `AUX ID PDF Onedrive` en vez de por listado + nombre (ver E4), o purgar PDFs antiguos con criterio.
 
 ---
 
@@ -204,10 +208,14 @@ Para no dar una falsa sensación de cobertura:
 
 ## Orden recomendado
 
-1. **E2** — 10 minutos, un módulo, riesgo casi nulo. Hazlo ya.
-2. **E3** — la única corrección estructural. Cierra la clase de fallo de M8.
-3. **E1** — antes de que el token se propague más.
-4. E4/E5 juntos, porque comparten el fix (acoplar por ID de OneDrive).
-5. E6, E7 — cuando toque.
+~~1. E2~~ · ~~2. E3~~ · ~~4. E5~~ — **aplicados y verificados el 28-jul.**
+
+Lo que queda, por orden:
+
+1. **E10** — la funcionalidad de envío al cliente está rota (destinatario inexistente) y nunca se ha usado. Requiere **decisión de negocio**: a cuál de los cuatro emails de la BD Clientes se manda. Es lo único que impacta a un tercero.
+2. **E8** — la limpieza puede dejar sin firmar un parte pendiente que cruce un día de barrido (1/6/10/15/20/25/30 a las 18:27). Hay 10 partes en ese estado.
+3. **E1** — token Notion en 5 sitios de 3 escenarios. Bloqueado por un paso manual en la UI de Make (editar la key `210119`).
+4. **E4** — acoplar 3/4↔4/4 por `AUX ID PDF Onedrive` en vez de por nombre. Cierra de raíz lo que E5 solo ha aplazado, y de paso el problema de caracteres inválidos.
+5. **E9, E6, E7** — cuando toque.
 
 **Sobre el scope:** E1, E2 y E3 son consecuencia directa de incidencias ya ocurridas y entran en el retainer como corrección. E4, E5 y E6 son endurecimiento preventivo de escenarios que hoy funcionan — eso es mejora, no incidencia, y conviene decidirlo con `@scope-guardian` antes de meterle horas.
