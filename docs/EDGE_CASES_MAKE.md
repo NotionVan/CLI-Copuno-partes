@@ -28,9 +28,13 @@
 
 **Por qué importa:** el secreto queda embebido en el blueprint. Viaja en cada export, en cada copia de backup, y en cualquier JSON que alguien abra. Es la razón por la que `docs/Escenarios Make/` está en `.gitignore` — y por la que **no debe salir de ahí**. Concede acceso de escritura al workspace Notion del cliente.
 
-**Fix:** sustituir los dos módulos HTTP por la **conexión nativa de Notion** que ya usan el resto de escenarios (3/4 y 4/4 la usan). Elimina el secreto del blueprint y de paso unifica el manejo de errores y rate limits.
+**Fix elegido (28-jul, mejor que el original):** convertir los módulos a `http:ActionSendDataAPIKeyAuth` con una **Key del almacén de Make** (tipo `apikeyauth`: header `Authorization`). Los paths downstream (`9.data.properties…`) quedan idénticos — cero remapeos — y rotar el token pasa a ser editar la key en un solo sitio. Se descartó migrar a módulos nativos de Notion: cambia la forma del output y obliga a remapear 5 módulos.
 
-**Coste:** bajo, pero requiere validación E2E — cambia cómo se leen Obra y Persona Autorizada.
+**Intento del 28-jul — REVERTIDO:** key `210119` creada por API y blueprint migrado (verificado sin `ntn_`), pero el parte de prueba 306 falló en 1/4 con `Cannot read properties of undefined (reading 'placement')`: **los `parameters` de una key NO se pueden establecer por API** — `POST /keys` y `PATCH /keys/{id}` los aceptan con 200 y los descartan en silencio (mismo patrón que `data.udt` de hooks). Revertido a HTTP+token inline en minutos (producción restaurada) y el 306 relanzado reenviando su bundle de la DLQ al webhook de 1/4 → pipeline completo en verde.
+
+**Cómo completarlo (pendiente):** (1) editar la key `210119` en la UI de Make (Team → Keys): valor `Bearer <token Notion>`, placement `header`, name `Authorization` — el token se copia de notion.so/my-integrations; (2) re-aplicar el blueprint E1 (preparado, un PATCH); (3) parte de prueba E2E. La key rota no molesta mientras tanto — ningún módulo la referencia tras el revert.
+
+**Coste:** bajo; la validación E2E ya está ensayada con la obra TEST.
 
 **Nota:** rotar el token sin migrar antes **rompe producción**. El orden correcto es migrar → verificar → rotar.
 
