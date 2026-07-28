@@ -35,7 +35,9 @@ Que funcionen hoy es porque el runtime resuelve contra el bundle real; pero la e
 
 ## Contrato — Hook `2480016` (entrada de PARTES2/4; emisor: PARTES1/4, módulo 249)
 
-**16 campos. Todos `required`** — el emisor construye el body como plantilla fija y siempre emite las 16 claves; la ausencia de cualquiera significa deriva del template y debe fallar ruidosamente.
+**16 campos, 14 `required`.** ⚠️ **Semántica de `required` en Make (aprendida con sangre el 28-jul): significa NO-VACÍO, no "la clave debe existir".** Un campo de texto legítimamente vacío (`""`) con `required: true` hace que el webhook rechace el payload entero con `400 Validation failed`. Por eso `Vehiculos del parte` y `Notas del parte` van en `required: false` — son los dos únicos campos del contrato que pueden estar vacíos en un parte real.
+
+**Incidente E2E del 28-jul (validación en producción):** el primer parte real tras activar E3 (parte **305**, 16:38, sin matrículas ni notas) fue rechazado en la puerta — DLQ de PARTES1/4 con `Validation failed for 2 parameter(s)` en 2 segundos. Diagnóstico por API, `required: false` aplicado a esos dos campos en ambas estructuras (`PATCH /data-structures/{id}` — esto **sí** es posible por API, a diferencia de la asociación), y reintento desde la DLQ → pipeline completo OK, parte en `Listo para firmar`. **El reintento desde cola funcionó porque el fix era del lado del webhook receptor, no del blueprint** — la copia congelada del blueprint que guarda la DLQ (gotcha M5) no afecta a la validación de entrega. Dos lecciones: (1) el rechazo fue visible e inmediato con causa exacta — el comportamiento que E3 compra; (2) `required` solo para campos que jamás pueden ir vacíos.
 
 | Campo | Tipo | Notas |
 |---|---|---|
@@ -52,8 +54,8 @@ Que funcionen hoy es porque el runtime resuelve contra el bundle real; pero la e
 | `Horas Totales` | number | |
 | `Total Horas Oficial` | number | |
 | `Importe Total` | number | ver E7 — candidato a eliminarse del payload |
-| `Vehiculos del parte` | text | matrículas `, `-separadas; puede ser `""` pero debe estar |
-| `Notas del parte` | text | `escapeJSON()`; puede ser `""` |
+| `Vehiculos del parte` | text | matrículas `, `-separadas — **`required: false`** (ver incidente 28-jul abajo) |
+| `Notas del parte` | text | `escapeJSON()` — **`required: false`** (ídem) |
 | `ID Pag Notion Parte` | text | UUID de la página Notion — crítico |
 
 ## Contrato — Hook `2480024` (entrada de PARTES3/4; emisor: PARTES2/4, módulo 37)
