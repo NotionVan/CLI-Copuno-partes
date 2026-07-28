@@ -1,0 +1,2797 @@
+{
+    "flow": [
+        {
+            "id": 2,
+            "mapper": {},
+            "module": "gateway:CustomWebHook",
+            "version": 1,
+            "metadata": {
+                "restore": {
+                    "parameters": {
+                        "hook": {
+                            "data": {
+                                "editable": "true"
+                            },
+                            "label": "Envío parte al cliente"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 0,
+                    "y": 600,
+                    "name": "Recibo datos del parte"
+                },
+                "parameters": [
+                    {
+                        "name": "hook",
+                        "type": "hook:gateway-webhook",
+                        "label": "Webhook",
+                        "required": true
+                    },
+                    {
+                        "name": "maxResults",
+                        "type": "number",
+                        "label": "Maximum number of results"
+                    }
+                ]
+            },
+            "parameters": {
+                "hook": 2898395,
+                "maxResults": 1
+            }
+        },
+        {
+            "id": 3,
+            "mapper": {
+                "limit": "100",
+                "filter": [
+                    [
+                        {
+                            "a": "Obras |&*^%$#@| relation",
+                            "b": "{{2.data.properties.Obras.relation[].id}}",
+                            "o": "text:contains"
+                        }
+                    ]
+                ],
+                "select": "item",
+                "database": "23f82593-a257-802f-b8ca-fde84a3f9c14"
+            },
+            "module": "notion:searchObjects1",
+            "onerror": [
+                {
+                    "id": 17,
+                    "mapper": {
+                        "count": "3",
+                        "retry": true,
+                        "interval": "1"
+                    },
+                    "module": "builtin:Break",
+                    "version": 1,
+                    "metadata": {
+                        "expect": [
+                            {
+                                "name": "retry",
+                                "type": "boolean",
+                                "label": "Automatically complete execution",
+                                "required": true
+                            },
+                            {
+                                "name": "count",
+                                "type": "uinteger",
+                                "label": "Number of attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 10000,
+                                    "min": 1
+                                }
+                            },
+                            {
+                                "name": "interval",
+                                "type": "uinteger",
+                                "label": "Interval between attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 44640,
+                                    "min": 1
+                                }
+                            }
+                        ],
+                        "restore": {
+                            "expect": {
+                                "retry": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "designer": {
+                            "x": 600,
+                            "y": 1200
+                        }
+                    },
+                    "parameters": {}
+                }
+            ],
+            "version": 1,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Search Objects",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "item",
+                                "database",
+                                "page"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "type": "uinteger",
+                        "label": "Limit"
+                    },
+                    {
+                        "name": "database",
+                        "type": "text",
+                        "label": "Database ID",
+                        "required": true
+                    },
+                    {
+                        "name": "filter",
+                        "type": "filter",
+                        "label": "Filter",
+                        "options": {
+                            "store": [
+                                {
+                                    "label": "Teléfono de Contacto (Phone number)",
+                                    "value": "Teléfono de Contacto |&*^%$#@| phone_number"
+                                },
+                                {
+                                    "label": "Correo electrónico (Email)",
+                                    "value": "Correo electrónico |&*^%$#@| email"
+                                },
+                                {
+                                    "label": "Obras (Relation)",
+                                    "value": "Obras |&*^%$#@| relation"
+                                },
+                                {
+                                    "label": "Nombre (Title)",
+                                    "value": "Nombre |&*^%$#@| title"
+                                }
+                            ],
+                            "operators": [
+                                {
+                                    "label": "Text",
+                                    "options": [
+                                        {
+                                            "label": "Equals",
+                                            "value": "text:equals"
+                                        },
+                                        {
+                                            "label": "Does not equal",
+                                            "value": "text:does_not_equal"
+                                        },
+                                        {
+                                            "label": "Contains",
+                                            "value": "text:contains"
+                                        },
+                                        {
+                                            "label": "Does not contain",
+                                            "value": "text:does_not_contain"
+                                        },
+                                        {
+                                            "label": "Starts with",
+                                            "value": "text:starts_with"
+                                        },
+                                        {
+                                            "label": "Ends with",
+                                            "value": "text:ends_with"
+                                        },
+                                        {
+                                            "label": "Is empty (Boolean)",
+                                            "value": "text:is_empty"
+                                        },
+                                        {
+                                            "label": "Is not empty (boolean)",
+                                            "value": "text:is_not_empty"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "label": "Number",
+                                    "options": [
+                                        {
+                                            "label": "Equals",
+                                            "value": "number:equals"
+                                        },
+                                        {
+                                            "label": "Does not equal",
+                                            "value": "number:does_not_equal"
+                                        },
+                                        {
+                                            "label": "Greater than",
+                                            "value": "number:greater_than"
+                                        },
+                                        {
+                                            "label": "Less than",
+                                            "value": "number:less_than"
+                                        },
+                                        {
+                                            "label": "Greater than or equal to",
+                                            "value": "number:greater_than_or_equal_to"
+                                        },
+                                        {
+                                            "label": "Less than or equal to",
+                                            "value": "number:less_than_or_equal_to"
+                                        },
+                                        {
+                                            "label": "Is empty (Boolean)",
+                                            "value": "number:is_empty"
+                                        },
+                                        {
+                                            "label": "Is not empty (boolean)",
+                                            "value": "number:is_not_empty"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "label": "Date",
+                                    "options": [
+                                        {
+                                            "label": "Equals",
+                                            "value": "date:equals"
+                                        },
+                                        {
+                                            "label": "Before",
+                                            "value": "date:before"
+                                        },
+                                        {
+                                            "label": "After",
+                                            "value": "date:after"
+                                        },
+                                        {
+                                            "label": "On or before",
+                                            "value": "date:on_or_before"
+                                        },
+                                        {
+                                            "label": "On or after",
+                                            "value": "date:on_or_after"
+                                        },
+                                        {
+                                            "label": "Is empty (Boolean)",
+                                            "value": "date:is_empty"
+                                        },
+                                        {
+                                            "label": "Is not empty (boolean)",
+                                            "value": "date:is_not_empty"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "label": "Checkbox",
+                                    "options": [
+                                        {
+                                            "label": "Equals",
+                                            "value": "checkbox:equals"
+                                        },
+                                        {
+                                            "label": "Does not equal",
+                                            "value": "checkbox:does_not_equal"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "label": "File",
+                                    "options": [
+                                        {
+                                            "label": "Is empty",
+                                            "value": "file:is_empty"
+                                        },
+                                        {
+                                            "label": "Is not empty",
+                                            "value": "file:is_not_empty"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "label": "Select",
+                                    "options": [
+                                        {
+                                            "label": "Equals",
+                                            "value": "select:equals"
+                                        },
+                                        {
+                                            "label": "Does not equal",
+                                            "value": "select:does_not_equal"
+                                        },
+                                        {
+                                            "label": "Is empty (Boolean)",
+                                            "value": "select:is_empty"
+                                        },
+                                        {
+                                            "label": "Is not empty (boolean)",
+                                            "value": "select:is_not_empty"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "label": "Multi-select",
+                                    "options": [
+                                        {
+                                            "label": "Contains",
+                                            "value": "multiselect:contains"
+                                        },
+                                        {
+                                            "label": "Does not contain",
+                                            "value": "multiselect:does_not_contain"
+                                        },
+                                        {
+                                            "label": "Is empty (Boolean)",
+                                            "value": "multiselect:is_empty"
+                                        },
+                                        {
+                                            "label": "Is not empty (boolean)",
+                                            "value": "multiselect:is_not_empty"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "label": "People",
+                                    "options": [
+                                        {
+                                            "label": "Contains",
+                                            "value": "people:contains"
+                                        },
+                                        {
+                                            "label": "Does not contain",
+                                            "value": "people:does_not_contain"
+                                        },
+                                        {
+                                            "label": "Is empty (Boolean)",
+                                            "value": "people:is_empty"
+                                        },
+                                        {
+                                            "label": "Is not empty (boolean)",
+                                            "value": "people:is_not_empty"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "label": "Relation",
+                                    "options": [
+                                        {
+                                            "label": "Contains",
+                                            "value": "relation:contains"
+                                        },
+                                        {
+                                            "label": "Does not contain",
+                                            "value": "relation:does_not_contain"
+                                        },
+                                        {
+                                            "label": "Is empty (Boolean)",
+                                            "value": "relation:is_empty"
+                                        },
+                                        {
+                                            "label": "Is not empty (boolean)",
+                                            "value": "relation:is_not_empty"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "label": "Formula",
+                                    "options": [
+                                        {
+                                            "label": "String - Equals",
+                                            "value": "formula:text-equals"
+                                        },
+                                        {
+                                            "label": "String - Does not equal",
+                                            "value": "formula:text-does_not_equal"
+                                        },
+                                        {
+                                            "label": "String - Contains",
+                                            "value": "formula:text-contains"
+                                        },
+                                        {
+                                            "label": "String - Does not contain",
+                                            "value": "formula:text-does_not_contain"
+                                        },
+                                        {
+                                            "label": "String - Starts with",
+                                            "value": "formula:text-starts_with"
+                                        },
+                                        {
+                                            "label": "String - Ends with",
+                                            "value": "formula:text-ends_with"
+                                        },
+                                        {
+                                            "label": "String - Is empty (Boolean)",
+                                            "value": "formula:text-is_empty"
+                                        },
+                                        {
+                                            "label": "Text - Is not empty (boolean)",
+                                            "value": "formula:text-is_not_empty"
+                                        },
+                                        {
+                                            "label": "Checkbox - Equals",
+                                            "value": "formula:checkbox-equals"
+                                        },
+                                        {
+                                            "label": "Checkbox - Does not equal",
+                                            "value": "formula:checkbox-does_not_equal"
+                                        },
+                                        {
+                                            "label": "Number - Equals",
+                                            "value": "formula:number-equals"
+                                        },
+                                        {
+                                            "label": "Number - Does not equal",
+                                            "value": "formula:number-does_not_equal"
+                                        },
+                                        {
+                                            "label": "Number - Greater than",
+                                            "value": "formula:number-greater_than"
+                                        },
+                                        {
+                                            "label": "Number - Less than",
+                                            "value": "formula:number-less_than"
+                                        },
+                                        {
+                                            "label": "Number - Greater than or equal to",
+                                            "value": "formula:number-greater_than_or_equal_to"
+                                        },
+                                        {
+                                            "label": "Number - Less than or equal to",
+                                            "value": "formula:number-less_than_or_equal_to"
+                                        },
+                                        {
+                                            "label": "Number - Is empty (Boolean)",
+                                            "value": "formula:number-is_empty"
+                                        },
+                                        {
+                                            "label": "Number - Is not empty (boolean)",
+                                            "value": "formula:number-is_not_empty"
+                                        },
+                                        {
+                                            "label": "Date - Equals",
+                                            "value": "formula:date-equals"
+                                        },
+                                        {
+                                            "label": "Date - before",
+                                            "value": "formula:date-before"
+                                        },
+                                        {
+                                            "label": "Date - after",
+                                            "value": "formula:date-after"
+                                        },
+                                        {
+                                            "label": "Date - On or before",
+                                            "value": "formula:date-on_or_before"
+                                        },
+                                        {
+                                            "label": "Date - On or after",
+                                            "value": "formula:date-on_or_after"
+                                        },
+                                        {
+                                            "label": "Date - Is empty (Boolean)",
+                                            "value": "formula:date-is_empty"
+                                        },
+                                        {
+                                            "label": "Date - Is not empty (boolean)",
+                                            "value": "formula:date-is_not_empty"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "sorts",
+                        "spec": [
+                            {
+                                "name": "select",
+                                "type": "select",
+                                "label": "Select a Field to Sort",
+                                "options": [
+                                    {
+                                        "label": "Property Field",
+                                        "value": "property",
+                                        "nested": [
+                                            {
+                                                "name": "property",
+                                                "type": "select",
+                                                "label": "Property Field",
+                                                "options": "rpc://notion/1/listDatabasePropertiesFieldsForFilter?sortParameter=true",
+                                                "required": true
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "label": "Timestamp",
+                                        "value": "timestamp",
+                                        "nested": [
+                                            {
+                                                "name": "timestamp",
+                                                "type": "select",
+                                                "label": "Timestamp",
+                                                "options": [
+                                                    {
+                                                        "label": "Created time",
+                                                        "value": "created_time",
+                                                        "default": true
+                                                    },
+                                                    {
+                                                        "label": "Last edited time",
+                                                        "value": "last_edited_time"
+                                                    }
+                                                ],
+                                                "required": true
+                                            }
+                                        ],
+                                        "default": true
+                                    }
+                                ],
+                                "required": true
+                            },
+                            {
+                                "name": "direction",
+                                "type": "select",
+                                "label": "Direction",
+                                "options": [
+                                    {
+                                        "label": "Ascending",
+                                        "value": "ascending"
+                                    },
+                                    {
+                                        "label": "Descending",
+                                        "value": "descending"
+                                    }
+                                ],
+                                "required": true
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Sorts"
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "sorts": {
+                            "mode": "chose"
+                        },
+                        "select": {
+                            "label": "Database Items"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "notion3"
+                            },
+                            "label": "Notion COPUNO"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 300,
+                    "y": 600,
+                    "name": "Localizo el cliente"
+                },
+                "interface": [
+                    {
+                        "name": "__IMTLENGTH__",
+                        "type": "uinteger",
+                        "label": "Total number of bundles"
+                    },
+                    {
+                        "name": "__IMTINDEX__",
+                        "type": "uinteger",
+                        "label": "Bundle order position"
+                    },
+                    {
+                        "name": "object",
+                        "type": "text",
+                        "label": "Object"
+                    },
+                    {
+                        "name": "id",
+                        "type": "text",
+                        "label": "Page ID"
+                    },
+                    {
+                        "name": "created_time",
+                        "type": "date",
+                        "label": "Created Time"
+                    },
+                    {
+                        "name": "last_edited_time",
+                        "type": "date",
+                        "label": "Last Edited Time"
+                    },
+                    {
+                        "name": "created_by",
+                        "spec": [
+                            {
+                                "name": "object",
+                                "type": "text",
+                                "label": "Object"
+                            },
+                            {
+                                "name": "id",
+                                "type": "uuid",
+                                "label": "ID"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Created by"
+                    },
+                    {
+                        "name": "last_edited_by",
+                        "spec": [
+                            {
+                                "name": "object",
+                                "type": "text",
+                                "label": "Object"
+                            },
+                            {
+                                "name": "id",
+                                "type": "uuid",
+                                "label": "ID"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Last Edited by"
+                    },
+                    {
+                        "name": "icon",
+                        "spec": [
+                            {
+                                "name": "type",
+                                "type": "text",
+                                "label": "Type"
+                            },
+                            {
+                                "name": "emoji",
+                                "type": "text",
+                                "label": "Emoji"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Icon"
+                    },
+                    {
+                        "name": "cover",
+                        "spec": [
+                            {
+                                "name": "type",
+                                "type": "text",
+                                "label": "Type"
+                            },
+                            {
+                                "name": "external",
+                                "spec": [
+                                    {
+                                        "name": "url",
+                                        "type": "text",
+                                        "label": "URL"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "External"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Cover"
+                    },
+                    {
+                        "name": "url",
+                        "type": "text",
+                        "label": "URL"
+                    },
+                    {
+                        "name": "parent",
+                        "spec": [
+                            {
+                                "name": "type",
+                                "type": "text",
+                                "label": "Type"
+                            },
+                            {
+                                "name": "workspace",
+                                "type": "boolean",
+                                "label": "Workspace"
+                            },
+                            {
+                                "name": "page_id",
+                                "type": "text",
+                                "label": "Page ID"
+                            },
+                            {
+                                "name": "database_id",
+                                "type": "text",
+                                "label": "Database ID"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Parent"
+                    },
+                    {
+                        "name": "archived",
+                        "type": "boolean",
+                        "label": "Archived"
+                    },
+                    {
+                        "name": "properties",
+                        "spec": {
+                            "spec": [
+                                {
+                                    "name": "id",
+                                    "type": "text",
+                                    "label": "ID"
+                                },
+                                {
+                                    "name": "type",
+                                    "type": "text",
+                                    "label": "Type"
+                                },
+                                {
+                                    "name": "people",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "object",
+                                                "type": "text",
+                                                "label": "Object"
+                                            },
+                                            {
+                                                "name": "id",
+                                                "type": "text",
+                                                "label": "ID"
+                                            },
+                                            {
+                                                "name": "name",
+                                                "type": "text",
+                                                "label": "Name"
+                                            },
+                                            {
+                                                "name": "avatar_url",
+                                                "type": "text",
+                                                "label": "Avatar Url"
+                                            },
+                                            {
+                                                "name": "type",
+                                                "type": "text",
+                                                "label": "Type"
+                                            },
+                                            {
+                                                "name": "person",
+                                                "spec": [
+                                                    {
+                                                        "name": "email",
+                                                        "type": "text",
+                                                        "label": "Email"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Person"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "People"
+                                },
+                                {
+                                    "name": "url",
+                                    "type": "text",
+                                    "label": "URL"
+                                },
+                                {
+                                    "name": "text",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "type",
+                                                "type": "text",
+                                                "label": "Type"
+                                            },
+                                            {
+                                                "name": "text",
+                                                "spec": [
+                                                    {
+                                                        "name": "content",
+                                                        "type": "text",
+                                                        "label": "Content"
+                                                    },
+                                                    {
+                                                        "name": "link",
+                                                        "type": "text",
+                                                        "label": "Link"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Text"
+                                            },
+                                            {
+                                                "name": "annotations",
+                                                "spec": [
+                                                    {
+                                                        "name": "bold",
+                                                        "type": "boolean",
+                                                        "label": "Bold"
+                                                    },
+                                                    {
+                                                        "name": "italic",
+                                                        "type": "boolean",
+                                                        "label": "Italic"
+                                                    },
+                                                    {
+                                                        "name": "strikethrough",
+                                                        "type": "boolean",
+                                                        "label": "Strikethrough"
+                                                    },
+                                                    {
+                                                        "name": "underline",
+                                                        "type": "boolean",
+                                                        "label": "Underline"
+                                                    },
+                                                    {
+                                                        "name": "code",
+                                                        "type": "boolean",
+                                                        "label": "Code"
+                                                    },
+                                                    {
+                                                        "name": "color",
+                                                        "type": "text",
+                                                        "label": "Color"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Annotations"
+                                            },
+                                            {
+                                                "name": "plain_text",
+                                                "type": "text",
+                                                "label": "Plain Text"
+                                            },
+                                            {
+                                                "name": "href",
+                                                "type": "text",
+                                                "label": "Href"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Text"
+                                },
+                                {
+                                    "name": "select",
+                                    "spec": [
+                                        {
+                                            "name": "id",
+                                            "type": "text",
+                                            "label": "ID"
+                                        },
+                                        {
+                                            "name": "name",
+                                            "type": "text",
+                                            "label": "Name"
+                                        },
+                                        {
+                                            "name": "color",
+                                            "type": "text",
+                                            "label": "Color"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Select"
+                                },
+                                {
+                                    "name": "email",
+                                    "type": "text",
+                                    "label": "Email"
+                                },
+                                {
+                                    "name": "phone_number",
+                                    "type": "text",
+                                    "label": "Phone Number"
+                                },
+                                {
+                                    "name": "multi_select",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "id",
+                                                "type": "text",
+                                                "label": "ID"
+                                            },
+                                            {
+                                                "name": "name",
+                                                "type": "text",
+                                                "label": "Name"
+                                            },
+                                            {
+                                                "name": "color",
+                                                "type": "text",
+                                                "label": "Color"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Multi Select"
+                                },
+                                {
+                                    "name": "date",
+                                    "spec": [
+                                        {
+                                            "name": "start",
+                                            "type": "text",
+                                            "label": "Start"
+                                        },
+                                        {
+                                            "name": "end",
+                                            "type": "text",
+                                            "label": "End"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Date"
+                                },
+                                {
+                                    "name": "checkbox",
+                                    "type": "boolean",
+                                    "label": "Checkbox"
+                                },
+                                {
+                                    "name": "number",
+                                    "type": "number",
+                                    "label": "Number"
+                                },
+                                {
+                                    "name": "files",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "name",
+                                                "type": "text",
+                                                "label": "Name"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Files"
+                                },
+                                {
+                                    "name": "title",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "type",
+                                                "type": "text",
+                                                "label": "Type"
+                                            },
+                                            {
+                                                "name": "text",
+                                                "spec": [
+                                                    {
+                                                        "name": "content",
+                                                        "type": "text",
+                                                        "label": "Content"
+                                                    },
+                                                    {
+                                                        "name": "link",
+                                                        "type": "text",
+                                                        "label": "Link"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Text"
+                                            },
+                                            {
+                                                "name": "annotations",
+                                                "spec": [
+                                                    {
+                                                        "name": "bold",
+                                                        "type": "boolean",
+                                                        "label": "Bold"
+                                                    },
+                                                    {
+                                                        "name": "italic",
+                                                        "type": "boolean",
+                                                        "label": "Italic"
+                                                    },
+                                                    {
+                                                        "name": "strikethrough",
+                                                        "type": "boolean",
+                                                        "label": "Strikethrough"
+                                                    },
+                                                    {
+                                                        "name": "underline",
+                                                        "type": "boolean",
+                                                        "label": "Underline"
+                                                    },
+                                                    {
+                                                        "name": "code",
+                                                        "type": "boolean",
+                                                        "label": "Code"
+                                                    },
+                                                    {
+                                                        "name": "color",
+                                                        "type": "text",
+                                                        "label": "Color"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Annotations"
+                                            },
+                                            {
+                                                "name": "plain_text",
+                                                "type": "text",
+                                                "label": "Plain Text"
+                                            },
+                                            {
+                                                "name": "href",
+                                                "type": "text",
+                                                "label": "Href"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Title"
+                                },
+                                {
+                                    "name": "last_edited_time",
+                                    "time": true,
+                                    "type": "date",
+                                    "label": "Last Edited Time"
+                                },
+                                {
+                                    "name": "created_time",
+                                    "time": true,
+                                    "type": "date",
+                                    "label": "Created Time"
+                                },
+                                {
+                                    "name": "last_edited_by",
+                                    "spec": [
+                                        {
+                                            "name": "object",
+                                            "type": "text",
+                                            "label": "Object"
+                                        },
+                                        {
+                                            "name": "id",
+                                            "type": "text",
+                                            "label": "ID"
+                                        },
+                                        {
+                                            "name": "name",
+                                            "type": "text",
+                                            "label": "Name"
+                                        },
+                                        {
+                                            "name": "avatar_url",
+                                            "type": "text",
+                                            "label": "Avatar Url"
+                                        },
+                                        {
+                                            "name": "type",
+                                            "type": "text",
+                                            "label": "Type"
+                                        },
+                                        {
+                                            "name": "person",
+                                            "spec": [
+                                                {
+                                                    "name": "email",
+                                                    "type": "text",
+                                                    "label": "Email"
+                                                }
+                                            ],
+                                            "type": "collection",
+                                            "label": "Person"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Last Edited By"
+                                },
+                                {
+                                    "name": "created_by",
+                                    "spec": [
+                                        {
+                                            "name": "object",
+                                            "type": "text",
+                                            "label": "Object"
+                                        },
+                                        {
+                                            "name": "id",
+                                            "type": "text",
+                                            "label": "ID"
+                                        },
+                                        {
+                                            "name": "name",
+                                            "type": "text",
+                                            "label": "Name"
+                                        },
+                                        {
+                                            "name": "avatar_url",
+                                            "type": "text",
+                                            "label": "Avatar Url"
+                                        },
+                                        {
+                                            "name": "type",
+                                            "type": "text",
+                                            "label": "Type"
+                                        },
+                                        {
+                                            "name": "person",
+                                            "spec": [
+                                                {
+                                                    "name": "email",
+                                                    "type": "text",
+                                                    "label": "Email"
+                                                }
+                                            ],
+                                            "type": "collection",
+                                            "label": "Person"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Created By"
+                                },
+                                {
+                                    "name": "formula",
+                                    "spec": [
+                                        {
+                                            "name": "type",
+                                            "type": "text",
+                                            "label": "Type"
+                                        },
+                                        {
+                                            "name": "string",
+                                            "type": "text",
+                                            "label": "String"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Formula"
+                                },
+                                {
+                                    "name": "relation",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "id",
+                                                "type": "text",
+                                                "label": "ID"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Relation"
+                                },
+                                {
+                                    "name": "label",
+                                    "type": "text",
+                                    "label": "Label"
+                                }
+                            ],
+                            "type": "collection"
+                        },
+                        "type": "array",
+                        "label": "Properties"
+                    },
+                    {
+                        "name": "properties_value",
+                        "spec": [
+                            {
+                                "name": "Teléfono de Contacto",
+                                "type": "text",
+                                "label": "Teléfono de Contacto"
+                            },
+                            {
+                                "name": "Correo electrónico",
+                                "type": "text",
+                                "label": "Correo electrónico"
+                            },
+                            {
+                                "name": "Obras",
+                                "spec": [
+                                    {
+                                        "name": "id",
+                                        "type": "text",
+                                        "label": "ID"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "Obras"
+                            },
+                            {
+                                "name": "Nombre",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "text",
+                                        "spec": [
+                                            {
+                                                "name": "content",
+                                                "type": "text",
+                                                "label": "Content"
+                                            },
+                                            {
+                                                "name": "link",
+                                                "type": "text",
+                                                "label": "Link"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Text"
+                                    },
+                                    {
+                                        "name": "annotations",
+                                        "spec": [
+                                            {
+                                                "name": "bold",
+                                                "type": "boolean",
+                                                "label": "Bold"
+                                            },
+                                            {
+                                                "name": "italic",
+                                                "type": "boolean",
+                                                "label": "Italic"
+                                            },
+                                            {
+                                                "name": "strikethrough",
+                                                "type": "boolean",
+                                                "label": "Strikethrough"
+                                            },
+                                            {
+                                                "name": "underline",
+                                                "type": "boolean",
+                                                "label": "Underline"
+                                            },
+                                            {
+                                                "name": "code",
+                                                "type": "boolean",
+                                                "label": "Code"
+                                            },
+                                            {
+                                                "name": "color",
+                                                "type": "text",
+                                                "label": "Color"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Annotations"
+                                    },
+                                    {
+                                        "name": "plain_text",
+                                        "type": "text",
+                                        "label": "Plain Text"
+                                    },
+                                    {
+                                        "name": "href",
+                                        "type": "text",
+                                        "label": "Href"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "Nombre"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Properties Value"
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:notion2,notion3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 8799380
+            }
+        },
+        {
+            "id": 12,
+            "mapper": {
+                "limit": "1",
+                "folder": null,
+                "search": "{{2.data.properties.`AUX ID PDF Onedrive`.rich_text[].plain_text}}",
+                "select": "my",
+                "select1": "no",
+                "itemType": "file"
+            },
+            "module": "onedrive:searchFilesFolders",
+            "onerror": [
+                {
+                    "id": 23,
+                    "mapper": {
+                        "count": "3",
+                        "retry": true,
+                        "interval": "1"
+                    },
+                    "module": "builtin:Break",
+                    "version": 1,
+                    "metadata": {
+                        "expect": [
+                            {
+                                "name": "retry",
+                                "type": "boolean",
+                                "label": "Automatically complete execution",
+                                "required": true
+                            },
+                            {
+                                "name": "count",
+                                "type": "uinteger",
+                                "label": "Number of attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 10000,
+                                    "min": 1
+                                }
+                            },
+                            {
+                                "name": "interval",
+                                "type": "uinteger",
+                                "label": "Interval between attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 44640,
+                                    "min": 1
+                                }
+                            }
+                        ],
+                        "restore": {
+                            "expect": {
+                                "retry": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "designer": {
+                            "x": 900,
+                            "y": 900
+                        }
+                    },
+                    "parameters": {}
+                }
+            ],
+            "version": 2,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Choose your OneDrive location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "my",
+                                "share",
+                                "site",
+                                "group",
+                                "everywhere"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "itemType",
+                        "type": "select",
+                        "label": "Choose an Item Type",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "file",
+                                "folder",
+                                "both"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "type": "uinteger",
+                        "label": "Limit"
+                    },
+                    {
+                        "name": "select1",
+                        "type": "select",
+                        "label": "Enable to Enter a Drive ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "folder",
+                        "type": "folder",
+                        "label": "Folder"
+                    },
+                    {
+                        "name": "search",
+                        "type": "text",
+                        "label": "Query Search"
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "folder": {
+                            "mode": "chose",
+                            "path": []
+                        },
+                        "select": {
+                            "label": "My Drive"
+                        },
+                        "select1": {
+                            "label": "No"
+                        },
+                        "itemType": {
+                            "label": "File"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "azure"
+                            },
+                            "label": "Copuno (notionvan)"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 600,
+                    "y": 450,
+                    "name": "Busco el PDF"
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:azure",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 9173172
+            }
+        },
+        {
+            "id": 13,
+            "mapper": {
+                "file": "{{2.data.properties.`AUX ID PDF Onedrive`.rich_text[].plain_text}}",
+                "enter": "id",
+                "choose": "map",
+                "select": "my",
+                "select1": "no"
+            },
+            "module": "onedrive:getAFileFolder",
+            "onerror": [
+                {
+                    "id": 19,
+                    "mapper": {
+                        "count": "3",
+                        "retry": true,
+                        "interval": "1"
+                    },
+                    "module": "builtin:Break",
+                    "version": 1,
+                    "metadata": {
+                        "expect": [
+                            {
+                                "name": "retry",
+                                "type": "boolean",
+                                "label": "Automatically complete execution",
+                                "required": true
+                            },
+                            {
+                                "name": "count",
+                                "type": "uinteger",
+                                "label": "Number of attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 10000,
+                                    "min": 1
+                                }
+                            },
+                            {
+                                "name": "interval",
+                                "type": "uinteger",
+                                "label": "Interval between attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 44640,
+                                    "min": 1
+                                }
+                            }
+                        ],
+                        "restore": {
+                            "expect": {
+                                "retry": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "designer": {
+                            "x": 1200,
+                            "y": 600
+                        }
+                    },
+                    "parameters": {}
+                }
+            ],
+            "version": 2,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "enter",
+                        "type": "select",
+                        "label": "Enter (File ID & File Path)",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "id",
+                                "path"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "choose",
+                        "type": "select",
+                        "label": "Enter a File ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "map",
+                                "list"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Choose your OneDrive location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "my",
+                                "site",
+                                "group"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select1",
+                        "type": "select",
+                        "label": "Enable to Enter a Drive ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "file",
+                        "type": "text",
+                        "label": "File ID",
+                        "required": true
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "enter": {
+                            "label": "File ID"
+                        },
+                        "choose": {
+                            "label": "Enter manually"
+                        },
+                        "select": {
+                            "label": "My Drive"
+                        },
+                        "select1": {
+                            "label": "No"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "azure"
+                            },
+                            "label": "Copuno (notionvan)"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 900,
+                    "y": 300
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:azure",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 9173172
+            }
+        },
+        {
+            "id": 16,
+            "mapper": {
+                "file": "{{13.id}}",
+                "enter": "id",
+                "choose": "map",
+                "format": false,
+                "select": "my",
+                "select1": "no"
+            },
+            "module": "onedrive:downloadAFile",
+            "onerror": [
+                {
+                    "id": 20,
+                    "mapper": {
+                        "count": "3",
+                        "retry": true,
+                        "interval": "1"
+                    },
+                    "module": "builtin:Break",
+                    "version": 1,
+                    "metadata": {
+                        "expect": [
+                            {
+                                "name": "retry",
+                                "type": "boolean",
+                                "label": "Automatically complete execution",
+                                "required": true
+                            },
+                            {
+                                "name": "count",
+                                "type": "uinteger",
+                                "label": "Number of attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 10000,
+                                    "min": 1
+                                }
+                            },
+                            {
+                                "name": "interval",
+                                "type": "uinteger",
+                                "label": "Interval between attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 44640,
+                                    "min": 1
+                                }
+                            }
+                        ],
+                        "restore": {
+                            "expect": {
+                                "retry": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "designer": {
+                            "x": 1500,
+                            "y": 300
+                        }
+                    },
+                    "parameters": {}
+                }
+            ],
+            "version": 2,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "enter",
+                        "type": "select",
+                        "label": "Enter (File ID & File Path)",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "id",
+                                "path"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "type": "boolean",
+                        "label": "Convert to PDF",
+                        "required": true
+                    },
+                    {
+                        "name": "choose",
+                        "type": "select",
+                        "label": "Enter a File ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "map",
+                                "list"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Choose your OneDrive location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "my",
+                                "site",
+                                "group"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select1",
+                        "type": "select",
+                        "label": "Enable to Enter a Drive ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "file",
+                        "type": "text",
+                        "label": "File ID",
+                        "required": true
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "enter": {
+                            "label": "File ID"
+                        },
+                        "choose": {
+                            "label": "Enter manually"
+                        },
+                        "select": {
+                            "label": "My Drive"
+                        },
+                        "select1": {
+                            "label": "No"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "azure"
+                            },
+                            "label": "Copuno (notionvan)"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 1200,
+                    "y": 150
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:azure",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 9173172
+            }
+        },
+        {
+            "id": 5,
+            "mapper": {
+                "from": [
+                    {
+                        "name": "Construcciones Copuno",
+                        "address": "notionvan@copuno.com"
+                    }
+                ],
+                "content": "Enlace de descarga del parte: \n\n{{2.data.properties.`URL PDF`.url}}",
+                "subject": "Parte de Obra - Copuno ",
+                "attachments": [
+                    {
+                        "data": "{{16.data}}",
+                        "filename": "{{16.filename}}"
+                    }
+                ],
+                "contentType": "html",
+                "toRecipients": [
+                    {
+                        "address": "{{3.properties_value.`Correo electrónico`}}"
+                    }
+                ],
+                "singleValueExtendedProperties": {}
+            },
+            "module": "microsoft-email:createAndSendAMessage",
+            "onerror": [
+                {
+                    "id": 21,
+                    "mapper": {
+                        "count": "3",
+                        "retry": true,
+                        "interval": "1"
+                    },
+                    "module": "builtin:Break",
+                    "version": 1,
+                    "metadata": {
+                        "expect": [
+                            {
+                                "name": "retry",
+                                "type": "boolean",
+                                "label": "Automatically complete execution",
+                                "required": true
+                            },
+                            {
+                                "name": "count",
+                                "type": "uinteger",
+                                "label": "Number of attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 10000,
+                                    "min": 1
+                                }
+                            },
+                            {
+                                "name": "interval",
+                                "type": "uinteger",
+                                "label": "Interval between attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 44640,
+                                    "min": 1
+                                }
+                            }
+                        ],
+                        "restore": {
+                            "expect": {
+                                "retry": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "designer": {
+                            "x": 1800,
+                            "y": 0
+                        }
+                    },
+                    "parameters": {}
+                }
+            ],
+            "version": 2,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "subject",
+                        "type": "text",
+                        "label": "Subject",
+                        "required": true
+                    },
+                    {
+                        "name": "contentType",
+                        "type": "select",
+                        "label": "Body Content Type",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "html",
+                                "text"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "content",
+                        "type": "text",
+                        "label": "Body Content",
+                        "required": true
+                    },
+                    {
+                        "name": "importance",
+                        "type": "select",
+                        "label": "Importance",
+                        "validate": {
+                            "enum": [
+                                "Low",
+                                "Normal",
+                                "High"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "toRecipients",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "To Recipients",
+                        "required": true
+                    },
+                    {
+                        "name": "from",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "From",
+                        "validate": {
+                            "maxItems": 1
+                        }
+                    },
+                    {
+                        "name": "ccRecipients",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "CC Recipients"
+                    },
+                    {
+                        "name": "bccRecipients",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Bcc Recipients"
+                    },
+                    {
+                        "name": "replyTo",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Reply To"
+                    },
+                    {
+                        "name": "attachments",
+                        "spec": [
+                            {
+                                "name": "filename",
+                                "type": "filename",
+                                "label": "File Name",
+                                "required": true,
+                                "semantic": "file:name"
+                            },
+                            {
+                                "name": "data",
+                                "type": "buffer",
+                                "label": "Data",
+                                "required": true,
+                                "semantic": "file:data"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Attachments"
+                    },
+                    {
+                        "name": "internetMessageHeaders",
+                        "spec": [
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name",
+                                "required": true
+                            },
+                            {
+                                "name": "value",
+                                "type": "text",
+                                "label": "Value",
+                                "required": true
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Internet Message Headers"
+                    },
+                    {
+                        "name": "singleValueExtendedProperties",
+                        "spec": [
+                            {
+                                "name": "sensitivityLabel",
+                                "type": "text",
+                                "label": "Sensitivity Label"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Extended MAPI Properties"
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "from": {
+                            "mode": "chose",
+                            "items": [
+                                null
+                            ]
+                        },
+                        "replyTo": {
+                            "mode": "chose"
+                        },
+                        "importance": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "attachments": {
+                            "mode": "chose",
+                            "items": [
+                                null
+                            ]
+                        },
+                        "contentType": {
+                            "mode": "chose",
+                            "label": "HTML"
+                        },
+                        "ccRecipients": {
+                            "mode": "chose"
+                        },
+                        "toRecipients": {
+                            "mode": "chose",
+                            "items": [
+                                null
+                            ]
+                        },
+                        "bccRecipients": {
+                            "mode": "chose"
+                        },
+                        "internetMessageHeaders": {
+                            "mode": "chose"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "azure"
+                            },
+                            "label": "Copuno (notionvan)"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 1500,
+                    "y": 0,
+                    "name": "Envío enlace de descarga del parte al cliente"
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:azure",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 9173172
+            }
+        }
+    ],
+    "name": "Envío del parte al cliente - botón enviar email",
+    "metadata": {
+        "instant": true,
+        "version": 1,
+        "designer": {
+            "orphans": [],
+            "samples": {
+                "2": {
+                    "data": {
+                        "id": "24082593-a257-8100-9a3e-f28a483b56c5",
+                        "url": "https://www.notion.so/Parte-Tarifa73-24082593a25781009a3ef28a483b56c5",
+                        "icon": null,
+                        "cover": null,
+                        "object": "page",
+                        "parent": {
+                            "type": "database_id",
+                            "database_id": "20882593-a257-8125-8595-e15abb37e87a"
+                        },
+                        "archived": false,
+                        "in_trash": false,
+                        "created_by": {
+                            "id": "208d872b-594c-813b-8248-00021d4d302b",
+                            "object": "user"
+                        },
+                        "properties": {
+                            "ID": {
+                                "id": "q%3Dvs",
+                                "type": "unique_id",
+                                "unique_id": {
+                                    "number": 73,
+                                    "prefix": null
+                                }
+                            },
+                            "Fecha": {
+                                "id": "FhR%5E",
+                                "date": {
+                                    "end": null,
+                                    "start": "2025-07-30T10:00:00.000+02:00",
+                                    "time_zone": null
+                                },
+                                "type": "date"
+                            },
+                            "Notas": {
+                                "id": "d%3Cev",
+                                "type": "rich_text",
+                                "rich_text": [
+                                    {
+                                        "href": null,
+                                        "text": {
+                                            "link": null,
+                                            "content": "Estas son las notas del parte"
+                                        },
+                                        "type": "text",
+                                        "plain_text": "Estas son las notas del parte",
+                                        "annotations": {
+                                            "bold": false,
+                                            "code": false,
+                                            "color": "default",
+                                            "italic": false,
+                                            "underline": false,
+                                            "strikethrough": false
+                                        }
+                                    }
+                                ]
+                            },
+                            "Obras": {
+                                "id": "n%3AjU",
+                                "type": "relation",
+                                "has_more": false,
+                                "relation": [
+                                    {
+                                        "id": "22382593-a257-804f-97ac-ea5759fb3754"
+                                    }
+                                ]
+                            },
+                            "Estado": {
+                                "id": "vFUO",
+                                "type": "status",
+                                "status": {
+                                    "id": "0acc2b1d-d72c-4889-8fc4-91937b38f647",
+                                    "name": "Firmado",
+                                    "color": "green"
+                                }
+                            },
+                            "Firmar": {
+                                "id": "XPMw",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": "https://www.copuno.com/es/notion/?parteId=73&obra=Tarifa"
+                                }
+                            },
+                            "Nombre": {
+                                "id": "title",
+                                "type": "title",
+                                "title": [
+                                    {
+                                        "href": null,
+                                        "text": {
+                                            "link": null,
+                                            "content": "Parte Tarifa73"
+                                        },
+                                        "type": "text",
+                                        "plain_text": "Parte Tarifa73",
+                                        "annotations": {
+                                            "bold": false,
+                                            "code": false,
+                                            "color": "default",
+                                            "italic": false,
+                                            "underline": false,
+                                            "strikethrough": false
+                                        }
+                                    }
+                                ]
+                            },
+                            "URL PDF": {
+                                "id": "VOLq",
+                                "url": "https://copuno-my.sharepoint.com/:b:/p/notionvan/ETlW18kBBjpKg0K31woM6cYB0AcQfzLBja3r5h1yIZaD-g",
+                                "type": "url"
+                            },
+                            "AUX Obra": {
+                                "id": "CsZU",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": "Tarifa"
+                                }
+                            },
+                            "Detalle Horas": {
+                                "id": "%40LIH",
+                                "type": "relation",
+                                "has_more": false,
+                                "relation": [
+                                    {
+                                        "id": "24082593-a257-81df-806c-eaeee44fb391"
+                                    }
+                                ]
+                            },
+                            "Horas Capataz": {
+                                "id": "L_%5DL",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "Horas totales": {
+                                "id": "sMT%5D",
+                                "type": "rollup",
+                                "rollup": {
+                                    "type": "number",
+                                    "number": 18.5,
+                                    "function": "sum"
+                                }
+                            },
+                            "Importe total": {
+                                "id": "%5DAQM",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "Email Jefe Obra": {
+                                "id": "K%3ErV",
+                                "type": "rollup",
+                                "rollup": {
+                                    "type": "array",
+                                    "array": [
+                                        {
+                                            "type": "email",
+                                            "email": "p@ntnvn.com"
+                                        }
+                                    ],
+                                    "function": "show_original"
+                                }
+                            },
+                            "AUX Jefe de Obra": {
+                                "id": "Jt%3FS",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": "Paco Pérez"
+                                }
+                            },
+                            "AUX Precios Hora": {
+                                "id": "~~Gk",
+                                "type": "relation",
+                                "has_more": false,
+                                "relation": []
+                            },
+                            "Horas Encargado ": {
+                                "id": "XeRY",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "Última edición": {
+                                "id": "%60VGH",
+                                "type": "last_edited_time",
+                                "last_edited_time": "2025-07-30T10:59:00.000Z"
+                            },
+                            "AUX Obra en Texto": {
+                                "id": "%40Mae",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": "Tarifa"
+                                }
+                            },
+                            "Documento Firmado": {
+                                "id": "m%3EjU",
+                                "type": "files",
+                                "files": []
+                            },
+                            "Horas Oficial 1ª": {
+                                "id": "Itm_",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "Horas Oficial 2ª ": {
+                                "id": "f%3F%5C%5B",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "Persona Autorizada": {
+                                "id": "e%60w%3E",
+                                "type": "relation",
+                                "has_more": false,
+                                "relation": [
+                                    {
+                                        "id": "22382593-a257-8025-8c16-ff57cfee4987"
+                                    }
+                                ]
+                            },
+                            "AUX ID PDF Onedrive": {
+                                "id": "fB%3DU",
+                                "type": "rich_text",
+                                "rich_text": [
+                                    {
+                                        "href": null,
+                                        "text": {
+                                            "link": null,
+                                            "content": "01YTENQUJZK3L4SAIGHJFIGQVX24FAZ2OG"
+                                        },
+                                        "type": "text",
+                                        "plain_text": "01YTENQUJZK3L4SAIGHJFIGQVX24FAZ2OG",
+                                        "annotations": {
+                                            "bold": false,
+                                            "code": false,
+                                            "color": "default",
+                                            "italic": false,
+                                            "underline": false,
+                                            "strikethrough": false
+                                        }
+                                    }
+                                ]
+                            },
+                            "Total Horas Oficial": {
+                                "id": "vHVI",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "Report Importe Parte": {
+                                "id": "_aNM",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": "Importe del parte:  0€"
+                                }
+                            },
+                            "Última edición por": {
+                                "id": "%3CaTJ",
+                                "type": "last_edited_by",
+                                "last_edited_by": {
+                                    "id": "4ce030bc-833b-43e5-81fc-e518051114b5",
+                                    "bot": {},
+                                    "name": "Make",
+                                    "type": "bot",
+                                    "object": "user",
+                                    "avatar_url": "https://s3-us-west-2.amazonaws.com/public.notion-static.com/af4fbbff-0aa1-4d2a-8a4b-13684f044939/36f..."
+                                }
+                            },
+                            "Importe Horas Capataz": {
+                                "id": "dkxP",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "Report Horas Capataz ": {
+                                "id": "XRCb",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": "0 Horas de capataz con un importe de 0€"
+                                }
+                            },
+                            "TOCAR URL PARA FIRMAR": {
+                                "id": "J%60Mj",
+                                "type": "rich_text",
+                                "rich_text": [
+                                    {
+                                        "href": null,
+                                        "text": {
+                                            "link": null,
+                                            "content": "TOCAR ESTA URL PARA FIRMAR ⬇️"
+                                        },
+                                        "type": "text",
+                                        "plain_text": "TOCAR ESTA URL PARA FIRMAR ⬇️",
+                                        "annotations": {
+                                            "bold": false,
+                                            "code": false,
+                                            "color": "default",
+                                            "italic": false,
+                                            "underline": false,
+                                            "strikethrough": false
+                                        }
+                                    }
+                                ]
+                            },
+                            "Report Horas Encargado": {
+                                "id": "%40Ro~",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": "0 Horas de encargado con un importe de 0€"
+                                }
+                            },
+                            "TEST PRECIOBDD CAPATAZ": {
+                                "id": "JC%3EH",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": null
+                                }
+                            },
+                            "Importe Horas Encargado": {
+                                "id": "suTt",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "Report Horas Oficial 1ª": {
+                                "id": "Gv%3C%3F",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": "0 Horas de encargado con un importe de 0€"
+                                }
+                            },
+                            "Report Horas Oficial 2ª": {
+                                "id": "YJ_W",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "string",
+                                    "string": "0 Horas de encargado con un importe de 0€"
+                                }
+                            },
+                            "Importe Horas Oficial 1ª": {
+                                "id": "Z%3EaV",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "Importe Horas Oficial 2ª": {
+                                "id": "~IIo",
+                                "type": "formula",
+                                "formula": {
+                                    "type": "number",
+                                    "number": 0
+                                }
+                            },
+                            "AUX Obra para filtro softr": {
+                                "id": "%7B%40ii",
+                                "type": "rollup",
+                                "rollup": {
+                                    "type": "array",
+                                    "array": [
+                                        {
+                                            "type": "title",
+                                            "title": [
+                                                {
+                                                    "href": null,
+                                                    "text": {
+                                                        "link": null,
+                                                        "content": "Tarifa"
+                                                    },
+                                                    "type": "text",
+                                                    "plain_text": "Tarifa",
+                                                    "annotations": {
+                                                        "bold": false,
+                                                        "code": false,
+                                                        "color": "default",
+                                                        "italic": false,
+                                                        "underline": false,
+                                                        "strikethrough": false
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ],
+                                    "function": "show_original"
+                                }
+                            }
+                        },
+                        "public_url": null,
+                        "request_id": "2d68b0e2-aae9-42f0-9a03-8d06ea737155",
+                        "created_time": "2025-07-30T10:56:00.000Z",
+                        "last_edited_by": {
+                            "id": "4ce030bc-833b-43e5-81fc-e518051114b5",
+                            "object": "user"
+                        },
+                        "last_edited_time": "2025-07-30T10:59:00.000Z"
+                    },
+                    "source": {
+                        "type": "automation",
+                        "attempt": 1,
+                        "user_id": "208d872b-594c-813b-8248-00021d4d302b",
+                        "event_id": "da5d0800-d33d-4043-986f-5bbaf9a6e133",
+                        "action_id": "24082593-a257-8050-ad87-005a3a50a4d8",
+                        "automation_id": "24082593-a257-802c-babb-004df6d91949"
+                    }
+                },
+                "3": {
+                    "id": "23f82593-a257-80d5-a5b0-f23c4867bc47",
+                    "url": "https://www.notion.so/Dragados-23f82593a25780d5a5b0f23c4867bc47",
+                    "icon": null,
+                    "cover": null,
+                    "object": "page",
+                    "parent": {
+                        "type": "database_id",
+                        "database_id": "23f82593-a257-802f-b8ca-fde84a3f9c14"
+                    },
+                    "archived": false,
+                    "in_trash": false,
+                    "created_by": {
+                        "id": "208d872b-594c-813b-8248-00021d4d302b",
+                        "object": "user"
+                    },
+                    "properties": [
+                        {
+                            "id": "title",
+                            "type": "title",
+                            "email": "javiercollado@me.com",
+                            "label": "Nombre",
+                            "title": [
+                                {
+                                    "href": null,
+                                    "text": {
+                                        "link": null,
+                                        "content": "Dragados"
+                                    },
+                                    "type": "text",
+                                    "plain_text": "Dragados",
+                                    "annotations": {
+                                        "bold": false,
+                                        "code": false,
+                                        "color": "default",
+                                        "italic": false,
+                                        "underline": false,
+                                        "strikethrough": false
+                                    }
+                                }
+                            ],
+                            "has_more": null,
+                            "relation": [
+                                {
+                                    "id": "22382593-a257-804f-97ac-ea5759fb3754"
+                                }
+                            ],
+                            "phone_number": "999888555222"
+                        }
+                    ],
+                    "public_url": null,
+                    "__IMTINDEX__": 1,
+                    "created_time": "2025-07-29T16:08:00.000Z",
+                    "__IMTLENGTH__": 1,
+                    "last_edited_by": {
+                        "id": "208d872b-594c-813b-8248-00021d4d302b",
+                        "object": "user"
+                    },
+                    "last_edited_time": "2025-07-30T09:47:00.000Z",
+                    "properties_value": {
+                        "Obras": [
+                            {
+                                "id": "22382593-a257-804f-97ac-ea5759fb3754"
+                            }
+                        ],
+                        "Nombre": [
+                            {
+                                "href": null,
+                                "text": {
+                                    "link": null,
+                                    "content": "Dragados"
+                                },
+                                "type": "text",
+                                "plain_text": "Dragados",
+                                "annotations": {
+                                    "bold": false,
+                                    "code": false,
+                                    "color": "default",
+                                    "italic": false,
+                                    "underline": false,
+                                    "strikethrough": false
+                                }
+                            }
+                        ],
+                        "Correo electrónico": "javiercollado@me.com",
+                        "Teléfono de Contacto": "999888555222"
+                    }
+                },
+                "12": {
+                    "id": "01YTENQUJZK3L4SAIGHJFIGQVX24FAZ2OG",
+                    "name": "Parte_Tarifa73.pdf",
+                    "size": 134677,
+                    "webUrl": "https://copuno-my.sharepoint.com/personal/notionvan_copuno_com/Documents/PARTES FINALES/Parte_Tarifa...",
+                    "listItem": {
+                        "id": "c9d75639-0601-4a3a-8342-b7d70a0ce9c6",
+                        "fields": {},
+                        "@odata.type": "#microsoft.graph.listItem"
+                    },
+                    "createdBy": {
+                        "user": {
+                            "email": "notionvan@copuno.com",
+                            "displayName": "notionvan"
+                        }
+                    },
+                    "@odata.type": "#microsoft.graph.driveItem",
+                    "__IMTINDEX__": 1,
+                    "__IMTLENGTH__": 1,
+                    "fileSystemInfo": {
+                        "createdDateTime": "2025-07-30T10:59:03Z",
+                        "lastModifiedDateTime": "2025-07-30T10:58:51Z"
+                    },
+                    "lastModifiedBy": {
+                        "user": {
+                            "email": "notionvan@copuno.com",
+                            "displayName": "notionvan"
+                        }
+                    },
+                    "createdDateTime": "2025-07-30T10:59:03Z",
+                    "parentReference": {
+                        "id": "01YTENQUNABJXN5WYBCNHIQWBCNBHYGXDK",
+                        "siteId": "copuno-my.sharepoint.com,e4e4328d-bb66-4d4d-9a38-493ad02c1769,494ca337-5f0f-4ac2-9a7c-6d7a2c4ecf69",
+                        "driveId": "b!jTLk5Ga7TU2aOEk60CwXaTejTEkPX8JKmnxteixOz2mR5Y7qdA7QS7h6Xq08hkob",
+                        "sharepointIds": {
+                            "listId": "ea8ee591-0e74-4bd0-b87a-5ead3c864a1b",
+                            "listItemId": "48",
+                            "listItemUniqueId": "c9d75639-0601-4a3a-8342-b7d70a0ce9c6"
+                        }
+                    },
+                    "lastModifiedDateTime": "2025-07-30T10:58:51Z"
+                },
+                "13": {
+                    "id": "01YTENQUJZK3L4SAIGHJFIGQVX24FAZ2OG",
+                    "cTag": "\"c:{C9D75639-0601-4A3A-8342-B7D70A0CE9C6},2\"",
+                    "eTag": "\"{C9D75639-0601-4A3A-8342-B7D70A0CE9C6},3\"",
+                    "file": {
+                        "hashes": {
+                            "quickXorHash": "NZd+YQZFEMTmWdZTd+DvnKPwKeQ="
+                        },
+                        "mimeType": "application/pdf"
+                    },
+                    "name": "Parte_Tarifa73.pdf",
+                    "size": 134677,
+                    "shared": {
+                        "scope": "users"
+                    },
+                    "webUrl": "https://copuno-my.sharepoint.com/personal/notionvan_copuno_com/Documents/PARTES%20FINALES/Parte_Tari...",
+                    "createdBy": {
+                        "user": {
+                            "id": "abe125c9-bafe-48d7-a05c-aff97f5f4b61",
+                            "email": "notionvan@copuno.com",
+                            "displayName": "notionvan"
+                        },
+                        "application": {
+                            "id": "e05327f2-d325-48ef-b5c4-69a60e16d4b4",
+                            "displayName": "Make"
+                        }
+                    },
+                    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#Collection(driveItem)/$entity",
+                    "fileSystemInfo": {
+                        "createdDateTime": "2025-07-30T10:59:03.000Z",
+                        "lastModifiedDateTime": "2025-07-30T10:59:03.000Z"
+                    },
+                    "lastModifiedBy": {
+                        "user": {
+                            "id": "abe125c9-bafe-48d7-a05c-aff97f5f4b61",
+                            "email": "notionvan@copuno.com",
+                            "displayName": "notionvan"
+                        },
+                        "application": {
+                            "id": "e05327f2-d325-48ef-b5c4-69a60e16d4b4",
+                            "displayName": "Make"
+                        }
+                    },
+                    "createdDateTime": "2025-07-30T10:59:03.000Z",
+                    "parentReference": {
+                        "id": "01YTENQUNABJXN5WYBCNHIQWBCNBHYGXDK",
+                        "name": "PARTES FINALES",
+                        "path": "/drive/root:/PARTES FINALES",
+                        "siteId": "e4e4328d-bb66-4d4d-9a38-493ad02c1769",
+                        "driveId": "b!jTLk5Ga7TU2aOEk60CwXaTejTEkPX8JKmnxteixOz2mR5Y7qdA7QS7h6Xq08hkob",
+                        "driveType": "business"
+                    },
+                    "lastModifiedDateTime": "2025-07-30T10:59:03.000Z",
+                    "@microsoft.graph.downloadUrl": "https://copuno-my.sharepoint.com/personal/notionvan_copuno_com/_layouts/15/download.aspx?UniqueId=c9..."
+                },
+                "16": {
+                    "data": "IMTBuffer(134677, binary, dba855e23ffacf5f66b103f247b390cde1e8489e): 255044462d312e350a25b73fad3f0a3...",
+                    "filename": "Parte_Tarifa73.pdf",
+                    "filesize": 134677
+                }
+            }
+        },
+        "scenario": {
+            "dlq": true,
+            "slots": null,
+            "dataloss": false,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "roundtrips": 1,
+            "sequential": false,
+            "confidential": false,
+            "freshVariables": false,
+            "autoCommitTriggerLast": true
+        }
+    }
+}

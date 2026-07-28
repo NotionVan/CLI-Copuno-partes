@@ -104,5 +104,7 @@ gha-creds-*.json
 # Copias de contexto para Claude app (uso manual, no van al repo)
 docs/Contexto para claude app/
 
-# Blueprints Make (referencia local, no van al repo)
+# Blueprints Make CRUDOS (contienen el token Notion en claro — ver DEUDA_TECNICA M9/E1).
+# NUNCA commitear esta carpeta. La versión SANEADA y versionable vive en
+# docs/blueprints-make/ y se genera con scripts/export-blueprints-make.py
 docs/Escenarios Make/

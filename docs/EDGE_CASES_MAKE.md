@@ -26,7 +26,11 @@
 
 **Dónde:** PARTES1/4, módulos `9` y `15` (`http:ActionSendData` contra `api.notion.com/v1/pages/…`). Ambos llevan la cabecera `Authorization: Bearer ntn_…` con el valor literal.
 
+**Alcance real (ampliado 28-jul con el export saneado): 5 apariciones en 3 escenarios**, no 2 en 1 — además de PARTES1/4 (`5595847`, ×2), está en el clon inactivo `PARTES1/4 [CLON FIX PAGINACION]` (`9407545`, ×2) y en `Limpio Registros Detalle Horas sin empleados asignados` (`7899695`, ×1). Al migrar hay que cubrir los tres, o borrar los dos inactivos si ya no sirven.
+
 **Por qué importa:** el secreto queda embebido en el blueprint. Viaja en cada export, en cada copia de backup, y en cualquier JSON que alguien abra. Es la razón por la que `docs/Escenarios Make/` está en `.gitignore` — y por la que **no debe salir de ahí**. Concede acceso de escritura al workspace Notion del cliente.
+
+> **Consecuencia colateral RESUELTA (28-jul):** que los blueprints no pudieran versionarse dejaba los cambios hechos en la UI de Make sin historial ni diffs (el 28-jul se perdió el diff de un fix por esto). Ya no depende de E1: [`scripts/export-blueprints-make.py`](../scripts/export-blueprints-make.py) exporta desde producción, **sanea los secretos** y escribe en `docs/blueprints-make/`, que **sí se versiona**. El script aborta sin escribir nada si detecta un patrón de secreto que no sabe sanear. Sigue siendo cierto que la carpeta cruda (`docs/Escenarios Make/`, solo con `--raw`) no debe commitearse jamás.
 
 **Fix elegido (28-jul, mejor que el original):** convertir los módulos a `http:ActionSendDataAPIKeyAuth` con una **Key del almacén de Make** (tipo `apikeyauth`: header `Authorization`). Los paths downstream (`9.data.properties…`) quedan idénticos — cero remapeos — y rotar el token pasa a ser editar la key en un solo sitio. Se descartó migrar a módulos nativos de Notion: cambia la forma del output y obliga a remapear 5 módulos.
 

@@ -1,0 +1,624 @@
+{
+    "flow": [
+        {
+            "id": 2,
+            "mapper": {
+                "sort": [],
+                "filter": [
+                    [
+                        {
+                            "a": "Fecha Creación",
+                            "b": "{{setHour(now; -24)}}",
+                            "o": "date:greater"
+                        }
+                    ]
+                ],
+                "mappAbleLimit": ""
+            },
+            "module": "datastore:SearchRecord",
+            "version": 1,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "filter",
+                        "type": "filter",
+                        "label": "Filter",
+                        "options": "rpc://datastore/1.12.0/RpcGetUDTKeys",
+                        "required": true
+                    },
+                    {
+                        "name": "sort",
+                        "spec": [
+                            {
+                                "name": "key",
+                                "type": "select",
+                                "label": "Key",
+                                "dynamic": true,
+                                "options": [],
+                                "required": true
+                            },
+                            {
+                                "name": "order",
+                                "type": "select",
+                                "label": "Order",
+                                "options": [
+                                    {
+                                        "label": "Ascending",
+                                        "value": 1
+                                    },
+                                    {
+                                        "label": "Descending",
+                                        "value": -1
+                                    }
+                                ],
+                                "required": true
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Sort"
+                    },
+                    {
+                        "name": "mappAbleLimit",
+                        "type": "uinteger",
+                        "label": "Mappable Limit"
+                    }
+                ],
+                "restore": {
+                    "parameters": {
+                        "datastore": {
+                            "label": "Copuno"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": -1233,
+                    "y": -230,
+                    "name": "Busco los registros de las ultimas 24h"
+                },
+                "interface": [
+                    {
+                        "name": "__IMTLENGTH__",
+                        "type": "uinteger",
+                        "label": "Total number of bundles"
+                    },
+                    {
+                        "name": "__IMTINDEX__",
+                        "type": "uinteger",
+                        "label": "Bundle order position"
+                    },
+                    {
+                        "name": "key",
+                        "type": "text",
+                        "label": "Key"
+                    },
+                    {
+                        "name": "data",
+                        "spec": [
+                            {
+                                "help": "",
+                                "name": "ID Parte",
+                                "type": "number",
+                                "label": null,
+                                "default": null,
+                                "required": true
+                            },
+                            {
+                                "help": "",
+                                "name": "Fecha Parte",
+                                "type": "date",
+                                "label": null,
+                                "required": true
+                            },
+                            {
+                                "help": "",
+                                "name": "Obra",
+                                "type": "text",
+                                "label": null,
+                                "default": null,
+                                "required": true,
+                                "multiline": false
+                            },
+                            {
+                                "help": "",
+                                "name": "Jefe de Obra",
+                                "type": "text",
+                                "label": null,
+                                "default": null,
+                                "required": true,
+                                "multiline": false
+                            },
+                            {
+                                "help": "",
+                                "name": "Registro Horas",
+                                "type": "text",
+                                "label": null,
+                                "default": null,
+                                "required": true,
+                                "multiline": true
+                            },
+                            {
+                                "help": "",
+                                "name": "Total Horas Peón",
+                                "type": "number",
+                                "label": null,
+                                "default": null,
+                                "required": false
+                            },
+                            {
+                                "help": "",
+                                "name": "Total Horas Oficial",
+                                "type": "number",
+                                "label": null,
+                                "default": null,
+                                "required": false
+                            },
+                            {
+                                "help": "",
+                                "name": "Importe Total",
+                                "type": "text",
+                                "label": null,
+                                "default": null,
+                                "required": true,
+                                "multiline": false
+                            },
+                            {
+                                "help": "",
+                                "name": "Fecha Creación",
+                                "type": "date",
+                                "label": null,
+                                "required": false
+                            },
+                            {
+                                "help": "",
+                                "name": "ID Pagina Parte Notion",
+                                "type": "text",
+                                "label": null,
+                                "default": null,
+                                "required": false,
+                                "multiline": false
+                            },
+                            {
+                                "help": "",
+                                "name": "Notas",
+                                "type": "text",
+                                "label": null,
+                                "default": null,
+                                "required": false,
+                                "multiline": true
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Record"
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "datastore",
+                        "type": "datastore",
+                        "label": "Data store",
+                        "required": true
+                    },
+                    {
+                        "name": "continueWhenNoRes",
+                        "type": "boolean",
+                        "label": "Continue the execution of the route even if the module returns no results"
+                    },
+                    {
+                        "name": "limit",
+                        "type": "uinteger",
+                        "label": "Limit"
+                    }
+                ]
+            },
+            "parameters": {
+                "limit": null,
+                "datastore": 82996,
+                "continueWhenNoRes": false
+            }
+        },
+        {
+            "id": 3,
+            "mapper": {
+                "key": "{{2.key}}"
+            },
+            "module": "datastore:DeleteRecord",
+            "version": 1,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "key",
+                        "type": "text",
+                        "label": "Key",
+                        "required": true
+                    }
+                ],
+                "restore": {
+                    "parameters": {
+                        "datastore": {
+                            "label": "Copuno"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": -933,
+                    "y": -230,
+                    "name": "Los Borro"
+                },
+                "parameters": [
+                    {
+                        "name": "datastore",
+                        "type": "datastore",
+                        "label": "Data store",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "datastore": 82996
+            }
+        },
+        {
+            "id": 8,
+            "mapper": {
+                "limit": "1000",
+                "folder": "/01YTENQUNABJXN5WYBCNHIQWBCNBHYGXDK",
+                "select": "my",
+                "select1": "no",
+                "itemType": "file",
+                "searchInHiddenFolders": false
+            },
+            "module": "onedrive:searchFilesFolders",
+            "version": 2,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Choose your OneDrive location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "my",
+                                "share",
+                                "site",
+                                "group",
+                                "everywhere"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "itemType",
+                        "type": "select",
+                        "label": "Choose an Item Type",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "file",
+                                "folder",
+                                "both"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "type": "uinteger",
+                        "label": "Limit"
+                    },
+                    {
+                        "name": "select1",
+                        "type": "select",
+                        "label": "Enable to Enter a Drive ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "folder",
+                        "type": "folder",
+                        "label": "Folder"
+                    },
+                    {
+                        "name": "searchInHiddenFolders",
+                        "type": "boolean",
+                        "label": "Search in Hidden Folders",
+                        "required": true
+                    },
+                    {
+                        "name": "search",
+                        "type": "text",
+                        "label": "Query Search"
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "folder": {
+                            "mode": "chose",
+                            "path": [
+                                "PARTES FINALES"
+                            ]
+                        },
+                        "select": {
+                            "label": "My Drive"
+                        },
+                        "select1": {
+                            "label": "No"
+                        },
+                        "itemType": {
+                            "label": "File"
+                        },
+                        "searchInHiddenFolders": {
+                            "mode": "chose"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "azure"
+                            },
+                            "label": "Copuno (Grupo copuno <notionvan@copuno.com>)"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": -589,
+                    "y": -227,
+                    "name": "Listo el contenido de la carpeta"
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:azure",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 9173172
+            }
+        },
+        {
+            "id": 7,
+            "filter": {
+                "name": "Filtro los word",
+                "conditions": [
+                    [
+                        {
+                            "a": "{{8.name}}",
+                            "b": ".doc",
+                            "o": "text:contain"
+                        }
+                    ]
+                ]
+            },
+            "mapper": {
+                "file": "{{8.id}}",
+                "enter": "id",
+                "choose": "map",
+                "select": "my",
+                "select1": "no",
+                "file_or_folder": "file"
+            },
+            "module": "onedrive:deleteAFileFolder",
+            "version": 2,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "enter",
+                        "type": "select",
+                        "label": "Enter (File/Folder ID & Path)",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "id",
+                                "path"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "choose",
+                        "type": "select",
+                        "label": "Enter a File/Folder ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "map",
+                                "list"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Choose your OneDrive location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "my",
+                                "site",
+                                "group"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select1",
+                        "type": "select",
+                        "label": "Enable to Enter a Drive ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "file_or_folder",
+                        "type": "select",
+                        "label": "Select File/Folder",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "file",
+                                "folder"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "file",
+                        "type": "text",
+                        "label": "File ID",
+                        "required": true
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "enter": {
+                            "label": "File/Folder ID"
+                        },
+                        "choose": {
+                            "label": "Enter manually"
+                        },
+                        "select": {
+                            "label": "My Drive"
+                        },
+                        "select1": {
+                            "label": "No"
+                        },
+                        "file_or_folder": {
+                            "label": "File"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "azure"
+                            },
+                            "label": "Copuno (notionvan)"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": -147,
+                    "y": -235,
+                    "name": "Borro los word"
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:azure",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 9173172
+            }
+        }
+    ],
+    "name": "Limpio Archivos temporales generados del dia",
+    "metadata": {
+        "instant": false,
+        "version": 1,
+        "designer": {
+            "orphans": [],
+            "samples": {
+                "2": {
+                    "key": "ef7f525b587d",
+                    "data": {
+                        "Obra": "Las Palmas",
+                        "Notas": "PARTE RECTIFICATIVO",
+                        "ID Parte": 236,
+                        "Fecha Parte": "2026-05-31T22:00:00.000Z",
+                        "Jefe de Obra": "Raul Fayos Martinez",
+                        "Importe Total": "0",
+                        "Fecha Creación": "2026-07-27T08:50:35.675Z",
+                        "Total Horas Peón": 0,
+                        "Total Horas Oficial": 0,
+                        "ID Pagina Parte Notion": "37d82593-a257-810b-9791-cadf9c048bf6"
+                    },
+                    "__IMTINDEX__": 1,
+                    "__IMTLENGTH__": 7
+                },
+                "8": {
+                    "id": "01YTENQUIN443CMKQQJNCLCAAACSNU4LNQ",
+                    "cTag": "\"c:{2636E70D-102A-444B-B100-00149B4E2DB0},2\"",
+                    "eTag": "\"{2636E70D-102A-444B-B100-00149B4E2DB0},2\"",
+                    "file": {
+                        "hashes": {
+                            "quickXorHash": "KJhtO9jezxxuEEDypQqbacnovtU="
+                        },
+                        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "fileExtension": ".docx"
+                    },
+                    "name": "Parte Getares - Pruebas NotionVan248.docx",
+                    "size": 129073,
+                    "shared": {
+                        "scope": "users"
+                    },
+                    "webUrl": "https://copuno-my.sharepoint.com/personal/notionvan_copuno_com/_layouts/15/Doc.aspx?sourcedoc=%7B263...",
+                    "createdBy": {
+                        "user": {
+                            "id": "abe125c9-bafe-48d7-a05c-aff97f5f4b61",
+                            "email": "notionvan@copuno.com",
+                            "displayName": "Grupo copuno"
+                        },
+                        "application": {
+                            "id": "e05327f2-d325-48ef-b5c4-69a60e16d4b4",
+                            "displayName": "Make"
+                        }
+                    },
+                    "__IMTINDEX__": 1,
+                    "__IMTLENGTH__": 42,
+                    "fileSystemInfo": {
+                        "createdDateTime": "2026-06-19T11:05:41.000Z",
+                        "lastModifiedDateTime": "2026-06-19T11:05:42.000Z"
+                    },
+                    "lastModifiedBy": {
+                        "user": {
+                            "id": "abe125c9-bafe-48d7-a05c-aff97f5f4b61",
+                            "email": "notionvan@copuno.com",
+                            "displayName": "Grupo copuno"
+                        },
+                        "application": {
+                            "id": "e05327f2-d325-48ef-b5c4-69a60e16d4b4",
+                            "displayName": "Make"
+                        }
+                    },
+                    "createdDateTime": "2026-06-19T11:05:41.000Z",
+                    "isAuthoritative": false,
+                    "parentReference": {
+                        "id": "01YTENQUNABJXN5WYBCNHIQWBCNBHYGXDK",
+                        "name": "PARTES FINALES",
+                        "path": "/drive/root:/PARTES FINALES",
+                        "siteId": "e4e4328d-bb66-4d4d-9a38-493ad02c1769",
+                        "driveId": "b!jTLk5Ga7TU2aOEk60CwXaTejTEkPX8JKmnxteixOz2mR5Y7qdA7QS7h6Xq08hkob",
+                        "driveType": "business"
+                    },
+                    "lastModifiedDateTime": "2026-06-19T11:05:42.000Z",
+                    "@microsoft.graph.downloadUrl": "https://copuno-my.sharepoint.com/personal/notionvan_copuno_com/_layouts/15/download.aspx?UniqueId=26...",
+                    "@microsoft.graph.downloadUrlNoAuth": "https://copuno-my.sharepoint.com/personal/notionvan_copuno_com/_layouts/15/download.aspx?UniqueId=26..."
+                }
+            }
+        },
+        "scenario": {
+            "dlq": false,
+            "slots": null,
+            "dataloss": false,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "roundtrips": 1,
+            "sequential": false,
+            "confidential": false,
+            "freshVariables": false,
+            "autoCommitTriggerLast": true
+        }
+    }
+}

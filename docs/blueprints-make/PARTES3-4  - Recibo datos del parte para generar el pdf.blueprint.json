@@ -1,0 +1,3537 @@
+{
+    "flow": [
+        {
+            "id": 1,
+            "mapper": {},
+            "module": "gateway:CustomWebHook",
+            "version": 1,
+            "metadata": {
+                "restore": {
+                    "parameters": {
+                        "hook": {
+                            "data": {
+                                "editable": "true"
+                            },
+                            "label": "My gateway-webhook webhook"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 0,
+                    "y": 0,
+                    "name": "Recibo todos los datos del parte"
+                },
+                "interface": [
+                    {
+                        "name": "Fecha Parte",
+                        "type": "text"
+                    },
+                    {
+                        "name": "ID Parte",
+                        "type": "number"
+                    },
+                    {
+                        "name": "Obra",
+                        "type": "text"
+                    },
+                    {
+                        "name": "Jefe de obra",
+                        "type": "text"
+                    },
+                    {
+                        "name": "Horas Oficial 1ª",
+                        "type": "number"
+                    },
+                    {
+                        "name": "Horas Oficial 2ª",
+                        "type": "number"
+                    },
+                    {
+                        "name": "Horas Capataz",
+                        "type": "number"
+                    },
+                    {
+                        "name": "Horas Encargado",
+                        "type": "number"
+                    },
+                    {
+                        "name": "Horas Totales",
+                        "type": "number"
+                    },
+                    {
+                        "name": "Importe Total",
+                        "type": "number"
+                    },
+                    {
+                        "name": "Detalle del parte",
+                        "spec": {
+                            "spec": [
+                                {
+                                    "name": "empleado",
+                                    "type": "text"
+                                }
+                            ],
+                            "type": "collection"
+                        },
+                        "type": "array"
+                    },
+                    {
+                        "name": "Notas del parte",
+                        "type": "text"
+                    },
+                    {
+                        "name": "Total Horas Oficial",
+                        "type": "number"
+                    },
+                    {
+                        "name": "ID Pag Notion Parte",
+                        "type": "text"
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "hook",
+                        "type": "hook:gateway-webhook",
+                        "label": "Webhook",
+                        "required": true
+                    },
+                    {
+                        "name": "maxResults",
+                        "type": "number",
+                        "label": "Maximum number of results"
+                    }
+                ]
+            },
+            "parameters": {
+                "hook": 2480024,
+                "maxResults": 1
+            }
+        },
+        {
+            "id": 12,
+            "mapper": {
+                "file": "01YTENQUKZQNVZST477ZHICZE3TJTR6ELV/01YTENQUIGRYNAZDN74ZGJ5EUGEUSV7R4S",
+                "enter": "id",
+                "choose": "list",
+                "format": false,
+                "select": "my",
+                "select1": "no"
+            },
+            "module": "onedrive:downloadAFile",
+            "onerror": [
+                {
+                    "id": 26,
+                    "mapper": {
+                        "count": "3",
+                        "retry": true,
+                        "interval": "1"
+                    },
+                    "module": "builtin:Break",
+                    "version": 1,
+                    "metadata": {
+                        "expect": [
+                            {
+                                "name": "retry",
+                                "type": "boolean",
+                                "label": "Automatically complete execution",
+                                "required": true
+                            },
+                            {
+                                "name": "count",
+                                "type": "uinteger",
+                                "label": "Number of attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 10000,
+                                    "min": 1
+                                }
+                            },
+                            {
+                                "name": "interval",
+                                "type": "uinteger",
+                                "label": "Interval between attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 44640,
+                                    "min": 1
+                                }
+                            }
+                        ],
+                        "restore": {
+                            "expect": {
+                                "retry": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "designer": {
+                            "x": 277,
+                            "y": 326
+                        }
+                    },
+                    "parameters": {}
+                }
+            ],
+            "version": 2,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "enter",
+                        "type": "select",
+                        "label": "Enter (File ID & File Path)",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "id",
+                                "path"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "type": "boolean",
+                        "label": "Convert to PDF",
+                        "required": true
+                    },
+                    {
+                        "name": "choose",
+                        "type": "select",
+                        "label": "Enter a File ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "map",
+                                "list"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Choose your OneDrive location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "my",
+                                "site",
+                                "group"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select1",
+                        "type": "select",
+                        "label": "Enable to Enter a Drive ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "file",
+                        "type": "file",
+                        "label": "File",
+                        "required": true
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "file": {
+                            "path": [
+                                "INFRA",
+                                "Plantilla Parte.docx"
+                            ]
+                        },
+                        "enter": {
+                            "label": "File ID"
+                        },
+                        "choose": {
+                            "label": "Select from the list"
+                        },
+                        "select": {
+                            "label": "My Drive"
+                        },
+                        "select1": {
+                            "label": "No"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "azure"
+                            },
+                            "label": "Copuno (notionvan)"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 300,
+                    "y": 0,
+                    "name": "Descargo la plantilla"
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:azure",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 9173172
+            }
+        },
+        {
+            "id": 11,
+            "mapper": {
+                "data": "{{12.data}}",
+                "values": [
+                    {
+                        "key": "detalle_parte",
+                        "value": "{{1.`Detalle del parte`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "ID",
+                        "value": "{{1.`ID Parte`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Fecha",
+                        "value": "{{1.`Fecha Parte`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Obras",
+                        "value": "{{1.Obra}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Jefes de Obra",
+                        "value": "{{1.`Jefe de obra`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Horas Oficial",
+                        "value": "{{1.`Total Horas Oficial`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Horas Peón",
+                        "value": "{{1.`Horas Peon`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Total Horas",
+                        "value": "{{1.`Horas Totales`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Fecha Firma",
+                        "value": "{{formatDate(now; \"DD:MM:YY HH:mm\")}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Horas Encargado",
+                        "value": "{{1.`Horas Encargado`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Notas",
+                        "value": "{{1.`Notas del parte`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Vehiculos",
+                        "value": "{{1.`Vehiculos del parte`}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Cliente",
+                        "value": "{{1.Cliente}}",
+                        "valueType": "value"
+                    },
+                    {
+                        "key": "Horas Capataz",
+                        "value": "{{1.`Horas Capataz`}}",
+                        "valueType": "value"
+                    }
+                ],
+                "fileName": "Parte {{1.Obra}}{{1.`ID Parte`}}",
+                "dataSource": "form"
+            },
+            "module": "docx-templater:FillDocument",
+            "onerror": [
+                {
+                    "id": 28,
+                    "mapper": {
+                        "count": "3",
+                        "retry": true,
+                        "interval": "1"
+                    },
+                    "module": "builtin:Break",
+                    "version": 1,
+                    "metadata": {
+                        "expect": [
+                            {
+                                "name": "retry",
+                                "type": "boolean",
+                                "label": "Automatically complete execution",
+                                "required": true
+                            },
+                            {
+                                "name": "count",
+                                "type": "uinteger",
+                                "label": "Number of attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 10000,
+                                    "min": 1
+                                }
+                            },
+                            {
+                                "name": "interval",
+                                "type": "uinteger",
+                                "label": "Interval between attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 44640,
+                                    "min": 1
+                                }
+                            }
+                        ],
+                        "restore": {
+                            "expect": {
+                                "retry": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "designer": {
+                            "x": 593,
+                            "y": 338
+                        }
+                    },
+                    "parameters": {}
+                }
+            ],
+            "version": 1,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "data",
+                        "type": "buffer",
+                        "label": "Data",
+                        "required": true
+                    },
+                    {
+                        "name": "fileName",
+                        "type": "filename",
+                        "label": "Name of filled out file",
+                        "required": true
+                    },
+                    {
+                        "name": "dataSource",
+                        "type": "select",
+                        "label": "Data source",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "form",
+                                "raw"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "values",
+                        "spec": [
+                            {
+                                "name": "valueType",
+                                "type": "select",
+                                "label": "Value type",
+                                "options": [
+                                    {
+                                        "label": "Value",
+                                        "value": "value",
+                                        "nested": [
+                                            {
+                                                "name": "key",
+                                                "type": "text",
+                                                "label": "Key",
+                                                "required": true
+                                            },
+                                            {
+                                                "name": "value",
+                                                "type": "any",
+                                                "label": "Value",
+                                                "required": false
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "label": "Condition",
+                                        "value": "condition",
+                                        "nested": [
+                                            {
+                                                "name": "key",
+                                                "type": "text",
+                                                "label": "Key",
+                                                "required": true
+                                            },
+                                            {
+                                                "name": "value",
+                                                "type": "boolean",
+                                                "label": "Value",
+                                                "editable": true,
+                                                "required": true
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "label": "Loop or section",
+                                        "value": "loop-section",
+                                        "nested": [
+                                            {
+                                                "name": "key",
+                                                "type": "text",
+                                                "label": "Key",
+                                                "required": true
+                                            },
+                                            {
+                                                "name": "value",
+                                                "spec": [
+                                                    {
+                                                        "name": "entry",
+                                                        "spec": [
+                                                            {
+                                                                "name": "key",
+                                                                "type": "text",
+                                                                "label": "Key",
+                                                                "required": true
+                                                            },
+                                                            {
+                                                                "name": "value",
+                                                                "type": "text",
+                                                                "label": "Value",
+                                                                "required": false
+                                                            }
+                                                        ],
+                                                        "type": "array",
+                                                        "label": "Entry",
+                                                        "required": true
+                                                    }
+                                                ],
+                                                "type": "array",
+                                                "label": "Value",
+                                                "required": true
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Values",
+                        "required": true
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "values": {
+                            "mode": "chose",
+                            "items": [
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                },
+                                {
+                                    "valueType": {
+                                        "mode": "edit"
+                                    }
+                                }
+                            ]
+                        },
+                        "fileName": {
+                            "collapsed": true
+                        },
+                        "dataSource": {
+                            "label": "Form",
+                            "collapsed": true
+                        }
+                    }
+                },
+                "advanced": true,
+                "designer": {
+                    "x": 597,
+                    "y": -3,
+                    "name": "Relleno Plantilla"
+                },
+                "parameters": [
+                    {
+                        "name": "startDelimiter",
+                        "type": "text",
+                        "label": "Start delimiter of the text being replaced",
+                        "required": true
+                    },
+                    {
+                        "name": "endDelimiter",
+                        "type": "text",
+                        "label": "End delimiter of the text being replaced",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "endDelimiter": "}}",
+                "startDelimiter": "{{"
+            }
+        },
+        {
+            "id": 13,
+            "mapper": {
+                "data": "{{11.data}}",
+                "enter": "id",
+                "folder": "/01YTENQUNABJXN5WYBCNHIQWBCNBHYGXDK",
+                "select": "my",
+                "select1": "no",
+                "filename": "{{11.fileName}}",
+                "description": "Parte relleno",
+                "conflictBehavior": "replace"
+            },
+            "module": "onedrive:uploadAFile",
+            "onerror": [
+                {
+                    "id": 29,
+                    "mapper": {
+                        "count": "3",
+                        "retry": true,
+                        "interval": "1"
+                    },
+                    "module": "builtin:Break",
+                    "version": 1,
+                    "metadata": {
+                        "expect": [
+                            {
+                                "name": "retry",
+                                "type": "boolean",
+                                "label": "Automatically complete execution",
+                                "required": true
+                            },
+                            {
+                                "name": "count",
+                                "type": "uinteger",
+                                "label": "Number of attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 10000,
+                                    "min": 1
+                                }
+                            },
+                            {
+                                "name": "interval",
+                                "type": "uinteger",
+                                "label": "Interval between attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 44640,
+                                    "min": 1
+                                }
+                            }
+                        ],
+                        "restore": {
+                            "expect": {
+                                "retry": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "designer": {
+                            "x": 903,
+                            "y": 343
+                        }
+                    },
+                    "parameters": {}
+                }
+            ],
+            "version": 2,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "enter",
+                        "type": "select",
+                        "label": "Enter (Folder Location ID & Path)",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "id",
+                                "path"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "filename",
+                        "type": "filename",
+                        "label": "File Name",
+                        "required": true
+                    },
+                    {
+                        "name": "data",
+                        "type": "buffer",
+                        "label": "Data",
+                        "required": true
+                    },
+                    {
+                        "name": "conflictBehavior",
+                        "type": "select",
+                        "label": "If the File with the Same Name Exists",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "replace",
+                                "rename",
+                                "fail"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "description",
+                        "type": "text",
+                        "label": "Description"
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Choose your OneDrive location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "my",
+                                "site",
+                                "group"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select1",
+                        "type": "select",
+                        "label": "Enable to Enter a Drive ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "folder",
+                        "type": "folder",
+                        "label": "Folder"
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "enter": {
+                            "label": "Folder Location ID"
+                        },
+                        "folder": {
+                            "mode": "chose",
+                            "path": [
+                                "PARTES FINALES"
+                            ]
+                        },
+                        "select": {
+                            "label": "My Drive"
+                        },
+                        "select1": {
+                            "label": "No"
+                        },
+                        "conflictBehavior": {
+                            "label": "Replace the existing file"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "azure"
+                            },
+                            "label": "Copuno (notionvan)"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 885,
+                    "y": -14,
+                    "name": "Subo parte"
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:azure",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 9173172
+            }
+        },
+        {
+            "id": 16,
+            "mapper": {
+                "page": "{{1.`ID Pag Notion Parte`}}",
+                "fields": {
+                    "vFUO": "Listo para firmar",
+                    "FhR%5E": {
+                        "includeTime": false
+                    }
+                },
+                "select": "list",
+                "database": "20882593-a257-8125-8595-e15abb37e87a"
+            },
+            "module": "notion:updateADatabaseItem",
+            "onerror": [
+                {
+                    "id": 30,
+                    "mapper": {
+                        "count": "3",
+                        "retry": true,
+                        "interval": "1"
+                    },
+                    "module": "builtin:Break",
+                    "version": 1,
+                    "metadata": {
+                        "expect": [
+                            {
+                                "name": "retry",
+                                "type": "boolean",
+                                "label": "Automatically complete execution",
+                                "required": true
+                            },
+                            {
+                                "name": "count",
+                                "type": "uinteger",
+                                "label": "Number of attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 10000,
+                                    "min": 1
+                                }
+                            },
+                            {
+                                "name": "interval",
+                                "type": "uinteger",
+                                "label": "Interval between attempts",
+                                "required": true,
+                                "validate": {
+                                    "max": 44640,
+                                    "min": 1
+                                }
+                            }
+                        ],
+                        "restore": {
+                            "expect": {
+                                "retry": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "designer": {
+                            "x": 1225,
+                            "y": 347
+                        }
+                    },
+                    "parameters": {}
+                }
+            ],
+            "version": 1,
+            "metadata": {
+                "expect": [
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Enter a Database ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "map",
+                                "list"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "database",
+                        "type": "text",
+                        "label": "Database ID",
+                        "required": true
+                    },
+                    {
+                        "mode": "edit",
+                        "name": "page",
+                        "type": "select",
+                        "label": "Database Item ID",
+                        "required": true
+                    },
+                    {
+                        "name": "fields",
+                        "spec": [
+                            {
+                                "name": "title",
+                                "type": "text",
+                                "label": "Nombre",
+                                "metadata": {
+                                    "type": "title"
+                                }
+                            },
+                            {
+                                "name": "%40LIH",
+                                "type": "select",
+                                "label": "Detalle Horas",
+                                "metadata": {
+                                    "type": "relation"
+                                },
+                                "multiple": true
+                            },
+                            {
+                                "name": "FhR%5E",
+                                "spec": [
+                                    {
+                                        "name": "start",
+                                        "type": "date",
+                                        "label": "Start Time"
+                                    },
+                                    {
+                                        "name": "end",
+                                        "type": "date",
+                                        "label": "End Time"
+                                    },
+                                    {
+                                        "name": "includeTime",
+                                        "type": "select",
+                                        "label": "Include Time",
+                                        "validate": {
+                                            "enum": [
+                                                true,
+                                                false
+                                            ]
+                                        }
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Fecha"
+                            },
+                            {
+                                "name": "J%60Mj",
+                                "type": "text",
+                                "label": "TOCAR URL PARA FIRMAR",
+                                "metadata": {
+                                    "type": "rich_text"
+                                }
+                            },
+                            {
+                                "name": "VOLq",
+                                "type": "url",
+                                "label": "URL PDF",
+                                "metadata": {
+                                    "type": "url"
+                                }
+                            },
+                            {
+                                "name": "d%3Cev",
+                                "type": "text",
+                                "label": "Notas",
+                                "metadata": {
+                                    "type": "rich_text"
+                                }
+                            },
+                            {
+                                "name": "e%60w%3E",
+                                "type": "select",
+                                "label": "Persona Autorizada",
+                                "metadata": {
+                                    "type": "relation"
+                                },
+                                "multiple": true
+                            },
+                            {
+                                "name": "m%3EjU",
+                                "spec": [
+                                    {
+                                        "name": "url",
+                                        "type": "url",
+                                        "label": "Image URL",
+                                        "required": true
+                                    },
+                                    {
+                                        "name": "name",
+                                        "type": "text",
+                                        "label": "File Name"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "Documento Firmado",
+                                "metadata": {
+                                    "type": "files"
+                                }
+                            },
+                            {
+                                "name": "n%3AjU",
+                                "type": "select",
+                                "label": "Obras",
+                                "metadata": {
+                                    "type": "relation"
+                                },
+                                "multiple": true
+                            },
+                            {
+                                "name": "vFUO",
+                                "type": "select",
+                                "label": "Estado",
+                                "metadata": {
+                                    "type": "status"
+                                },
+                                "validate": {
+                                    "enum": [
+                                        "Borrador",
+                                        "Listo para firmar",
+                                        "Datos Enviados",
+                                        "Firmado"
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "~~Gk",
+                                "type": "select",
+                                "label": "AUX Precios Hora",
+                                "metadata": {
+                                    "type": "relation"
+                                },
+                                "multiple": true
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Fields"
+                    }
+                ],
+                "restore": {
+                    "expect": {
+                        "page": {
+                            "mode": "edit"
+                        },
+                        "fields": {
+                            "nested": {
+                                "vFUO": {
+                                    "mode": "chose",
+                                    "label": "Listo para firmar"
+                                },
+                                "~~Gk": {
+                                    "mode": "chose",
+                                    "collapsed": true
+                                },
+                                "title": {
+                                    "collapsed": true
+                                },
+                                "%40LIH": {
+                                    "mode": "chose",
+                                    "collapsed": true
+                                },
+                                "FhR%5E": {
+                                    "nested": {
+                                        "includeTime": {
+                                            "mode": "chose",
+                                            "label": "No"
+                                        }
+                                    },
+                                    "collapsed": true
+                                },
+                                "J%60Mj": {
+                                    "collapsed": true
+                                },
+                                "d%3Cev": {
+                                    "collapsed": true
+                                },
+                                "m%3EjU": {
+                                    "mode": "chose",
+                                    "collapsed": true
+                                },
+                                "n%3AjU": {
+                                    "mode": "chose",
+                                    "collapsed": true
+                                },
+                                "e%60w%3E": {
+                                    "mode": "chose",
+                                    "collapsed": true
+                                }
+                            }
+                        },
+                        "select": {
+                            "label": "Select from the list"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "notion3"
+                            },
+                            "label": "Notion COPUNO"
+                        }
+                    }
+                },
+                "designer": {
+                    "x": 1213,
+                    "y": -18,
+                    "name": "Parte Listo Para Firmar"
+                },
+                "interface": [
+                    {
+                        "name": "object",
+                        "type": "text",
+                        "label": "Object"
+                    },
+                    {
+                        "name": "id",
+                        "type": "text",
+                        "label": "Database Item ID"
+                    },
+                    {
+                        "name": "created_time",
+                        "type": "date",
+                        "label": "Created Time"
+                    },
+                    {
+                        "name": "last_edited_time",
+                        "type": "date",
+                        "label": "Last Edited Time"
+                    },
+                    {
+                        "name": "icon",
+                        "spec": [
+                            {
+                                "name": "type",
+                                "type": "text",
+                                "label": "Type"
+                            },
+                            {
+                                "name": "emoji",
+                                "type": "text",
+                                "label": "Emoji"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Icon"
+                    },
+                    {
+                        "name": "cover",
+                        "spec": [
+                            {
+                                "name": "type",
+                                "type": "text",
+                                "label": "Type"
+                            },
+                            {
+                                "name": "external",
+                                "spec": [
+                                    {
+                                        "name": "url",
+                                        "type": "text",
+                                        "label": "URL"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "External"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Cover"
+                    },
+                    {
+                        "name": "url",
+                        "type": "text",
+                        "label": "URL"
+                    },
+                    {
+                        "name": "parent",
+                        "spec": [
+                            {
+                                "name": "type",
+                                "type": "text",
+                                "label": "Type"
+                            },
+                            {
+                                "name": "workspace",
+                                "type": "boolean",
+                                "label": "Workspace"
+                            },
+                            {
+                                "name": "page_id",
+                                "type": "text",
+                                "label": "Page ID"
+                            },
+                            {
+                                "name": "database_id",
+                                "type": "text",
+                                "label": "Database ID"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Parent"
+                    },
+                    {
+                        "name": "archived",
+                        "type": "boolean",
+                        "label": "Archived"
+                    },
+                    {
+                        "name": "properties",
+                        "spec": {
+                            "spec": [
+                                {
+                                    "name": "id",
+                                    "type": "text",
+                                    "label": "ID"
+                                },
+                                {
+                                    "name": "type",
+                                    "type": "text",
+                                    "label": "Type"
+                                },
+                                {
+                                    "name": "people",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "object",
+                                                "type": "text",
+                                                "label": "Object"
+                                            },
+                                            {
+                                                "name": "id",
+                                                "type": "text",
+                                                "label": "ID"
+                                            },
+                                            {
+                                                "name": "name",
+                                                "type": "text",
+                                                "label": "Name"
+                                            },
+                                            {
+                                                "name": "avatar_url",
+                                                "type": "text",
+                                                "label": "Avatar Url"
+                                            },
+                                            {
+                                                "name": "type",
+                                                "type": "text",
+                                                "label": "Type"
+                                            },
+                                            {
+                                                "name": "person",
+                                                "spec": [
+                                                    {
+                                                        "name": "email",
+                                                        "type": "text",
+                                                        "label": "Email"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Person"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "People"
+                                },
+                                {
+                                    "name": "url",
+                                    "type": "text",
+                                    "label": "URL"
+                                },
+                                {
+                                    "name": "text",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "type",
+                                                "type": "text",
+                                                "label": "Type"
+                                            },
+                                            {
+                                                "name": "text",
+                                                "spec": [
+                                                    {
+                                                        "name": "content",
+                                                        "type": "text",
+                                                        "label": "Content"
+                                                    },
+                                                    {
+                                                        "name": "link",
+                                                        "type": "text",
+                                                        "label": "Link"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Text"
+                                            },
+                                            {
+                                                "name": "annotations",
+                                                "spec": [
+                                                    {
+                                                        "name": "bold",
+                                                        "type": "boolean",
+                                                        "label": "Bold"
+                                                    },
+                                                    {
+                                                        "name": "italic",
+                                                        "type": "boolean",
+                                                        "label": "Italic"
+                                                    },
+                                                    {
+                                                        "name": "strikethrough",
+                                                        "type": "boolean",
+                                                        "label": "Strikethrough"
+                                                    },
+                                                    {
+                                                        "name": "underline",
+                                                        "type": "boolean",
+                                                        "label": "Underline"
+                                                    },
+                                                    {
+                                                        "name": "code",
+                                                        "type": "boolean",
+                                                        "label": "Code"
+                                                    },
+                                                    {
+                                                        "name": "color",
+                                                        "type": "text",
+                                                        "label": "Color"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Annotations"
+                                            },
+                                            {
+                                                "name": "plain_text",
+                                                "type": "text",
+                                                "label": "Plain Text"
+                                            },
+                                            {
+                                                "name": "href",
+                                                "type": "text",
+                                                "label": "Href"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Text"
+                                },
+                                {
+                                    "name": "select",
+                                    "spec": [
+                                        {
+                                            "name": "id",
+                                            "type": "text",
+                                            "label": "ID"
+                                        },
+                                        {
+                                            "name": "name",
+                                            "type": "text",
+                                            "label": "Name"
+                                        },
+                                        {
+                                            "name": "color",
+                                            "type": "text",
+                                            "label": "Color"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Select"
+                                },
+                                {
+                                    "name": "email",
+                                    "type": "text",
+                                    "label": "Email"
+                                },
+                                {
+                                    "name": "phone_number",
+                                    "type": "text",
+                                    "label": "Phone Number"
+                                },
+                                {
+                                    "name": "multi_select",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "id",
+                                                "type": "text",
+                                                "label": "ID"
+                                            },
+                                            {
+                                                "name": "name",
+                                                "type": "text",
+                                                "label": "Name"
+                                            },
+                                            {
+                                                "name": "color",
+                                                "type": "text",
+                                                "label": "Color"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Multi Select"
+                                },
+                                {
+                                    "name": "date",
+                                    "spec": [
+                                        {
+                                            "name": "start",
+                                            "type": "text",
+                                            "label": "Start"
+                                        },
+                                        {
+                                            "name": "end",
+                                            "type": "text",
+                                            "label": "End"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Date"
+                                },
+                                {
+                                    "name": "checkbox",
+                                    "type": "boolean",
+                                    "label": "Checkbox"
+                                },
+                                {
+                                    "name": "number",
+                                    "type": "number",
+                                    "label": "Number"
+                                },
+                                {
+                                    "name": "files",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "name",
+                                                "type": "text",
+                                                "label": "Name"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Files"
+                                },
+                                {
+                                    "name": "title",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "type",
+                                                "type": "text",
+                                                "label": "Type"
+                                            },
+                                            {
+                                                "name": "text",
+                                                "spec": [
+                                                    {
+                                                        "name": "content",
+                                                        "type": "text",
+                                                        "label": "Content"
+                                                    },
+                                                    {
+                                                        "name": "link",
+                                                        "type": "text",
+                                                        "label": "Link"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Text"
+                                            },
+                                            {
+                                                "name": "annotations",
+                                                "spec": [
+                                                    {
+                                                        "name": "bold",
+                                                        "type": "boolean",
+                                                        "label": "Bold"
+                                                    },
+                                                    {
+                                                        "name": "italic",
+                                                        "type": "boolean",
+                                                        "label": "Italic"
+                                                    },
+                                                    {
+                                                        "name": "strikethrough",
+                                                        "type": "boolean",
+                                                        "label": "Strikethrough"
+                                                    },
+                                                    {
+                                                        "name": "underline",
+                                                        "type": "boolean",
+                                                        "label": "Underline"
+                                                    },
+                                                    {
+                                                        "name": "code",
+                                                        "type": "boolean",
+                                                        "label": "Code"
+                                                    },
+                                                    {
+                                                        "name": "color",
+                                                        "type": "text",
+                                                        "label": "Color"
+                                                    }
+                                                ],
+                                                "type": "collection",
+                                                "label": "Annotations"
+                                            },
+                                            {
+                                                "name": "plain_text",
+                                                "type": "text",
+                                                "label": "Plain Text"
+                                            },
+                                            {
+                                                "name": "href",
+                                                "type": "text",
+                                                "label": "Href"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Title"
+                                },
+                                {
+                                    "name": "last_edited_time",
+                                    "time": true,
+                                    "type": "date",
+                                    "label": "Last Edited Time"
+                                },
+                                {
+                                    "name": "created_time",
+                                    "time": true,
+                                    "type": "date",
+                                    "label": "Created Time"
+                                },
+                                {
+                                    "name": "last_edited_by",
+                                    "spec": [
+                                        {
+                                            "name": "object",
+                                            "type": "text",
+                                            "label": "Object"
+                                        },
+                                        {
+                                            "name": "id",
+                                            "type": "text",
+                                            "label": "ID"
+                                        },
+                                        {
+                                            "name": "name",
+                                            "type": "text",
+                                            "label": "Name"
+                                        },
+                                        {
+                                            "name": "avatar_url",
+                                            "type": "text",
+                                            "label": "Avatar Url"
+                                        },
+                                        {
+                                            "name": "type",
+                                            "type": "text",
+                                            "label": "Type"
+                                        },
+                                        {
+                                            "name": "person",
+                                            "spec": [
+                                                {
+                                                    "name": "email",
+                                                    "type": "text",
+                                                    "label": "Email"
+                                                }
+                                            ],
+                                            "type": "collection",
+                                            "label": "Person"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Last Edited By"
+                                },
+                                {
+                                    "name": "created_by",
+                                    "spec": [
+                                        {
+                                            "name": "object",
+                                            "type": "text",
+                                            "label": "Object"
+                                        },
+                                        {
+                                            "name": "id",
+                                            "type": "text",
+                                            "label": "ID"
+                                        },
+                                        {
+                                            "name": "name",
+                                            "type": "text",
+                                            "label": "Name"
+                                        },
+                                        {
+                                            "name": "avatar_url",
+                                            "type": "text",
+                                            "label": "Avatar Url"
+                                        },
+                                        {
+                                            "name": "type",
+                                            "type": "text",
+                                            "label": "Type"
+                                        },
+                                        {
+                                            "name": "person",
+                                            "spec": [
+                                                {
+                                                    "name": "email",
+                                                    "type": "text",
+                                                    "label": "Email"
+                                                }
+                                            ],
+                                            "type": "collection",
+                                            "label": "Person"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Created By"
+                                },
+                                {
+                                    "name": "formula",
+                                    "spec": [
+                                        {
+                                            "name": "type",
+                                            "type": "text",
+                                            "label": "Type"
+                                        },
+                                        {
+                                            "name": "string",
+                                            "type": "text",
+                                            "label": "String"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Formula"
+                                },
+                                {
+                                    "name": "relation",
+                                    "spec": {
+                                        "spec": [
+                                            {
+                                                "name": "id",
+                                                "type": "text",
+                                                "label": "ID"
+                                            }
+                                        ],
+                                        "type": "collection"
+                                    },
+                                    "type": "array",
+                                    "label": "Relation"
+                                },
+                                {
+                                    "name": "label",
+                                    "type": "text",
+                                    "label": "Label"
+                                }
+                            ],
+                            "type": "collection"
+                        },
+                        "type": "array",
+                        "label": "Properties"
+                    },
+                    {
+                        "name": "properties_value",
+                        "spec": [
+                            {
+                                "name": "Última edición por",
+                                "spec": [
+                                    {
+                                        "name": "object",
+                                        "type": "text",
+                                        "label": "Object"
+                                    },
+                                    {
+                                        "name": "id",
+                                        "type": "text",
+                                        "label": "ID"
+                                    },
+                                    {
+                                        "name": "name",
+                                        "type": "text",
+                                        "label": "Name"
+                                    },
+                                    {
+                                        "name": "avatar_url",
+                                        "type": "text",
+                                        "label": "Avatar Url"
+                                    },
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "person",
+                                        "spec": [
+                                            {
+                                                "name": "email",
+                                                "type": "text",
+                                                "label": "Email"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Person"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Última edición por"
+                            },
+                            {
+                                "name": "Detalle Horas",
+                                "spec": [
+                                    {
+                                        "name": "id",
+                                        "type": "text",
+                                        "label": "ID"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "Detalle Horas"
+                            },
+                            {
+                                "name": "AUX Obra en Texto",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "AUX Obra en Texto"
+                            },
+                            {
+                                "name": "Report Horas Encargado",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Report Horas Encargado"
+                            },
+                            {
+                                "name": "Enviar Datos",
+                                "type": "any",
+                                "label": "Enviar Datos"
+                            },
+                            {
+                                "name": "AUX Obra",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "AUX Obra"
+                            },
+                            {
+                                "name": "Fecha",
+                                "spec": [
+                                    {
+                                        "name": "start",
+                                        "type": "date",
+                                        "label": "Start"
+                                    },
+                                    {
+                                        "name": "end",
+                                        "type": "date",
+                                        "label": "End"
+                                    },
+                                    {
+                                        "name": "time_zone",
+                                        "type": "text",
+                                        "label": "Time Zone"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Fecha"
+                            },
+                            {
+                                "name": "Report Horas Oficial 1ª",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Report Horas Oficial 1ª"
+                            },
+                            {
+                                "name": "Horas Oficial 1ª",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Horas Oficial 1ª"
+                            },
+                            {
+                                "name": "TEST PRECIOBDD CAPATAZ",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "TEST PRECIOBDD CAPATAZ"
+                            },
+                            {
+                                "name": "TOCAR URL PARA FIRMAR",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "text",
+                                        "spec": [
+                                            {
+                                                "name": "content",
+                                                "type": "text",
+                                                "label": "Content"
+                                            },
+                                            {
+                                                "name": "link",
+                                                "type": "text",
+                                                "label": "Link"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Text"
+                                    },
+                                    {
+                                        "name": "annotations",
+                                        "spec": [
+                                            {
+                                                "name": "bold",
+                                                "type": "boolean",
+                                                "label": "Bold"
+                                            },
+                                            {
+                                                "name": "italic",
+                                                "type": "boolean",
+                                                "label": "Italic"
+                                            },
+                                            {
+                                                "name": "strikethrough",
+                                                "type": "boolean",
+                                                "label": "Strikethrough"
+                                            },
+                                            {
+                                                "name": "underline",
+                                                "type": "boolean",
+                                                "label": "Underline"
+                                            },
+                                            {
+                                                "name": "code",
+                                                "type": "boolean",
+                                                "label": "Code"
+                                            },
+                                            {
+                                                "name": "color",
+                                                "type": "text",
+                                                "label": "Color"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Annotations"
+                                    },
+                                    {
+                                        "name": "plain_text",
+                                        "type": "text",
+                                        "label": "Plain Text"
+                                    },
+                                    {
+                                        "name": "href",
+                                        "type": "text",
+                                        "label": "Href"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "TOCAR URL PARA FIRMAR"
+                            },
+                            {
+                                "name": "AUX Jefe de Obra",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "AUX Jefe de Obra"
+                            },
+                            {
+                                "name": "Email Jefe Obra",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "array",
+                                        "spec": {
+                                            "spec": [
+                                                {
+                                                    "name": "type",
+                                                    "type": "text",
+                                                    "label": "Type"
+                                                },
+                                                {
+                                                    "name": "title",
+                                                    "spec": {
+                                                        "spec": [
+                                                            {
+                                                                "name": "type",
+                                                                "type": "text",
+                                                                "label": "Type"
+                                                            },
+                                                            {
+                                                                "name": "text",
+                                                                "spec": [
+                                                                    {
+                                                                        "name": "content",
+                                                                        "type": "text",
+                                                                        "label": "Content"
+                                                                    },
+                                                                    {
+                                                                        "name": "link",
+                                                                        "type": "text",
+                                                                        "label": "Link"
+                                                                    }
+                                                                ],
+                                                                "type": "collection",
+                                                                "label": "Text"
+                                                            },
+                                                            {
+                                                                "name": "annotations",
+                                                                "spec": [
+                                                                    {
+                                                                        "name": "bold",
+                                                                        "type": "boolean",
+                                                                        "label": "Bold"
+                                                                    },
+                                                                    {
+                                                                        "name": "italic",
+                                                                        "type": "boolean",
+                                                                        "label": "Italic"
+                                                                    },
+                                                                    {
+                                                                        "name": "strikethrough",
+                                                                        "type": "boolean",
+                                                                        "label": "Strikethrough"
+                                                                    },
+                                                                    {
+                                                                        "name": "underline",
+                                                                        "type": "boolean",
+                                                                        "label": "Underline"
+                                                                    },
+                                                                    {
+                                                                        "name": "code",
+                                                                        "type": "boolean",
+                                                                        "label": "Code"
+                                                                    },
+                                                                    {
+                                                                        "name": "color",
+                                                                        "type": "text",
+                                                                        "label": "Color"
+                                                                    }
+                                                                ],
+                                                                "type": "collection",
+                                                                "label": "Annotations"
+                                                            },
+                                                            {
+                                                                "name": "plain_text",
+                                                                "type": "text",
+                                                                "label": "Plain Text"
+                                                            },
+                                                            {
+                                                                "name": "href",
+                                                                "type": "text",
+                                                                "label": "Href"
+                                                            }
+                                                        ],
+                                                        "type": "collection"
+                                                    },
+                                                    "type": "array",
+                                                    "label": "Title"
+                                                }
+                                            ],
+                                            "type": "collection"
+                                        },
+                                        "type": "array",
+                                        "label": "Array"
+                                    },
+                                    {
+                                        "name": "function",
+                                        "type": "text",
+                                        "label": "Function"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Email Jefe Obra"
+                            },
+                            {
+                                "name": "Horas Capataz",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Horas Capataz"
+                            },
+                            {
+                                "name": "URL PDF",
+                                "type": "text",
+                                "label": "URL PDF"
+                            },
+                            {
+                                "name": "Firmar",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Firmar"
+                            },
+                            {
+                                "name": "Report Horas Capataz ",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Report Horas Capataz "
+                            },
+                            {
+                                "name": "Horas Encargado ",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Horas Encargado "
+                            },
+                            {
+                                "name": "Report Horas Oficial 2ª",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Report Horas Oficial 2ª"
+                            },
+                            {
+                                "name": "Importe Horas Oficial 1ª",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Importe Horas Oficial 1ª"
+                            },
+                            {
+                                "name": "Importe total",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Importe total"
+                            },
+                            {
+                                "name": "Report Importe Parte",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Report Importe Parte"
+                            },
+                            {
+                                "name": "Última edición",
+                                "type": "date",
+                                "label": "Última edición"
+                            },
+                            {
+                                "name": "Notas",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "text",
+                                        "spec": [
+                                            {
+                                                "name": "content",
+                                                "type": "text",
+                                                "label": "Content"
+                                            },
+                                            {
+                                                "name": "link",
+                                                "type": "text",
+                                                "label": "Link"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Text"
+                                    },
+                                    {
+                                        "name": "annotations",
+                                        "spec": [
+                                            {
+                                                "name": "bold",
+                                                "type": "boolean",
+                                                "label": "Bold"
+                                            },
+                                            {
+                                                "name": "italic",
+                                                "type": "boolean",
+                                                "label": "Italic"
+                                            },
+                                            {
+                                                "name": "strikethrough",
+                                                "type": "boolean",
+                                                "label": "Strikethrough"
+                                            },
+                                            {
+                                                "name": "underline",
+                                                "type": "boolean",
+                                                "label": "Underline"
+                                            },
+                                            {
+                                                "name": "code",
+                                                "type": "boolean",
+                                                "label": "Code"
+                                            },
+                                            {
+                                                "name": "color",
+                                                "type": "text",
+                                                "label": "Color"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Annotations"
+                                    },
+                                    {
+                                        "name": "plain_text",
+                                        "type": "text",
+                                        "label": "Plain Text"
+                                    },
+                                    {
+                                        "name": "href",
+                                        "type": "text",
+                                        "label": "Href"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "Notas"
+                            },
+                            {
+                                "name": "Importe Horas Capataz",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Importe Horas Capataz"
+                            },
+                            {
+                                "name": "Persona Autorizada",
+                                "spec": [
+                                    {
+                                        "name": "id",
+                                        "type": "text",
+                                        "label": "ID"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "Persona Autorizada"
+                            },
+                            {
+                                "name": "Horas Oficial 2ª ",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Horas Oficial 2ª "
+                            },
+                            {
+                                "name": "Documento Firmado",
+                                "spec": [
+                                    {
+                                        "name": "name",
+                                        "type": "text",
+                                        "label": "Name"
+                                    },
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "file",
+                                        "spec": [
+                                            {
+                                                "name": "url",
+                                                "type": "text",
+                                                "label": "URL"
+                                            },
+                                            {
+                                                "name": "expiry_time",
+                                                "type": "date",
+                                                "label": "Expiry Time"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "File"
+                                    },
+                                    {
+                                        "name": "external",
+                                        "spec": [
+                                            {
+                                                "name": "url",
+                                                "type": "text",
+                                                "label": "URL"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "External"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "Documento Firmado"
+                            },
+                            {
+                                "name": "Obras",
+                                "spec": [
+                                    {
+                                        "name": "id",
+                                        "type": "text",
+                                        "label": "ID"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "Obras"
+                            },
+                            {
+                                "name": "ID",
+                                "type": "any",
+                                "label": "ID"
+                            },
+                            {
+                                "name": "Horas totales",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "array",
+                                        "spec": {
+                                            "spec": [
+                                                {
+                                                    "name": "type",
+                                                    "type": "text",
+                                                    "label": "Type"
+                                                },
+                                                {
+                                                    "name": "title",
+                                                    "spec": {
+                                                        "spec": [
+                                                            {
+                                                                "name": "type",
+                                                                "type": "text",
+                                                                "label": "Type"
+                                                            },
+                                                            {
+                                                                "name": "text",
+                                                                "spec": [
+                                                                    {
+                                                                        "name": "content",
+                                                                        "type": "text",
+                                                                        "label": "Content"
+                                                                    },
+                                                                    {
+                                                                        "name": "link",
+                                                                        "type": "text",
+                                                                        "label": "Link"
+                                                                    }
+                                                                ],
+                                                                "type": "collection",
+                                                                "label": "Text"
+                                                            },
+                                                            {
+                                                                "name": "annotations",
+                                                                "spec": [
+                                                                    {
+                                                                        "name": "bold",
+                                                                        "type": "boolean",
+                                                                        "label": "Bold"
+                                                                    },
+                                                                    {
+                                                                        "name": "italic",
+                                                                        "type": "boolean",
+                                                                        "label": "Italic"
+                                                                    },
+                                                                    {
+                                                                        "name": "strikethrough",
+                                                                        "type": "boolean",
+                                                                        "label": "Strikethrough"
+                                                                    },
+                                                                    {
+                                                                        "name": "underline",
+                                                                        "type": "boolean",
+                                                                        "label": "Underline"
+                                                                    },
+                                                                    {
+                                                                        "name": "code",
+                                                                        "type": "boolean",
+                                                                        "label": "Code"
+                                                                    },
+                                                                    {
+                                                                        "name": "color",
+                                                                        "type": "text",
+                                                                        "label": "Color"
+                                                                    }
+                                                                ],
+                                                                "type": "collection",
+                                                                "label": "Annotations"
+                                                            },
+                                                            {
+                                                                "name": "plain_text",
+                                                                "type": "text",
+                                                                "label": "Plain Text"
+                                                            },
+                                                            {
+                                                                "name": "href",
+                                                                "type": "text",
+                                                                "label": "Href"
+                                                            }
+                                                        ],
+                                                        "type": "collection"
+                                                    },
+                                                    "type": "array",
+                                                    "label": "Title"
+                                                }
+                                            ],
+                                            "type": "collection"
+                                        },
+                                        "type": "array",
+                                        "label": "Array"
+                                    },
+                                    {
+                                        "name": "function",
+                                        "type": "text",
+                                        "label": "Function"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Horas totales"
+                            },
+                            {
+                                "name": "Importe Horas Encargado",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Importe Horas Encargado"
+                            },
+                            {
+                                "name": "Estado",
+                                "spec": [
+                                    {
+                                        "name": "id",
+                                        "type": "text",
+                                        "label": "ID"
+                                    },
+                                    {
+                                        "name": "name",
+                                        "type": "text",
+                                        "label": "Name"
+                                    },
+                                    {
+                                        "name": "color",
+                                        "type": "text",
+                                        "label": "Color"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Estado"
+                            },
+                            {
+                                "name": "Total Horas Oficial",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Total Horas Oficial"
+                            },
+                            {
+                                "name": "Enviar email al cliente",
+                                "type": "any",
+                                "label": "Enviar email al cliente"
+                            },
+                            {
+                                "name": "AUX Obra para filtro softr",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "array",
+                                        "spec": {
+                                            "spec": [
+                                                {
+                                                    "name": "type",
+                                                    "type": "text",
+                                                    "label": "Type"
+                                                },
+                                                {
+                                                    "name": "title",
+                                                    "spec": {
+                                                        "spec": [
+                                                            {
+                                                                "name": "type",
+                                                                "type": "text",
+                                                                "label": "Type"
+                                                            },
+                                                            {
+                                                                "name": "text",
+                                                                "spec": [
+                                                                    {
+                                                                        "name": "content",
+                                                                        "type": "text",
+                                                                        "label": "Content"
+                                                                    },
+                                                                    {
+                                                                        "name": "link",
+                                                                        "type": "text",
+                                                                        "label": "Link"
+                                                                    }
+                                                                ],
+                                                                "type": "collection",
+                                                                "label": "Text"
+                                                            },
+                                                            {
+                                                                "name": "annotations",
+                                                                "spec": [
+                                                                    {
+                                                                        "name": "bold",
+                                                                        "type": "boolean",
+                                                                        "label": "Bold"
+                                                                    },
+                                                                    {
+                                                                        "name": "italic",
+                                                                        "type": "boolean",
+                                                                        "label": "Italic"
+                                                                    },
+                                                                    {
+                                                                        "name": "strikethrough",
+                                                                        "type": "boolean",
+                                                                        "label": "Strikethrough"
+                                                                    },
+                                                                    {
+                                                                        "name": "underline",
+                                                                        "type": "boolean",
+                                                                        "label": "Underline"
+                                                                    },
+                                                                    {
+                                                                        "name": "code",
+                                                                        "type": "boolean",
+                                                                        "label": "Code"
+                                                                    },
+                                                                    {
+                                                                        "name": "color",
+                                                                        "type": "text",
+                                                                        "label": "Color"
+                                                                    }
+                                                                ],
+                                                                "type": "collection",
+                                                                "label": "Annotations"
+                                                            },
+                                                            {
+                                                                "name": "plain_text",
+                                                                "type": "text",
+                                                                "label": "Plain Text"
+                                                            },
+                                                            {
+                                                                "name": "href",
+                                                                "type": "text",
+                                                                "label": "Href"
+                                                            }
+                                                        ],
+                                                        "type": "collection"
+                                                    },
+                                                    "type": "array",
+                                                    "label": "Title"
+                                                }
+                                            ],
+                                            "type": "collection"
+                                        },
+                                        "type": "array",
+                                        "label": "Array"
+                                    },
+                                    {
+                                        "name": "function",
+                                        "type": "text",
+                                        "label": "Function"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "AUX Obra para filtro softr"
+                            },
+                            {
+                                "name": "Importe Horas Oficial 2ª",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "string",
+                                        "type": "text",
+                                        "label": "String"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "text",
+                                        "label": "Number"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Importe Horas Oficial 2ª"
+                            },
+                            {
+                                "name": "AUX Precios Hora",
+                                "spec": [
+                                    {
+                                        "name": "id",
+                                        "type": "text",
+                                        "label": "ID"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "AUX Precios Hora"
+                            },
+                            {
+                                "name": "Nombre",
+                                "spec": [
+                                    {
+                                        "name": "type",
+                                        "type": "text",
+                                        "label": "Type"
+                                    },
+                                    {
+                                        "name": "text",
+                                        "spec": [
+                                            {
+                                                "name": "content",
+                                                "type": "text",
+                                                "label": "Content"
+                                            },
+                                            {
+                                                "name": "link",
+                                                "type": "text",
+                                                "label": "Link"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Text"
+                                    },
+                                    {
+                                        "name": "annotations",
+                                        "spec": [
+                                            {
+                                                "name": "bold",
+                                                "type": "boolean",
+                                                "label": "Bold"
+                                            },
+                                            {
+                                                "name": "italic",
+                                                "type": "boolean",
+                                                "label": "Italic"
+                                            },
+                                            {
+                                                "name": "strikethrough",
+                                                "type": "boolean",
+                                                "label": "Strikethrough"
+                                            },
+                                            {
+                                                "name": "underline",
+                                                "type": "boolean",
+                                                "label": "Underline"
+                                            },
+                                            {
+                                                "name": "code",
+                                                "type": "boolean",
+                                                "label": "Code"
+                                            },
+                                            {
+                                                "name": "color",
+                                                "type": "text",
+                                                "label": "Color"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Annotations"
+                                    },
+                                    {
+                                        "name": "plain_text",
+                                        "type": "text",
+                                        "label": "Plain Text"
+                                    },
+                                    {
+                                        "name": "href",
+                                        "type": "text",
+                                        "label": "Href"
+                                    }
+                                ],
+                                "type": "array",
+                                "label": "Nombre"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Properties Value"
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:notion2,notion3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            },
+            "parameters": {
+                "__IMTCONN__": 8799380
+            }
+        }
+    ],
+    "name": "PARTES3/4  - Recibo datos del parte para generar el pdf",
+    "metadata": {
+        "instant": true,
+        "version": 1,
+        "designer": {
+            "orphans": [],
+            "samples": {
+                "1": {
+                    "Obra": "Getares",
+                    "Cliente": "Verosa",
+                    "ID Parte": 109,
+                    "Horas Peon": 0,
+                    "Fecha Parte": "29-10-2025 11:10 AM",
+                    "Jefe de obra": "Francisco Ruiz ",
+                    "Horas Capataz": 0,
+                    "Horas Totales": 18.5,
+                    "Importe Total": 52.5,
+                    "Horas Encargado": 0,
+                    "Notas del parte": "notas desde la app",
+                    "Detalle del parte": [
+                        {
+                            "empleado": "MIGUEL ANGEL ARAUJO RODRIGUEZ - 08- OF. 1ª FERRALLA - 10.5 horas"
+                        }
+                    ],
+                    "Horas Oficial 1ª": 10.5,
+                    "Horas Oficial 2ª": 0,
+                    "ID Pag Notion Parte": "29b82593-a257-81cb-a094-c078d87b27b0",
+                    "Total Horas Oficial": 10.5
+                },
+                "11": {
+                    "data": "IMTBuffer(134118, binary, 6a218c54b1d5e2f2d58dfebc6f8b7db522a8d182): 504b03040a0000000000000021001e9...",
+                    "fileName": "Parte Getares109.docx",
+                    "fileSize": 134118
+                },
+                "12": {
+                    "data": "IMTBuffer(41374, binary, 05ba47c9d8a77c503382ec8ffa35cde58ed8f3ae): 504b0304140006000800000021001e91...",
+                    "filename": "Plantilla Parte.docx",
+                    "filesize": 41374
+                },
+                "13": {
+                    "id": "01YTENQULZEVO5BEJLBZAK6BXQTVD3R35Q",
+                    "cTag": "\"c:{D05D2579-2B91-400E-AF06-F09D47B8EFB0},6\"",
+                    "eTag": "\"{D05D2579-2B91-400E-AF06-F09D47B8EFB0},6\"",
+                    "file": {
+                        "hashes": {
+                            "quickXorHash": "k/dvxzu+5kua6rUyoj7bIuCW8oE="
+                        },
+                        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "irmEnabled": false,
+                        "irmEffectivelyEnabled": false
+                    },
+                    "name": "Parte Getares109.docx",
+                    "size": 134118,
+                    "shared": {
+                        "scope": "users",
+                        "effectiveRoles": [
+                            "write"
+                        ]
+                    },
+                    "webUrl": "https://copuno-my.sharepoint.com/personal/notionvan_copuno_com/_layouts/15/Doc.aspx?sourcedoc=%7BD05...",
+                    "createdBy": {
+                        "user": {
+                            "id": "abe125c9-bafe-48d7-a05c-aff97f5f4b61",
+                            "email": "notionvan@copuno.com",
+                            "displayName": "Grupo copuno"
+                        },
+                        "application": {
+                            "id": "e05327f2-d325-48ef-b5c4-69a60e16d4b4",
+                            "displayName": "Make"
+                        }
+                    },
+                    "@odata.context": "https://copuno-my.sharepoint.com/personal/notionvan_copuno_com/_api/v2.0/$metadata#items/$entity",
+                    "fileSystemInfo": {
+                        "createdDateTime": "2025-10-29T09:28:14.000Z",
+                        "lastModifiedDateTime": "2025-11-01T08:45:25.000Z"
+                    },
+                    "lastModifiedBy": {
+                        "user": {
+                            "id": "abe125c9-bafe-48d7-a05c-aff97f5f4b61",
+                            "email": "notionvan@copuno.com",
+                            "displayName": "Grupo copuno"
+                        },
+                        "application": {
+                            "id": "e05327f2-d325-48ef-b5c4-69a60e16d4b4",
+                            "displayName": "Make"
+                        }
+                    },
+                    "createdDateTime": "2025-10-29T09:28:14.000Z",
+                    "parentReference": {
+                        "id": "01YTENQUNABJXN5WYBCNHIQWBCNBHYGXDK",
+                        "name": "PARTES FINALES",
+                        "path": "/drive/root:/PARTES FINALES",
+                        "siteId": "e4e4328d-bb66-4d4d-9a38-493ad02c1769",
+                        "driveId": "b!jTLk5Ga7TU2aOEk60CwXaTejTEkPX8JKmnxteixOz2mR5Y7qdA7QS7h6Xq08hkob",
+                        "driveType": "business"
+                    },
+                    "@content.downloadUrl": "https://copuno-my.sharepoint.com/personal/notionvan_copuno_com/_layouts/15/download.aspx?UniqueId=d0...",
+                    "lastModifiedDateTime": "2025-11-01T08:45:25.000Z"
+                },
+                "16": {
+                    "id": "29b82593-a257-81cb-a094-c078d87b27b0",
+                    "url": "https://www.notion.so/Parte-Getares109-29b82593a25781cba094c078d87b27b0",
+                    "icon": {
+                        "type": "external",
+                        "external": {
+                            "url": "https://www.notion.so/icons/document_lightgray.svg"
+                        }
+                    },
+                    "cover": null,
+                    "object": "page",
+                    "parent": {
+                        "type": "database_id",
+                        "database_id": "20882593-a257-8125-8595-e15abb37e87a"
+                    },
+                    "archived": false,
+                    "in_trash": false,
+                    "is_locked": false,
+                    "created_by": {
+                        "id": "ab794211-da49-4bfd-99a7-42ca5d316c03",
+                        "object": "user"
+                    },
+                    "properties": [
+                        {
+                            "id": "title",
+                            "url": "https://copuno-my.sharepoint.com/:b:/p/notionvan/EYNm7X66-5lGhdybG6fqKxwBjBRFRI2jYkMDwS5QXDU_Pw",
+                            "date": {
+                                "end": null,
+                                "start": "2025-10-29T10:11:00.000+00:00",
+                                "time_zone": null
+                            },
+                            "type": "title",
+                            "files": [],
+                            "label": "Nombre",
+                            "title": [
+                                {
+                                    "href": null,
+                                    "text": {
+                                        "link": null,
+                                        "content": "Parte Getares109"
+                                    },
+                                    "type": "text",
+                                    "plain_text": "Parte Getares109",
+                                    "annotations": {
+                                        "bold": false,
+                                        "code": false,
+                                        "color": "default",
+                                        "italic": false,
+                                        "underline": false,
+                                        "strikethrough": false
+                                    }
+                                }
+                            ],
+                            "button": {},
+                            "rollup": {
+                                "type": "array",
+                                "array": [
+                                    {
+                                        "type": "title",
+                                        "email": "javiercollado@me.com",
+                                        "title": [
+                                            {
+                                                "href": null,
+                                                "text": {
+                                                    "link": null,
+                                                    "content": "Getares"
+                                                },
+                                                "type": "text",
+                                                "plain_text": "Getares",
+                                                "annotations": {
+                                                    "bold": null,
+                                                    "code": null,
+                                                    "color": "default",
+                                                    "italic": null,
+                                                    "underline": null,
+                                                    "strikethrough": null
+                                                }
+                                            }
+                                        ],
+                                        "number": 25,
+                                        "relation": [
+                                            {
+                                                "id": "25682593-a257-8033-83fc-fe4d09214e69"
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "number": 18.5,
+                                "function": "show_original"
+                            },
+                            "status": {
+                                "id": "DXb\\",
+                                "name": "Listo para firmar",
+                                "color": "orange"
+                            },
+                            "formula": {
+                                "type": "number",
+                                "number": 10.5,
+                                "string": "Este parte tiene un total de 18.5 Horas"
+                            },
+                            "checkbox": null,
+                            "has_more": null,
+                            "relation": [
+                                {
+                                    "id": "20882593-a257-816d-a35b-cb72cdf262e8"
+                                }
+                            ],
+                            "rich_text": [
+                                {
+                                    "href": null,
+                                    "text": {
+                                        "link": null,
+                                        "content": "01YTENQUMDM3WX5OX3TFDILXE3DOT6UKY4"
+                                    },
+                                    "type": "text",
+                                    "plain_text": "01YTENQUMDM3WX5OX3TFDILXE3DOT6UKY4",
+                                    "annotations": {
+                                        "bold": null,
+                                        "code": null,
+                                        "color": "default",
+                                        "italic": null,
+                                        "underline": null,
+                                        "strikethrough": null
+                                    }
+                                }
+                            ],
+                            "unique_id": {
+                                "number": 109,
+                                "prefix": null
+                            },
+                            "last_edited_by": {
+                                "id": "4ce030bc-833b-43e5-81fc-e518051114b5",
+                                "bot": {},
+                                "name": "Make",
+                                "type": "bot",
+                                "object": "user",
+                                "avatar_url": "https://s3-us-west-2.amazonaws.com/public.notion-static.com/af4fbbff-0aa1-4d2a-8a4b-13684f044939/36f..."
+                            },
+                            "last_edited_time": {}
+                        }
+                    ],
+                    "public_url": null,
+                    "request_id": "945aad1a-fdaf-4201-bac7-4587ac9fbc1d",
+                    "created_time": "2025-10-29T09:12:00.000Z",
+                    "last_edited_by": {
+                        "id": "4ce030bc-833b-43e5-81fc-e518051114b5",
+                        "object": "user"
+                    },
+                    "last_edited_time": "2025-11-01T08:45:00.000Z",
+                    "properties_value": {
+                        "ID": {
+                            "number": 109,
+                            "prefix": null
+                        },
+                        "Fecha": {
+                            "end": null,
+                            "start": "2025-10-29T10:11:00.000+00:00",
+                            "time_zone": null
+                        },
+                        "Notas": [
+                            {
+                                "href": null,
+                                "text": {
+                                    "link": null,
+                                    "content": "notas desde la app"
+                                },
+                                "type": "text",
+                                "plain_text": "notas desde la app",
+                                "annotations": {
+                                    "bold": false,
+                                    "code": false,
+                                    "color": "default",
+                                    "italic": false,
+                                    "underline": false,
+                                    "strikethrough": false
+                                }
+                            }
+                        ],
+                        "Obras": [
+                            {
+                                "id": "20882593-a257-816d-a35b-cb72cdf262e8"
+                            }
+                        ],
+                        "Estado": {
+                            "id": "DXb\\",
+                            "name": "Listo para firmar",
+                            "color": "orange"
+                        },
+                        "Firmar": {
+                            "type": "string",
+                            "string": "https://www.copuno.com/es/notion/?parteId=109&obra=Getares"
+                        },
+                        "Nombre": [
+                            {
+                                "href": null,
+                                "text": {
+                                    "link": null,
+                                    "content": "Parte Getares109"
+                                },
+                                "type": "text",
+                                "plain_text": "Parte Getares109",
+                                "annotations": {
+                                    "bold": false,
+                                    "code": false,
+                                    "color": "default",
+                                    "italic": false,
+                                    "underline": false,
+                                    "strikethrough": false
+                                }
+                            }
+                        ],
+                        "URL PDF": "https://copuno-my.sharepoint.com/:b:/p/notionvan/EYNm7X66-5lGhdybG6fqKxwBjBRFRI2jYkMDwS5QXDU_Pw",
+                        "AUX Obra": {
+                            "type": "string",
+                            "string": "Getares"
+                        },
+                        "AUX Pr OF1": {
+                            "type": "array",
+                            "array": [
+                                {
+                                    "type": "number",
+                                    "number": 5
+                                }
+                            ],
+                            "function": "show_original"
+                        },
+                        "AUX Pr OF2": {
+                            "type": "array",
+                            "array": [
+                                {
+                                    "type": "number",
+                                    "number": 8
+                                }
+                            ],
+                            "function": "show_original"
+                        },
+                        "Horas Peon": {
+                            "type": "number",
+                            "number": 0
+                        },
+                        "AUX Cliente": {
+                            "type": "array",
+                            "array": [
+                                {
+                                    "type": "relation",
+                                    "relation": [
+                                        {
+                                            "id": "25682593-a257-8033-83fc-fe4d09214e69"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "function": "show_original"
+                        },
+                        "AUX Pr Peón": {
+                            "type": "array",
+                            "array": [
+                                {
+                                    "type": "number",
+                                    "number": 58
+                                }
+                            ],
+                            "function": "show_original"
+                        },
+                        "Enviar Datos": {},
+                        "Detalle Horas": [
+                            {
+                                "id": "29b82593-a257-8133-af49-d1a9e153c882"
+                            }
+                        ],
+                        "Horas Capataz": {
+                            "type": "number",
+                            "number": 0
+                        },
+                        "Horas totales": {
+                            "type": "number",
+                            "number": 18.5,
+                            "function": "sum"
+                        },
+                        "Importe total": {
+                            "type": "number",
+                            "number": 52.5
+                        },
+                        "RP Horas Peon": {
+                            "type": "string",
+                            "string": "0 Horas de peón con un importe de 0€"
+                        },
+                        "AUX Pr Capataz": {
+                            "type": "array",
+                            "array": [
+                                {
+                                    "type": "number",
+                                    "number": 14
+                                }
+                            ],
+                            "function": "show_original"
+                        },
+                        "Imp Horas Peon": {
+                            "type": "number",
+                            "number": 0
+                        },
+                        "Email Jefe Obra": {
+                            "type": "array",
+                            "array": [
+                                {
+                                    "type": "email",
+                                    "email": "javiercollado@me.com"
+                                }
+                            ],
+                            "function": "show_original"
+                        },
+                        "AUX Jefe de Obra": {
+                            "type": "string",
+                            "string": "Francisco Ruiz "
+                        },
+                        "AUX Pr Encargado": {
+                            "type": "array",
+                            "array": [
+                                {
+                                    "type": "number",
+                                    "number": 25
+                                }
+                            ],
+                            "function": "show_original"
+                        },
+                        "AUX Precios Hora": [],
+                        "Horas Encargado ": {
+                            "type": "number",
+                            "number": 0
+                        },
+                        "Imp Horas Of 1ª": {
+                            "type": "number",
+                            "number": 52.5
+                        },
+                        "Imp Horas Of 2ª": {
+                            "type": "number",
+                            "number": 0
+                        },
+                        "RP Horas totales": {
+                            "type": "string",
+                            "string": "Este parte tiene un total de 18.5 Horas"
+                        },
+                        "RP Importe Parte": {
+                            "type": "string",
+                            "string": "Importe del parte:  52.5€"
+                        },
+                        "Última edición": "2025-11-01T08:45:00.000Z",
+                        "AUX Obra en Texto": {
+                            "type": "string",
+                            "string": "Getares"
+                        },
+                        "Documento Firmado": [],
+                        "Enviado a cliente": false,
+                        "Horas Oficial 1ª": {
+                            "type": "number",
+                            "number": 10.5
+                        },
+                        "Imp Horas Capataz": {
+                            "type": "number",
+                            "number": 0
+                        },
+                        "RP Horas Capataz ": {
+                            "type": "string",
+                            "string": "0 Horas de capataz con un importe de 0€"
+                        },
+                        "RP Horas Oficial ": {
+                            "type": "string",
+                            "string": "10.5 Horas de oficial con un importe de 52.5 €"
+                        },
+                        "Horas Oficial 2ª ": {
+                            "type": "number",
+                            "number": 0
+                        },
+                        "Persona Autorizada": [
+                            {
+                                "id": "20882593-a257-815c-8469-ffcb55a630e9"
+                            }
+                        ],
+                        "RP Horas Encargado": {
+                            "type": "string",
+                            "string": "0 Horas de encargado con un importe de 0€"
+                        },
+                        "AUX ID PDF Onedrive": [
+                            {
+                                "href": null,
+                                "text": {
+                                    "link": null,
+                                    "content": "01YTENQUMDM3WX5OX3TFDILXE3DOT6UKY4"
+                                },
+                                "type": "text",
+                                "plain_text": "01YTENQUMDM3WX5OX3TFDILXE3DOT6UKY4",
+                                "annotations": {
+                                    "bold": false,
+                                    "code": false,
+                                    "color": "default",
+                                    "italic": false,
+                                    "underline": false,
+                                    "strikethrough": false
+                                }
+                            }
+                        ],
+                        "Imp Horas Encargado": {
+                            "type": "number",
+                            "number": 0
+                        },
+                        "Total Horas Oficial": {
+                            "type": "number",
+                            "number": 10.5
+                        },
+                        "RP Horas Oficial 1ª": {
+                            "type": "string",
+                            "string": "10.5 Horas de oficial de 1ª con un importe de 52.5€"
+                        },
+                        "RP Horas Oficial 2ª": {
+                            "type": "string",
+                            "string": "0 Horas de oficial de 2ª con un importe de 0€"
+                        },
+                        "Última edición por": {
+                            "id": "4ce030bc-833b-43e5-81fc-e518051114b5",
+                            "bot": {},
+                            "name": "Make",
+                            "type": "bot",
+                            "object": "user",
+                            "avatar_url": "https://s3-us-west-2.amazonaws.com/public.notion-static.com/af4fbbff-0aa1-4d2a-8a4b-13684f044939/36f..."
+                        },
+                        "AUX Cliente - texto- ": {
+                            "type": "string",
+                            "string": "Verosa"
+                        },
+                        "TOCAR URL PARA FIRMAR": [
+                            {
+                                "href": null,
+                                "text": {
+                                    "link": null,
+                                    "content": "TOCAR ESTA URL PARA FIRMAR ⬇️"
+                                },
+                                "type": "text",
+                                "plain_text": "TOCAR ESTA URL PARA FIRMAR ⬇️",
+                                "annotations": {
+                                    "bold": false,
+                                    "code": false,
+                                    "color": "default",
+                                    "italic": false,
+                                    "underline": false,
+                                    "strikethrough": false
+                                }
+                            }
+                        ],
+                        "Enviar email al cliente": {},
+                        "AUX Obra para filtro softr": {
+                            "type": "array",
+                            "array": [
+                                {
+                                    "type": "title",
+                                    "title": [
+                                        {
+                                            "href": null,
+                                            "text": {
+                                                "link": null,
+                                                "content": "Getares"
+                                            },
+                                            "type": "text",
+                                            "plain_text": "Getares",
+                                            "annotations": {
+                                                "bold": false,
+                                                "code": false,
+                                                "color": "default",
+                                                "italic": false,
+                                                "underline": false,
+                                                "strikethrough": false
+                                            }
+                                        }
+                                    ]
+                                }
+                            ],
+                            "function": "show_original"
+                        }
+                    }
+                }
+            }
+        },
+        "scenario": {
+            "dlq": true,
+            "slots": null,
+            "dataloss": false,
+            "maxErrors": 5,
+            "autoCommit": true,
+            "roundtrips": 1,
+            "sequential": false,
+            "confidential": false,
+            "freshVariables": false,
+            "autoCommitTriggerLast": true
+        }
+    }
+}
