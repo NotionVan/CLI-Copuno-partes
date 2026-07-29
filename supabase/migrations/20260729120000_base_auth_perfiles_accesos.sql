@@ -3,9 +3,10 @@
 -- Crea `perfiles` (espejo 1:1 de auth.users) y `accesos_modulo` (autorización
 -- por módulo: sin fila = sin acceso). Idempotente: se puede re-ejecutar.
 --
--- Aplicar en el proyecto "Partes de Obra" (org Grupo Copuno, eu-west-3) vía
--- SQL Editor del dashboard. NO aplicar vía MCP mientras el MCP apunte a la
--- cuenta personal de NotionVan.
+-- Aplicar en el proyecto "Partes de Obra" (org Grupo Copuno, eu-west-1,
+-- ref cuwtneprjbvumfjycnmn) vía MCP `supabase-copuno` o SQL Editor.
+-- OJO: existe otro MCP de Supabase apuntando a la cuenta personal de
+-- NotionVan — no usarlo para Copuno.
 -- ============================================================================
 
 -- 1) Perfiles — una fila por usuario de auth.users, mantenida por trigger

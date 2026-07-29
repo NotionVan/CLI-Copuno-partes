@@ -106,6 +106,11 @@ const apiLimiter = rateLimit({
 })
 app.use('/api', apiLimiter)
 
+// Autenticación de plataforma (ADR-006): JWT de Supabase en todo /api/*
+// salvo /api/health. Sin SUPABASE_URL, se desactiva (modo desarrollo).
+const { authMiddleware } = require('./src-server/middleware/auth')
+app.use('/api', authMiddleware)
+
 // Cache simple en memoria para catálogos (TTL configurable)
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30 * 1000) // 30 segundos para reducir requests innecesarios a Notion
 const cache = new Map()

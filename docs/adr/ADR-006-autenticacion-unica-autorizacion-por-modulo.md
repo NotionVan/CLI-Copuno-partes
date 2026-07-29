@@ -19,8 +19,11 @@ Novedades que obligan a decidirla ahora:
 
 1. **El cliente tiene cuenta Supabase propia**: organización **Grupo Copuno** (plan Free),
    owner `notionvan@copuno.com`. La plataforma se monta ahí, **no** en la cuenta personal de
-   NotionVan. Proyecto: **"Partes de Obra"**, región elegida `eu-west-3` (París, pareja con
-   Vercel `cdg1`; el original en `eu-west-1` se recreó estando vacío).
+   NotionVan. Proyecto: **"Partes de Obra"** (`cuwtneprjbvumfjycnmn`), región `eu-west-1`
+   (Irlanda). Se valoró recrearlo en `eu-west-3` (París, pareja con Vercel `cdg1`) y se
+   **descartó el 2026-07-29**: el JWT se valida en local en el servidor (sin llamada de red por
+   petición), ambas regiones son UE a efectos de RGPD y el beneficio de latencia era marginal.
+   Decisión cerrada — no mover.
 2. **Las bases de usuarios de los módulos futuros son disjuntas.** Los usuarios de vehículos o
    del portal de empleado no son los jefes de obra de partes. Se planteó un proyecto Supabase
    por módulo para reflejarlo.
@@ -111,11 +114,20 @@ segunda cuenta.
 
 ## Ejecución
 
-1. ✅ Config de auth en el dashboard (vía Claude en Chrome): provider Email, password ≥10 con
-   letras y dígitos, signup cerrado, Confirm email ON.
-2. ⏳ SQL base versionado en
+1. ✅ Config de auth en el dashboard (vía Claude en Chrome; **completada de verdad el
+   2026-07-29 tarde** — la primera sesión la dejó a medias pese a darse por hecha: el signup
+   seguía ON y el mínimo de contraseña en 6): provider Email, password ≥10 con letras y
+   dígitos, signup cerrado, Confirm email ON. Sesiones: JWT 3600 s, detección de refresh
+   tokens comprometidos ON; time-box/inactivity son de plan Pro.
+2. ✅ SQL base aplicado (2026-07-29, SQL Editor) y versionado en
    [supabase/migrations/](../../supabase/migrations/20260729120000_base_auth_perfiles_accesos.sql):
-   `perfiles` + `accesos_modulo` + triggers + RLS. Aplicar en el proyecto de París vía SQL Editor.
+   `perfiles` + `accesos_modulo` + triggers + RLS. Verificado por API: tablas, RLS, CHECK y FKs
+   correctos. Pendiente menor: aplicar
+   [la revocación de EXECUTE](../../supabase/migrations/20260729200000_revoke_execute_funciones_trigger.sql)
+   sobre las funciones de trigger (WARN del advisor) y aclarar el origen de
+   `public.rls_auto_enable()` (función no creada por nuestras migraciones).
+   Nota: el hook **Before User Created** está disponible en Free — opción viable si algún día
+   se quiere cerrar del todo la vía residual de magic link/OTP.
 3. ⏳ App: pantalla de login (solo password), middleware JWT en `/api/*` (excepción:
    `/api/health`), inyección del token en [notionService.js](../../src/services/notionService.js).
 4. ⏳ Altas piloto (Javi + Efrén) y prueba E2E en preview de Vercel.

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { supabase } from '../lib/supabase'
 
 // Configuración de la API: usar proxy de Vite en dev y same-origin en prod
 // Mantener baseURL vacía y usar rutas absolutas '/api/...'
@@ -15,7 +16,15 @@ const apiClient = axios.create({
 
 // Interceptor para requests
 apiClient.interceptors.request.use(
-	(config) => {
+	async (config) => {
+		// ADR-006: adjuntar el JWT de la sesión a toda llamada /api/*
+		// (getSession refresca el token solo si ha caducado)
+		if (supabase) {
+			const { data } = await supabase.auth.getSession()
+			if (data?.session?.access_token) {
+				config.headers.Authorization = `Bearer ${data.session.access_token}`
+			}
+		}
 		if (import.meta.env.DEV) {
 			console.log(`🌐 Request: ${config.method?.toUpperCase()} ${config.url}`)
 		}
@@ -44,6 +53,10 @@ apiClient.interceptors.response.use(
 				message: error.response?.data?.error || error.message,
 				url: error.config?.url
 			})
+		}
+		// ADR-006: sesión inválida o caducada según el servidor → volver al login
+		if (error.response?.status === 401 && supabase) {
+			supabase.auth.signOut().finally(() => window.location.reload())
 		}
 		return Promise.reject(error)
 	}
