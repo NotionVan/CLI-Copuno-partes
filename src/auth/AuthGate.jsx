@@ -3,8 +3,17 @@ import { supabase } from '../lib/supabase'
 
 // Puerta de autenticación de la plataforma (ADR-006).
 // - Sin sesión → formulario email + contraseña (único método expuesto).
-// - Evento PASSWORD_RECOVERY (enlace de reset por email) → pantalla de nueva contraseña.
+// - Enlace de invitación o de reset → pantalla de fijar contraseña.
 // - Sin Supabase configurado (dev/mock) → deja pasar sin login.
+
+// La URL se lee al cargar el módulo: supabase-js consume y limpia el hash de
+// forma asíncrona, así que después ya no estaría disponible. Un enlace de
+// invitación (type=invite) deja sesión iniciada SIN contraseña fijada — si no
+// lo detectáramos, el usuario entraría una vez y no podría volver a entrar.
+const URL_INICIAL = typeof window !== 'undefined'
+	? window.location.hash + window.location.search
+	: ''
+const LLEGA_DE_ENLACE_EMAIL = /type=(invite|recovery|signup)/.test(URL_INICIAL)
 
 const estilos = {
 	fondo: {
@@ -102,7 +111,7 @@ function PantallaLogin() {
 	)
 }
 
-function PantallaNuevaPassword({ alTerminar }) {
+function PantallaNuevaPassword({ alTerminar, esInvitacion }) {
 	const [password, setPassword] = useState('')
 	const [password2, setPassword2] = useState('')
 	const [error, setError] = useState(null)
@@ -122,8 +131,14 @@ function PantallaNuevaPassword({ alTerminar }) {
 	return (
 		<div style={estilos.fondo}>
 			<div style={estilos.tarjeta}>
-				<h1 style={estilos.titulo}>Nueva contraseña</h1>
-				<p style={estilos.subtitulo}>Mínimo 10 caracteres, con letras y números.</p>
+				<h1 style={estilos.titulo}>
+					{esInvitacion ? 'Bienvenido a Copuno' : 'Nueva contraseña'}
+				</h1>
+				<p style={estilos.subtitulo}>
+					{esInvitacion
+						? 'Crea tu contraseña para acceder. Mínimo 10 caracteres, con letras y números.'
+						: 'Mínimo 10 caracteres, con letras y números.'}
+				</p>
 				{error && <div style={estilos.error}>{error}</div>}
 				<form onSubmit={guardar}>
 					<label style={estilos.label} htmlFor="new-password">Nueva contraseña</label>
@@ -150,7 +165,8 @@ function PantallaNuevaPassword({ alTerminar }) {
 export default function AuthGate({ children }) {
 	const [sesion, setSesion] = useState(null)
 	const [listo, setListo] = useState(false)
-	const [recuperando, setRecuperando] = useState(false)
+	// Fijar contraseña: por enlace de email (invitación o reset) o por evento del SDK
+	const [fijandoPassword, setFijandoPassword] = useState(LLEGA_DE_ENLACE_EMAIL)
 
 	useEffect(() => {
 		if (!supabase) { setListo(true); return }
@@ -159,7 +175,7 @@ export default function AuthGate({ children }) {
 			setListo(true)
 		})
 		const { data: sub } = supabase.auth.onAuthStateChange((evento, nuevaSesion) => {
-			if (evento === 'PASSWORD_RECOVERY') setRecuperando(true)
+			if (evento === 'PASSWORD_RECOVERY') setFijandoPassword(true)
 			setSesion(nuevaSesion)
 		})
 		return () => sub.subscription.unsubscribe()
@@ -167,7 +183,14 @@ export default function AuthGate({ children }) {
 
 	if (!supabase) return children
 	if (!listo) return null
-	if (recuperando && sesion) return <PantallaNuevaPassword alTerminar={() => setRecuperando(false)} />
+	if (fijandoPassword && sesion) {
+		return (
+			<PantallaNuevaPassword
+				esInvitacion={/type=invite/.test(URL_INICIAL)}
+				alTerminar={() => setFijandoPassword(false)}
+			/>
+		)
+	}
 	if (!sesion) return <PantallaLogin />
 	return children
 }
