@@ -78,9 +78,21 @@ export const checkConnectivity = async () => {
 	} catch (error) {
 		return {
 			status: 'error',
-			message: error.response?.data?.error || error.message
+			message: describirError(error)
 		}
 	}
+}
+
+// El servidor no siempre responde con `error` en texto: si llega un objeto (o
+// HTML, cuando cae la función entera) el mensaje acababa siendo "[object
+// Object]" y ocultaba el fallo real. Aquí se compone algo accionable.
+const describirError = (error) => {
+	const detalle = error.response?.data?.error
+	if (typeof detalle === 'string') return detalle
+	if (detalle) return JSON.stringify(detalle)
+	const estado = error.response?.status
+	if (estado) return `El servidor respondió ${estado}`
+	return error.message || 'Error desconocido'
 }
 
 // Función para extraer valores de propiedades de Notion
