@@ -152,6 +152,19 @@ varios resets de contraseña el mismo día). No se arregla pagando Supabase.
    se quiere cerrar del todo la vía residual de magic link/OTP.
 3. ⏳ App: pantalla de login (solo password), middleware JWT en `/api/*` (excepción:
    `/api/health`), inyección del token en [notionService.js](../../src/services/notionService.js).
-4. ⏳ Altas piloto (Javi + Efrén) y prueba E2E en preview de Vercel.
+4. ⏳ Altas piloto y prueba E2E en preview de Vercel.
+
+   **Gotcha operativo (detectado 2026-07-30 en el primer piloto):** los enlaces de invitación y
+   de recuperación son de **un solo uso** y caducan con el *Email OTP Expiration* del proyecto,
+   **1 hora por defecto**. Un jefe de obra que abra el correo por la tarde se encuentra
+   `otp_expired` y no puede entrar. Además, algunos gestores de correo "pre-abren" los enlaces al
+   escanearlos y **consumen el token antes de que el usuario pulse**.
+
+   Antes del despliegue a la plantilla:
+   - Subir *Email OTP Expiration* (Authentication → Providers → Email) a 24 h.
+   - Contar con que la recuperación autoservicio (`¿Has olvidado tu contraseña?`) es la vía
+     normal de rescate, no la excepción: **no reinvitar** cuando un enlace caduque.
+   - Encaja con el SMTP propio pendiente: cada rescate consume cupo del límite de ~2-4 emails/h
+     del SMTP compartido de Free.
 5. ⏳ Decidir operativa de altas/bajas, sesión y ventana de corte (punto 3 pendiente).
 6. ⏳ `@regression-checker` sobre firma, PDF y sync Notion antes de activar en producción.
