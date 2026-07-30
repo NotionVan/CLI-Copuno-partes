@@ -56,6 +56,10 @@ Sin `SUPABASE_URL` el servidor avisa y deja pasar (modo desarrollo); sin las
 - Añadir las tres variables `SUPABASE_*` al scope **Production** de Vercel (hoy solo en Preview):
   hasta que estén, producción sigue sin login — deliberado, para que el corte sea una decisión
   explícita y no un efecto colateral del merge.
+- **En el mismo movimiento, añadir `AUTH_OBLIGATORIA=true` a Production.** Activa el fail-fast
+  del middleware: si algún día `SUPABASE_URL` desapareciera de la config, la app abortaría con
+  error visible en vez de servir `/api/*` sin autenticación en silencio (reabriría H1). Sin esa
+  variable el middleware solo avisa por consola — comportamiento de desarrollo.
 - Altas piloto (Javi + Efrén) y E2E en preview.
 - Decidir operativa de altas/bajas y ventana de corte (punto 3 del ADR).
 - `@regression-checker` sobre firma, PDF y sync Notion.

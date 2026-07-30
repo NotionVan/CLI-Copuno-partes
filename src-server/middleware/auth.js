@@ -17,6 +17,17 @@ const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || ''
 const RUTAS_PUBLICAS = new Set(['/health'])
 const JWKS_TTL_MS = 10 * 60 * 1000
 
+// Cinturón para el corte a producción (ADR-006): con AUTH_OBLIGATORIA=true,
+// arrancar sin SUPABASE_URL es un error de configuración, no un modo — si la
+// variable desapareciera de Vercel, la app caería con error visible en vez de
+// servir /api/* sin autenticación en silencio (reabriría H1). Mismo patrón
+// fail-fast que NOTION_TOKEN en server.js. Añadir AUTH_OBLIGATORIA=true a
+// Production JUNTO con SUPABASE_URL el día del corte.
+if (process.env.AUTH_OBLIGATORIA === 'true' && !SUPABASE_URL) {
+	console.error('❌ AUTH_OBLIGATORIA=true pero falta SUPABASE_URL — abortando para no servir la API sin autenticación')
+	process.exit(1)
+}
+
 let jwksCache = { claves: null, ts: 0 }
 let avisoDado = false
 
