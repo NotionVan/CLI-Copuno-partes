@@ -19,6 +19,10 @@ process.env.USE_MOCK_DATA = 'true'
 process.env.NOTION_TOKEN = 'mock'
 // Desactivar el cache de catálogos para que cada test lea estado fresco del mock.
 process.env.CACHE_TTL_MS = '0'
+// Neutralizar la auth de plataforma (ADR-006): con SUPABASE_URL definida el
+// middleware exigiría JWT y toda la suite fallaría con 401. El middleware se
+// prueba aparte en auth.test.js.
+process.env.SUPABASE_URL = ''
 
 const test = require('node:test')
 const assert = require('node:assert/strict')
