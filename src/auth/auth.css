@@ -185,6 +185,7 @@
 	align-items: center;
 	gap: var(--spacing-xs);
 	max-width: 220px;
+	min-height: 36px;
 	padding: 6px 10px;
 	font-size: var(--font-size-small);
 	color: var(--text-secondary);
@@ -246,7 +247,7 @@
 .cuenta-overlay {
 	position: fixed;
 	inset: 0;
-	z-index: 100;
+	z-index: 2000; /* capa de modales de la app (App.css usa 1000/2000/2100) */
 	display: grid;
 	place-items: center;
 	padding: var(--spacing-lg);
@@ -261,5 +262,11 @@
 @media (max-width: 640px) {
 	.cuenta-email {
 		display: none;
+	}
+
+	.cuenta-boton {
+		min-width: 44px;
+		min-height: 44px;
+		justify-content: center;
 	}
 }

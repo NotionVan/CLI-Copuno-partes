@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RefreshCw, RotateCcw, X, Truck, Download, AlertTriangle } from 'lucide-react'
+import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RotateCcw, X, Truck, Download, AlertTriangle } from 'lucide-react'
 import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId, buscarVehiculos, exportarChorus, componerCsvChorus } from './services/notionService'
 
 // F4: helpers para agrupar firmantes por rol en el selector
@@ -14,8 +14,8 @@ const agruparFirmantesPorRol = (firmantes) => {
 	}
 	return grupos
 }
-import MenuCuenta from './auth/MenuCuenta.jsx'
 import './App.css'
+import Cabecera from './components/Cabecera.jsx'
 
 const formatearHorasTexto = (valor) => {
 	if (valor === undefined || valor === null) return 'Sin horas registradas'
@@ -661,75 +661,17 @@ function App() {
 
 	return (
 		<div className="app">
-			<header className="header">
-				<div className="container">
-					<div className="header-content">
-						<div className="header-brand">
-							<button className="logo-button" onClick={volverInicio}>
-								<div className="logo">
-									<Building size={32} />
-									<h1 className="logo-text">Copuno</h1>
-								</div>
-							</button>
-							<div className="header-title-block">
-								<h2 className="app-title">Gestión de Partes</h2>
-							</div>
-						</div>
-						<div className="header-utility">
-							<MenuCuenta />
-							<div className={`connectivity-status ${connectivity.status}`}>
-								{connectivity.status === 'ok' ? (
-									<>
-										<Wifi size={14} />
-										<span>{connectivity.message}</span>
-									</>
-								) : connectivity.status === 'error' ? (
-									<>
-										<WifiOff size={14} />
-										<span>{connectivity.message}</span>
-									</>
-								) : (
-									<>
-										<Loader2 size={14} className="loading-spinner" />
-										<span>{connectivity.message}</span>
-									</>
-								)}
-							</div>
-							{!loading && !error && connectivity.status === 'ok' && (
-								<button
-									className={`sync-mode-indicator sync-${syncMode}`}
-									title={`Sincronización en modo ${syncMode} - Click para más info`}
-									onClick={() => setMostrarInfoSync(true)}
-								>
-									<Clock size={12} />
-									<span>{syncMode}</span>
-								</button>
-							)}
-							{!loading && !error && connectivity.status === 'ok' && (
-								<button
-									className="btn-refresh btn-exportar"
-									onClick={() => setMostrarExportar(true)}
-									title="Exportar horas a CSV para los cuadrantes de Chorus"
-								>
-									<Download size={16} />
-									Exportar CSV
-								</button>
-							)}
-							{!loading && (
-								<button
-									className="btn-refresh"
-									onClick={refrescarTodosDatos}
-									disabled={refrescando}
-									title="Refrescar datos desde Notion"
-								>
-									<RefreshCw size={16} className={refrescando ? 'spinning' : ''} />
-									{refrescando ? 'Refrescando...' : 'Refrescar'}
-								</button>
-							)}
-						</div>
-					</div>
-				</div>
-			</header>
+			<Cabecera
+				conectividad={connectivity}
+				syncMode={syncMode}
+				cargando={loading}
+				error={error}
+				refrescando={refrescando}
+				onInicio={volverInicio}
+				onRefrescar={refrescarTodosDatos}
+				onExportar={() => setMostrarExportar(true)}
+				onInfoSync={() => setMostrarInfoSync(true)}
+			/>
 
 			{hayActualizacion && (
 				<div className="update-banner">

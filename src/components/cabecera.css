@@ -1,0 +1,221 @@
+/* Cabecera de la plataforma. Solo tokens de index.css.
+   TODO el CSS de la cabecera vive aquí: no añadir reglas .cabecera-* en otros
+   archivos. Media queries SIEMPRE de más ancha a más estrecha y con cortes no
+   solapados — el header antiguo murió por dos bloques @media pisándose. */
+
+.cabecera {
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	background: rgba(255, 255, 255, 0.92);
+	-webkit-backdrop-filter: saturate(160%) blur(10px);
+	backdrop-filter: saturate(160%) blur(10px);
+	border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+	/* OJO: backdrop-filter hace de esta caja el bloque contenedor de cualquier
+	   position:fixed descendiente — los modales que cuelguen de aquí deben ir
+	   por portal (ver MenuCuenta). Y nunca overflow:hidden: recortaría el
+	   desplegable de cuenta. */
+}
+
+.cabecera-fila {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-sm);
+	min-height: 40px;
+	padding-block: 12px; /* 40 + 24 = 64px; --header-offset lo mide un ResizeObserver */
+}
+
+/* ── Marca ── */
+
+.cabecera-marca {
+	display: inline-flex;
+	align-items: center;
+	flex: none;
+	padding: var(--spacing-xs);
+	background: none;
+	border: none;
+	border-radius: var(--border-radius-sm);
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.cabecera-marca:hover {
+	background: var(--primary-soft);
+}
+
+.cabecera-marca:focus-visible {
+	outline: 2px solid var(--primary-color);
+	outline-offset: 2px;
+}
+
+.cabecera-logo {
+	display: block;
+	height: 28px;
+	width: auto;
+}
+
+.cabecera-separador {
+	flex: none;
+	width: 1px;
+	height: 20px;
+	background: var(--border-color);
+}
+
+.cabecera-modulo {
+	margin: 0;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-size-small);
+	font-weight: 500;
+	color: var(--text-secondary);
+}
+
+/* ── Utilidades ── */
+
+.cabecera-utilidades {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-sm);
+	margin-left: auto;
+	flex: none;
+}
+
+/* Sin sesión, MenuCuenta no se renderiza y su separador quedaría huérfano */
+.cabecera-utilidades > .cabecera-separador:last-child {
+	display: none;
+}
+
+/* Familia "acción": rectángulo suave, misma geometría que .cuenta-boton */
+.cabecera-accion {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-xs);
+	min-height: 36px;
+	padding: 0 12px;
+	font-size: var(--font-size-small);
+	font-weight: 600;
+	border: 1px solid transparent;
+	border-radius: var(--border-radius-sm);
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.cabecera-accion:focus-visible {
+	outline: 2px solid var(--primary-color);
+	outline-offset: 2px;
+}
+
+.cabecera-accion--suave {
+	background: var(--primary-soft);
+	color: var(--primary-color);
+}
+
+.cabecera-accion--suave:hover:not(:disabled) {
+	background: var(--primary-soft-strong);
+}
+
+.cabecera-accion--fantasma {
+	background: transparent;
+	color: var(--text-secondary);
+	border-color: var(--border-color);
+}
+
+.cabecera-accion--fantasma:hover {
+	background: var(--surface-muted);
+	color: var(--text-primary);
+}
+
+.cabecera-accion:disabled {
+	opacity: 0.65;
+	cursor: progress;
+}
+
+/* Familia "estado": píldora informativa. El color lo lleva el punto; el texto
+   es neutro (los pares texto-de-color/fondo-tintado antiguos no pasaban AA). */
+.cabecera-estado {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-xs);
+	min-height: 36px;
+	padding: 0 12px;
+	max-width: 26ch;
+	overflow: hidden;
+	white-space: nowrap;
+	border: none;
+	border-radius: 999px;
+	background: var(--surface-muted);
+	color: var(--text-secondary);
+	font-size: var(--font-size-small);
+}
+
+button.cabecera-estado {
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+button.cabecera-estado:hover {
+	background: var(--primary-soft);
+}
+
+button.cabecera-estado:focus-visible {
+	outline: 2px solid var(--primary-color);
+	outline-offset: 2px;
+}
+
+.cabecera-estado-punto {
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+}
+
+.cabecera-estado.ok .cabecera-estado-punto { background: var(--success-color); }
+.cabecera-estado.checking .cabecera-estado-punto { background: var(--warning-color); }
+.cabecera-estado.error { background: #fee2e2; } /* con --danger-color da 5,3:1 — pasa AA */
+.cabecera-estado.error .cabecera-estado-punto { background: var(--danger-color); }
+.cabecera-estado.error .cabecera-estado-texto { color: var(--danger-color); font-weight: 600; }
+
+.cabecera-estado-texto {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.cabecera-estado-modo {
+	color: var(--text-tertiary);
+	text-transform: uppercase;
+	font-size: 0.8em;
+	letter-spacing: 0.04em;
+}
+
+/* @keyframes spin vive en App.css (compartido con .loading-spinner) */
+.cabecera .spinning {
+	animation: spin 1s linear infinite;
+}
+
+/* ── Responsive: de más ancha a más estrecha, cortes no solapados ── */
+
+@media (max-width: 1023px) {
+	/* Exportar pierde la etiqueta; el modo de sync deja de mostrarse */
+	.cabecera-exportar .cabecera-accion-texto { display: none; }
+	.cabecera-estado-modo { display: none; }
+}
+
+@media (max-width: 767px) {
+	.cabecera-fila { min-height: 44px; padding-block: 6px; } /* 56px */
+	/* Objetivo táctil 44px y solo iconos; Exportar fuera (el CSV de Chorus
+	   es de oficina, en un móvil de obra no tiene uso) */
+	.cabecera-accion { min-width: 44px; min-height: 44px; padding: 0 10px; justify-content: center; }
+	.cabecera-accion-texto { display: none; }
+	.cabecera-exportar { display: none; }
+	.cabecera-estado { min-height: 44px; }
+	.cabecera-estado-texto { display: none; }
+}
+
+/* <600px el <picture> ya sirve el isotipo; nada que hacer aquí */
+
+@media (max-width: 479px) {
+	.cabecera-modulo,
+	.cabecera-fila > .cabecera-separador { display: none; }
+}

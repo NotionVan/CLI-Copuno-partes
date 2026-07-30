@@ -56,7 +56,9 @@
 	--line-height-base: 1.6;
 
 	/* Layout helpers */
-	--header-offset: clamp(72px, 8vh, 104px);
+	/* Altura de la cabecera. Fallback: en runtime lo sobreescribe el
+	   ResizeObserver de components/Cabecera.jsx con la altura real. */
+	--header-offset: 64px;
 }
 
 * {
@@ -277,6 +279,10 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
+	:root {
+		--header-offset: 56px;
+	}
+
 	.container {
 		padding: 0 16px;
 	}

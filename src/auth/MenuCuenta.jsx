@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { LogOut, KeyRound, UserCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import './auth.css'
@@ -64,7 +65,13 @@ export default function MenuCuenta() {
 				</div>
 			)}
 
-			{cambiando && <ModalCambiarPassword alCerrar={() => setCambiando(false)} />}
+			{/* Por portal: la cabecera tiene backdrop-filter, que la convierte en
+			    bloque contenedor de position:fixed — sin portal, el modal se
+			    centraría dentro de la franja de la cabecera, no del viewport. */}
+			{cambiando && createPortal(
+				<ModalCambiarPassword alCerrar={() => setCambiando(false)} />,
+				document.body
+			)}
 		</div>
 	)
 }
