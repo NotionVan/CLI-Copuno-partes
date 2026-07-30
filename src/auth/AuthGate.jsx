@@ -16,6 +16,18 @@ const URL_INICIAL = typeof window !== 'undefined'
 	: ''
 const LLEGA_DE_ENLACE_EMAIL = /type=(invite|recovery|signup)/.test(URL_INICIAL)
 
+// Un enlace caducado o ya usado vuelve con error en la URL. Sin esto la app
+// mostraba el login sin explicar nada y el usuario no sabía qué había fallado.
+function errorDelEnlace() {
+	const p = new URLSearchParams(URL_INICIAL.replace(/^[#?]/, '').replace('#', '&'))
+	const codigo = p.get('error_code') || p.get('error')
+	if (!codigo) return null
+	if (/expired|invalid/i.test(codigo)) {
+		return 'El enlace ha caducado o ya se había usado. Pide uno nuevo desde "¿Has olvidado tu contraseña?".'
+	}
+	return p.get('error_description') || 'No se pudo validar el enlace. Solicita uno nuevo.'
+}
+
 // Lockup de marca: imagotipo oficial (public/logo-copuno.png, recortado de
 // copuno.com y con fondo transparente) + nombre del módulo. El logo ya
 // contiene el nombre de la empresa, así que no se repite en texto.
@@ -44,10 +56,10 @@ function Mensaje({ tipo, children }) {
 	)
 }
 
-function PantallaLogin() {
+function PantallaLogin({ errorInicial }) {
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
-	const [error, setError] = useState(null)
+	const [error, setError] = useState(errorInicial || null)
 	const [aviso, setAviso] = useState(null)
 	const [cargando, setCargando] = useState(false)
 	const [modoReset, setModoReset] = useState(false)
@@ -198,6 +210,6 @@ export default function AuthGate({ children }) {
 			/>
 		)
 	}
-	if (!sesion) return <PantallaLogin />
+	if (!sesion) return <PantallaLogin errorInicial={errorDelEnlace()} />
 	return children
 }
