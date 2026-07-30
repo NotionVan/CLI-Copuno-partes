@@ -23,7 +23,7 @@ El contexto de negocio y las decisiones viven en `javintnvn/SB` (segundo cerebro
 | Hosting | Vercel (config en [vercel.json](vercel.json), región `cdg1`) |
 | Cliente API frontend | [src/services/notionService.js](src/services/notionService.js) (axios contra `/api/*` same-origin) |
 
-**Nota:** no hay tests automatizados en el repo. Verificación es manual.
+**Tests:** `npm run test:smoke` — suite de humo con `node:test` (45 casos: flujos críticos + idempotencia en `src-server/tests/smoke/smoke.test.js`, middleware JWT en `auth.test.js`). Corre contra el mock, sin tocar Notion/Make. **Ejecutarla antes de cualquier merge.** Gotchas: `smoke.test.js` neutraliza `SUPABASE_URL` a propósito (con ella definida todo daría 401); `auth.test.js` fija el entorno **antes** del `require` porque `auth.js` captura la variable al cargarse. Sin `SUPABASE_URL`, el middleware NO autentica (modo desarrollo) — en producción el día del corte se añade `AUTH_OBLIGATORIA=true` para que esa ausencia sea un abort y no una API pública silenciosa. La verificación de frontend sigue siendo manual.
 
 ---
 
