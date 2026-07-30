@@ -47,7 +47,15 @@ Sin `SUPABASE_URL` el servidor avisa y deja pasar (modo desarrollo); sin las
 - `@supabase/supabase-js` (cliente auth frontend) · `jose` (verificación JWT servidor)
 
 ## Pendiente antes del corte a producción
-- Site URL / Redirect URLs en el dashboard (preview de Vercel + `app.copuno.com`).
+- **Reapuntar Site URL / Redirect URLs ANTES de fusionar y borrar la rama.** Durante el
+  desarrollo apuntan al alias de rama
+  (`copuno-gestion-partes-git-feature-auth-3911d1-copunos-projects.vercel.app`, fijado el
+  2026-07-30; el valor previo era `http://localhost:3000`). Ese alias **muere al borrar la
+  rama** y con él dejarían de resolver los enlaces de invitación y de reset de contraseña.
+  Destino: la URL de producción, y `https://app.copuno.com` cuando exista el DNS (ADR-005).
+- Añadir las tres variables `SUPABASE_*` al scope **Production** de Vercel (hoy solo en Preview):
+  hasta que estén, producción sigue sin login — deliberado, para que el corte sea una decisión
+  explícita y no un efecto colateral del merge.
 - Altas piloto (Javi + Efrén) y E2E en preview.
 - Decidir operativa de altas/bajas y ventana de corte (punto 3 del ADR).
 - `@regression-checker` sobre firma, PDF y sync Notion.
