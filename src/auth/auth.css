@@ -1,0 +1,176 @@
+/* Pantallas de autenticación (ADR-006).
+   Usa los tokens de index.css para que login y app sean el mismo producto. */
+
+.auth-screen {
+	min-height: 100dvh;
+	display: grid;
+	place-items: center;
+	padding: var(--spacing-lg);
+	background:
+		radial-gradient(1200px 600px at 50% -10%, var(--primary-soft) 0%, transparent 60%),
+		var(--background-color);
+}
+
+.auth-card {
+	width: 100%;
+	max-width: 400px;
+	background: var(--surface-color);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-lg);
+	box-shadow: var(--shadow-lg);
+	padding: var(--spacing-xl);
+}
+
+/* Marca — imagotipo oficial. El logo manda visualmente, así que el nombre del
+   módulo va debajo, más pequeño y en secundario: jerarquía marca > producto.
+   El separador da aire sin competir con el logo. */
+.auth-brand {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--spacing-sm);
+	margin-bottom: var(--spacing-lg);
+	padding-bottom: var(--spacing-lg);
+	border-bottom: 1px solid var(--border-color);
+}
+
+.auth-brand-logo {
+	width: 220px;
+	max-width: 70%;
+	height: auto;
+	display: block;
+}
+
+.auth-brand-app {
+	margin: 0;
+	font-size: var(--font-size-small);
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	color: var(--text-tertiary);
+}
+
+.auth-heading {
+	margin: 0 0 var(--spacing-lg);
+	font-size: var(--font-size-medium);
+	font-weight: 500;
+	color: var(--text-secondary);
+	text-align: center;
+}
+
+.auth-field {
+	margin-bottom: var(--spacing-md);
+}
+
+.auth-label {
+	display: block;
+	margin-bottom: var(--spacing-xs);
+	font-size: var(--font-size-small);
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+.auth-input {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 12px var(--spacing-md);
+	font-size: var(--font-size-medium);
+	color: var(--text-primary);
+	background: var(--surface-color);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-sm);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.auth-input:focus {
+	outline: none;
+	border-color: var(--primary-color);
+	box-shadow: 0 0 0 4px var(--primary-ring);
+}
+
+.auth-submit {
+	width: 100%;
+	padding: 12px var(--spacing-md);
+	margin-top: var(--spacing-xs);
+	font-size: var(--font-size-medium);
+	font-weight: 600;
+	color: var(--surface-color);
+	background: linear-gradient(135deg, var(--btn-primary-start), var(--btn-primary-end));
+	border: none;
+	border-radius: var(--border-radius-sm);
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.auth-submit:hover:not(:disabled) {
+	transform: translateY(-1px);
+	box-shadow: 0 10px 22px var(--primary-shadow);
+}
+
+.auth-submit:disabled {
+	opacity: 0.65;
+	cursor: progress;
+}
+
+.auth-submit:focus-visible,
+.auth-link:focus-visible {
+	outline: 2px solid var(--primary-color);
+	outline-offset: 3px;
+}
+
+.auth-link {
+	display: block;
+	width: 100%;
+	margin-top: var(--spacing-md);
+	padding: 0;
+	font-size: var(--font-size-small);
+	font-weight: 500;
+	color: var(--primary-hover);
+	background: none;
+	border: none;
+	cursor: pointer;
+	text-align: center;
+}
+
+.auth-link:hover {
+	text-decoration: underline;
+}
+
+/* Mensajes — con icono textual para no depender solo del color (accesibilidad) */
+.auth-message {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-sm);
+	margin-bottom: var(--spacing-md);
+	padding: 10px var(--spacing-md);
+	font-size: var(--font-size-small);
+	line-height: 1.45;
+	border-radius: var(--border-radius-sm);
+	border: 1px solid;
+}
+
+.auth-message.is-error {
+	color: var(--danger-color);
+	background: #fee2e2;
+	border-color: #fecaca;
+}
+
+.auth-message.is-info {
+	color: var(--success-color);
+	background: #dcfce7;
+	border-color: #bbf7d0;
+}
+
+.auth-hint {
+	margin: var(--spacing-sm) 0 0;
+	font-size: var(--font-size-small);
+	color: var(--text-tertiary);
+	text-align: center;
+}
+
+@media (max-width: 420px) {
+	.auth-card {
+		padding: var(--spacing-lg);
+		border: none;
+		box-shadow: var(--shadow-md);
+	}
+}

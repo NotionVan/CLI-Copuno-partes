@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import './auth.css'
 
 // Puerta de autenticación de la plataforma (ADR-006).
 // - Sin sesión → formulario email + contraseña (único método expuesto).
@@ -15,32 +16,32 @@ const URL_INICIAL = typeof window !== 'undefined'
 	: ''
 const LLEGA_DE_ENLACE_EMAIL = /type=(invite|recovery|signup)/.test(URL_INICIAL)
 
-const estilos = {
-	fondo: {
-		minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-		background: '#f5f6f8', padding: '1rem'
-	},
-	tarjeta: {
-		background: '#fff', borderRadius: 12, boxShadow: '0 2px 12px rgba(0,0,0,.08)',
-		padding: '2rem', width: '100%', maxWidth: 380
-	},
-	titulo: { margin: '0 0 .25rem', fontSize: '1.25rem' },
-	subtitulo: { margin: '0 0 1.25rem', color: '#666', fontSize: '.9rem' },
-	label: { display: 'block', fontSize: '.85rem', marginBottom: 4, color: '#333' },
-	input: {
-		width: '100%', padding: '.6rem .75rem', marginBottom: '1rem', borderRadius: 8,
-		border: '1px solid #ccc', fontSize: '1rem', boxSizing: 'border-box'
-	},
-	boton: {
-		width: '100%', padding: '.65rem', borderRadius: 8, border: 'none',
-		background: '#1a56db', color: '#fff', fontSize: '1rem', cursor: 'pointer'
-	},
-	enlace: {
-		background: 'none', border: 'none', color: '#1a56db', cursor: 'pointer',
-		fontSize: '.85rem', padding: 0, marginTop: '1rem'
-	},
-	error: { color: '#b91c1c', fontSize: '.85rem', marginBottom: '1rem' },
-	aviso: { color: '#15803d', fontSize: '.85rem', marginBottom: '1rem' }
+// Lockup de marca: imagotipo oficial (public/logo-copuno.png, recortado de
+// copuno.com y con fondo transparente) + nombre del módulo. El logo ya
+// contiene el nombre de la empresa, así que no se repite en texto.
+function Marca() {
+	return (
+		<div className="auth-brand">
+			<img
+				className="auth-brand-logo"
+				src="/logo-copuno.png"
+				alt="Grupo Copuno"
+				width={220}
+				height={55}
+			/>
+			<p className="auth-brand-app">Gestión de Partes</p>
+		</div>
+	)
+}
+
+function Mensaje({ tipo, children }) {
+	if (!children) return null
+	return (
+		<div className={`auth-message is-${tipo}`} role={tipo === 'error' ? 'alert' : 'status'}>
+			<span aria-hidden="true">{tipo === 'error' ? '⚠' : '✓'}</span>
+			<span>{children}</span>
+		</div>
+	)
 }
 
 function PantallaLogin() {
@@ -71,43 +72,45 @@ function PantallaLogin() {
 	}
 
 	return (
-		<div style={estilos.fondo}>
-			<div style={estilos.tarjeta}>
-				<h1 style={estilos.titulo}>Copuno — Gestión de partes</h1>
-				<p style={estilos.subtitulo}>
+		<main className="auth-screen">
+			<div className="auth-card">
+				<Marca />
+				<h2 className="auth-heading">
 					{modoReset ? 'Restablecer contraseña' : 'Accede con tu cuenta'}
-				</p>
-				{error && <div style={estilos.error}>{error}</div>}
-				{aviso && <div style={estilos.aviso}>{aviso}</div>}
+				</h2>
+				<Mensaje tipo="error">{error}</Mensaje>
+				<Mensaje tipo="info">{aviso}</Mensaje>
 				<form onSubmit={modoReset ? enviarReset : entrar}>
-					<label style={estilos.label} htmlFor="auth-email">Email</label>
-					<input
-						id="auth-email" type="email" required autoComplete="username"
-						style={estilos.input} value={email}
-						onChange={(e) => setEmail(e.target.value)}
-					/>
+					<div className="auth-field">
+						<label className="auth-label" htmlFor="auth-email">Email</label>
+						<input
+							id="auth-email" type="email" required autoComplete="username"
+							className="auth-input" value={email}
+							onChange={(e) => setEmail(e.target.value)}
+						/>
+					</div>
 					{!modoReset && (
-						<>
-							<label style={estilos.label} htmlFor="auth-password">Contraseña</label>
+						<div className="auth-field">
+							<label className="auth-label" htmlFor="auth-password">Contraseña</label>
 							<input
 								id="auth-password" type="password" required autoComplete="current-password"
-								style={estilos.input} value={password}
+								className="auth-input" value={password}
 								onChange={(e) => setPassword(e.target.value)}
 							/>
-						</>
+						</div>
 					)}
-					<button type="submit" style={estilos.boton} disabled={cargando}>
+					<button type="submit" className="auth-submit" disabled={cargando}>
 						{cargando ? 'Un momento…' : modoReset ? 'Enviar enlace' : 'Entrar'}
 					</button>
 				</form>
 				<button
-					type="button" style={estilos.enlace}
+					type="button" className="auth-link"
 					onClick={() => { setModoReset(!modoReset); setError(null); setAviso(null) }}
 				>
 					{modoReset ? '← Volver al acceso' : '¿Has olvidado tu contraseña?'}
 				</button>
 			</div>
-		</div>
+		</main>
 	)
 }
 
@@ -124,41 +127,45 @@ function PantallaNuevaPassword({ alTerminar, esInvitacion }) {
 		setCargando(true)
 		const { error: err } = await supabase.auth.updateUser({ password })
 		setCargando(false)
-		if (err) setError('No se pudo guardar. Mínimo 10 caracteres con letras y números.')
+		if (err) setError('No se pudo guardar. Revisa que cumpla los requisitos.')
 		else alTerminar()
 	}
 
 	return (
-		<div style={estilos.fondo}>
-			<div style={estilos.tarjeta}>
-				<h1 style={estilos.titulo}>
-					{esInvitacion ? 'Bienvenido a Copuno' : 'Nueva contraseña'}
-				</h1>
-				<p style={estilos.subtitulo}>
-					{esInvitacion
-						? 'Crea tu contraseña para acceder. Mínimo 10 caracteres, con letras y números.'
-						: 'Mínimo 10 caracteres, con letras y números.'}
-				</p>
-				{error && <div style={estilos.error}>{error}</div>}
+		<main className="auth-screen">
+			<div className="auth-card">
+				<Marca />
+				<h2 className="auth-heading">
+					{esInvitacion ? 'Crea tu contraseña para acceder' : 'Elige una contraseña nueva'}
+				</h2>
+				<Mensaje tipo="error">{error}</Mensaje>
 				<form onSubmit={guardar}>
-					<label style={estilos.label} htmlFor="new-password">Nueva contraseña</label>
-					<input
-						id="new-password" type="password" required autoComplete="new-password"
-						style={estilos.input} value={password}
-						onChange={(e) => setPassword(e.target.value)}
-					/>
-					<label style={estilos.label} htmlFor="new-password-2">Repítela</label>
-					<input
-						id="new-password-2" type="password" required autoComplete="new-password"
-						style={estilos.input} value={password2}
-						onChange={(e) => setPassword2(e.target.value)}
-					/>
-					<button type="submit" style={estilos.boton} disabled={cargando}>
+					<div className="auth-field">
+						<label className="auth-label" htmlFor="new-password">Contraseña</label>
+						<input
+							id="new-password" type="password" required autoComplete="new-password"
+							className="auth-input" value={password} minLength={10}
+							aria-describedby="password-requisitos"
+							onChange={(e) => setPassword(e.target.value)}
+						/>
+					</div>
+					<div className="auth-field">
+						<label className="auth-label" htmlFor="new-password-2">Repítela</label>
+						<input
+							id="new-password-2" type="password" required autoComplete="new-password"
+							className="auth-input" value={password2} minLength={10}
+							onChange={(e) => setPassword2(e.target.value)}
+						/>
+					</div>
+					<button type="submit" className="auth-submit" disabled={cargando}>
 						{cargando ? 'Guardando…' : 'Guardar y entrar'}
 					</button>
 				</form>
+				<p className="auth-hint" id="password-requisitos">
+					Mínimo 10 caracteres, con letras y números.
+				</p>
 			</div>
-		</div>
+		</main>
 	)
 }
 
