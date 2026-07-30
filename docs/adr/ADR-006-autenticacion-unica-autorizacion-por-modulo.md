@@ -105,6 +105,28 @@ segunda cuenta.
 - Site URL / Redirect URLs: desarrollo contra la URL de Vercel; añadir `https://app.copuno.com`
   cuando el DNS exista (el ADR-005 ya contempla mantener ambas).
 
+### Plan Supabase: seguir en Free por ahora (decidido 2026-07-30)
+
+**No pedir a Copuno que contrate Pro todavía.** Free cubre el caso: los datos de negocio viven
+en Notion, así que la BD de Supabase solo guarda cuentas y accesos por módulo (reconstruibles
+reinvitando a la gente), el límite de usuarios activos sobra y el proyecto no se suspenderá por
+inactividad al usarse a diario.
+
+Lo que Free no da, por valor real decreciente: **control de sesión** (caducidad por inactividad,
+sesión única — el argumento más defendible en obra: móviles compartidos o perdidos con sesión de
+30 días), **protección de contraseñas filtradas**, copias diarias + retención de logs (poco valor
+aquí) y soporte del proveedor.
+
+**Disparador para plantear el upgrade:** el día que el login se active en producción para toda
+la plantilla — ahí el control de sesión pasa de "estaría bien" a argumento de seguridad
+presentable. Encaja en la conversación del módulo de Vehículos, cuando la plataforma deje de ser
+una sola app. La cuenta es del cliente (org Grupo Copuno), así que **contratación y factura son
+suyas directas**: no pasan por el retainer. Confirmar el precio vigente antes de citar cifra.
+
+**Lo que sí conviene pedirles ya, y es gratis: SMTP propio.** El SMTP compartido de Supabase
+limita a ~2-4 emails/hora, único cuello de botella operativo real (altas masivas de plantilla, o
+varios resets de contraseña el mismo día). No se arregla pagando Supabase.
+
 ### Riesgo asumido
 - **Un origen, una sesión**: un XSS en cualquier módulo comprometería la sesión de toda la
   plataforma. Mitigación: `helmet` ya activo, revisión de prácticas en cada módulo nuevo.
