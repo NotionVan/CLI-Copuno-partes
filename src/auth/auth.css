@@ -174,3 +174,92 @@
 		box-shadow: var(--shadow-md);
 	}
 }
+
+/* Menú de cuenta en la cabecera (ADR-006) */
+.cuenta {
+	position: relative;
+}
+
+.cuenta-boton {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-xs);
+	max-width: 220px;
+	padding: 6px 10px;
+	font-size: var(--font-size-small);
+	color: var(--text-secondary);
+	background: var(--surface-color);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-sm);
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cuenta-boton:hover {
+	background: var(--primary-soft);
+	border-color: var(--primary-soft-strong);
+}
+
+.cuenta-boton:focus-visible {
+	outline: 2px solid var(--primary-color);
+	outline-offset: 2px;
+}
+
+.cuenta-email {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cuenta-menu {
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 0;
+	z-index: 50;
+	min-width: 210px;
+	padding: var(--spacing-xs);
+	background: var(--surface-color);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-sm);
+	box-shadow: var(--shadow-md);
+}
+
+.cuenta-item {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-sm);
+	width: 100%;
+	padding: 8px 10px;
+	font-size: var(--font-size-small);
+	color: var(--text-primary);
+	background: none;
+	border: none;
+	border-radius: var(--border-radius-sm);
+	cursor: pointer;
+	text-align: left;
+}
+
+.cuenta-item:hover {
+	background: var(--surface-muted);
+}
+
+.cuenta-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 100;
+	display: grid;
+	place-items: center;
+	padding: var(--spacing-lg);
+	background: rgba(5, 7, 22, 0.45);
+}
+
+.cuenta-dialogo {
+	max-width: 380px;
+}
+
+/* En móvil el email ocuparía demasiado: queda solo el icono */
+@media (max-width: 640px) {
+	.cuenta-email {
+		display: none;
+	}
+}

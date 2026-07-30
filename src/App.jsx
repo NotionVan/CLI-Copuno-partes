@@ -14,6 +14,7 @@ const agruparFirmantesPorRol = (firmantes) => {
 	}
 	return grupos
 }
+import MenuCuenta from './auth/MenuCuenta.jsx'
 import './App.css'
 
 const formatearHorasTexto = (valor) => {
@@ -675,6 +676,7 @@ function App() {
 							</div>
 						</div>
 						<div className="header-utility">
+							<MenuCuenta />
 							<div className={`connectivity-status ${connectivity.status}`}>
 								{connectivity.status === 'ok' ? (
 									<>
