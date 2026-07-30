@@ -54,9 +54,14 @@ apiClient.interceptors.response.use(
 				url: error.config?.url
 			})
 		}
-		// ADR-006: sesión inválida o caducada según el servidor → volver al login
+		// ADR-006: un 401 puede ser un token caducado (recuperable) o una sesión
+		// muerta. Se intenta refrescar primero y solo se cierra sesión si falla:
+		// desconectar a la primera echaría al jefe de obra con el parte a medias.
+		// Sin recargar la página — AuthGate reacciona al cambio de sesión.
 		if (error.response?.status === 401 && supabase) {
-			supabase.auth.signOut().finally(() => window.location.reload())
+			supabase.auth.refreshSession().then(({ error: err }) => {
+				if (err) supabase.auth.signOut()
+			})
 		}
 		return Promise.reject(error)
 	}
