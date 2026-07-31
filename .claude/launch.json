@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "server"],
       "port": 3001
+    },
+    {
+      "name": "copuno-mock",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["USE_MOCK_DATA=true", "SUPABASE_URL=", "NOTION_TOKEN=mock", "node", "server.js"],
+      "port": 3001
     }
   ]
 }
