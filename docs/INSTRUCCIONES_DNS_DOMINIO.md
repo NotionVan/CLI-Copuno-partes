@@ -1,262 +1,126 @@
-# 📡 Instrucciones para Configurar DNS - partesobra.copuno.com
+# Instrucciones DNS — app.copuno.com
 
-**Destinatario:** Administrador del dominio copuno.com
-**Objetivo:** Configurar subdominio para la aplicación de gestión de partes
-**Fecha:** 29 de Octubre de 2025
+**Destinatario:** administrador del dominio `copuno.com`
+**Solicita:** Javi Collado (NotionVan)
+**Fecha:** 2026-07-28
+**Decisión de fondo:** [ADR-005](./adr/ADR-005-dominio-y-espacio-de-nombres.md)
 
----
-
-## 🎯 Resumen
-
-Necesitamos que configures un **subdominio** en el dominio **copuno.com** para acceder a nuestra aplicación web de gestión de partes de trabajo.
-
-**Subdominio solicitado:** `partesobra.copuno.com`
+> Este documento es el que se envía al cliente. Sustituye a la versión anterior, que pedía
+> `partesobra.copuno.com` — subdominio que nunca llegó a crearse (a 2026-07-28 resuelve
+> `NXDOMAIN`) y que queda **descartado**.
 
 ---
 
-## 📋 Información que Necesito de Ti
+## Qué hay que hacer
 
-Por favor, responde estas preguntas:
+Crear **un único registro DNS** en `copuno.com`:
 
-1. **¿Dónde está registrado el dominio copuno.com?**
-   - [ ] GoDaddy
-   - [ ] Cloudflare
-   - [ ] Namecheap
-   - [ ] Google Domains
-   - [ ] Otro: _________________
+| Campo | Valor |
+|---|---|
+| Tipo | `CNAME` |
+| Nombre / Host | `app` |
+| Valor / Destino | `cname.vercel-dns.com` |
+| TTL | `3600` (o el que ofrezca el panel por defecto) |
 
-2. **¿Tienes acceso al panel de administración DNS?**
-   - [ ] Sí, tengo acceso completo
-   - [ ] Sí, pero necesito instrucciones
-   - [ ] No, necesito solicitar acceso
+Resultado: `app.copuno.com` → `cname.vercel-dns.com`
 
-3. **¿Prefieres que te envíe instrucciones específicas o compartir acceso temporalmente?**
-   - [ ] Envíame instrucciones paso a paso
-   - [ ] Compartir acceso temporal (te enviaré credenciales de Vercel)
-   - [ ] Puedo hacer una videollamada para hacerlo juntos
+Eso es todo. No hay que tocar ningún otro registro.
 
 ---
 
-## 🔧 Configuración DNS Requerida
+## Estado actual del DNS (verificado 2026-07-28)
 
-### Opción 1: Registro CNAME (⭐ RECOMENDADO)
+- **Servidores DNS:** `dns1.servidoresdns10.com` / `dns2.servidoresdns10.com`
+  → el panel es el de **Hostalia / Acens**.
+- `copuno.com` (apex) → `2.139.200.104` — web corporativa. **No se toca.**
+- `www.copuno.com` → CNAME al apex. **No se toca.**
+- **No hay registros CAA** → Vercel podrá emitir el certificado SSL sin configuración adicional.
+- `app.copuno.com` → no existe. Libre.
+
+El cambio es **puramente aditivo**: se añade un subdominio nuevo. La web principal de Copuno y
+el correo (`@copuno.com`) no se ven afectados en absoluto, porque no se modifica ningún registro
+existente ni los `MX`.
+
+---
+
+## Por qué `app` y no `partes`
+
+La aplicación de partes de trabajo es el primer módulo de una plataforma interna que va a crecer
+(vehículos/flota, y lo que venga después). Con un único subdominio, cada módulo nuevo es una ruta:
 
 ```
-Tipo:    CNAME
-Nombre:  partesobra
-Valor:   cname.vercel-dns.com
-TTL:     3600 (o Auto)
+app.copuno.com/partes        ← gestión de partes de trabajo
+app.copuno.com/vehiculos     ← módulo de flota (en preparación)
+app.copuno.com/almacen       ← futuro
 ```
 
-**Resultado:** `partesobra.copuno.com` → `cname.vercel-dns.com`
+Ventajas para Copuno:
 
-### Opción 2: Registro A (Solo si CNAME no es posible)
-
-```
-Tipo:    A
-Nombre:  partesobra
-Valor:   76.76.21.21
-TTL:     3600 (o Auto)
-```
-
-**Nota:** La IP puede cambiar. CNAME es preferible.
+- **Una sola petición de DNS, hoy, y nunca más.** Los módulos futuros no requieren volver a
+  tocar la configuración del dominio.
+- **Un solo usuario y contraseña para todo.** El acceso se va a implementar con login propio por
+  email y contraseña; al compartir dominio, el trabajador se identifica una vez y entra a todos
+  los módulos. Con subdominios separados tendría que loguearse en cada uno.
+- **Un solo certificado SSL**, renovado automáticamente por Vercel.
 
 ---
 
-## 📸 Ejemplos Visuales por Proveedor
+## Cómo hacerlo en el panel de Hostalia / Acens
 
-### Si usas Cloudflare:
+1. Entrar al panel de control → **Dominios** → `copuno.com` → **Gestión DNS** (o "Editar zona DNS").
+2. **Añadir registro.**
+3. Rellenar:
+   - Tipo: `CNAME`
+   - Host / Nombre: `app`
+   - Apunta a / Destino: `cname.vercel-dns.com`
+   - TTL: `3600`
+4. Guardar.
 
-1. Ir a: **DNS** → **Records**
-2. Click en **"Add record"**
-3. Completar:
-   ```
-   Type:         CNAME
-   Name:         partesobra
-   Target:       cname.vercel-dns.com
-   Proxy status: DNS only (nube GRIS, no naranja)
-   TTL:          Auto
-   ```
-4. Click en **"Save"**
-
-### Si usas GoDaddy:
-
-1. Ir a: **My Products** → **DNS**
-2. Click en **"Add"** → **"CNAME"**
-3. Completar:
-   ```
-   Host:      partesobra
-   Points to: cname.vercel-dns.com
-   TTL:       1 Hour
-   ```
-4. Click en **"Save"**
-
-### Si usas Namecheap:
-
-1. Ir a: **Domain List** → **Manage** → **Advanced DNS**
-2. Click en **"Add New Record"**
-3. Completar:
-   ```
-   Type:  CNAME Record
-   Host:  partesobra
-   Value: cname.vercel-dns.com
-   TTL:   Automatic
-   ```
-4. Click en el **checkmark verde** (guardar)
-
-### Si usas Google Domains:
-
-1. Ir a: **DNS** → **Manage custom records**
-2. Click en **"Create new record"**
-3. Completar:
-   ```
-   Host name: partesobra
-   Type:      CNAME
-   TTL:       1H
-   Data:      cname.vercel-dns.com
-   ```
-4. Click en **"Add"**
+Si el panel exige el punto final en el destino, escribir `cname.vercel-dns.com.` (con punto).
+Si el panel no acepta `CNAME` y obliga a un registro `A`, avisar a Javi: existe alternativa con
+IP fija, pero el `CNAME` es preferible porque sobrevive a cambios de infraestructura de Vercel.
 
 ---
 
-## ⏱️ Tiempo de Propagación
+## Verificación
 
-- **Mínimo:** 5-10 minutos
-- **Típico:** 30 minutos
-- **Máximo:** 24-48 horas (raro)
+La propagación suele tardar entre 5 minutos y 2 horas (máximo 24-48 h).
 
-Durante este tiempo, el DNS se propagará por todo internet.
-
----
-
-## ✅ Verificación
-
-### Opción 1: Desde tu computadora (Mac/Windows)
-
-**Mac/Linux:**
 ```bash
-nslookup partesobra.copuno.com
+nslookup app.copuno.com
 ```
 
-**Windows (CMD o PowerShell):**
-```cmd
-nslookup partesobra.copuno.com
-```
+Debe devolver `cname.vercel-dns.com` o una IP de Vercel (`76.76.21.x`).
 
-**Resultado esperado:**
-```
-partesobra.copuno.com
-canonical name = cname.vercel-dns.com
-```
-
-### Opción 2: Online (Más fácil)
-
-1. Ve a: https://dnschecker.org
-2. Ingresa: `partesobra.copuno.com`
-3. Selecciona: `CNAME`
-4. Click en **"Search"**
-5. Verifica que la mayoría de ubicaciones muestren: `cname.vercel-dns.com`
+Cuando resuelva, Javi completa el alta en Vercel y confirma que
+**https://app.copuno.com** carga con candado (SSL válido).
 
 ---
 
-## 🔐 Seguridad (SSL/HTTPS)
+## Preguntas frecuentes
 
-**No necesitas hacer nada.**
+**¿Afecta a la web de copuno.com?**
+No. Solo se añade un subdominio nuevo; no se modifica ningún registro existente.
 
-Una vez que el DNS esté configurado, Vercel:
-- ✅ Detectará el dominio automáticamente
-- ✅ Generará un certificado SSL gratuito (Let's Encrypt)
-- ✅ Configurará HTTPS automáticamente
-- ✅ Redirectará HTTP → HTTPS
+**¿Afecta al correo @copuno.com?**
+No. El correo depende de los registros `MX`, que no se tocan.
 
-**Tiempo:** 5-15 minutos después de configurar DNS
+**¿Se puede deshacer?**
+Sí, borrando el registro. El efecto es inmediato salvo caché de TTL.
 
----
-
-## 📞 Contacto
-
-Si tienes alguna duda o problema:
-
-1. **Email:** [TU_EMAIL]
-2. **Teléfono:** [TU_TELÉFONO]
-3. **Alternativa:** Podemos hacer una videollamada rápida
+**¿Hay coste?**
+No. El subdominio está incluido en el dominio ya contratado, y el certificado SSL lo emite
+Vercel gratuitamente.
 
 ---
 
-## 🎯 Checklist para Ti
+## Checklist
 
-- [ ] Identificar proveedor de DNS de copuno.com
-- [ ] Acceder al panel de administración DNS
-- [ ] Crear registro CNAME:
-  - [ ] Tipo: CNAME
-  - [ ] Nombre: partesobra
-  - [ ] Valor: cname.vercel-dns.com
-- [ ] Guardar cambios
-- [ ] Esperar 30 minutos
-- [ ] Verificar en https://dnschecker.org
-- [ ] Notificarme cuando esté listo
-
----
-
-## 📧 Plantilla de Respuesta
-
-Por favor, copia y completa esto cuando hayas terminado:
-
-```
-✅ Configuración DNS completada
-
-Proveedor DNS: [Nombre del proveedor]
-Fecha/Hora de configuración: [Fecha y hora]
-Tipo de registro creado: CNAME
-Estado: Guardado correctamente
-
-Notas adicionales:
-[Cualquier comentario o problema encontrado]
-```
-
----
-
-## ❓ Preguntas Frecuentes
-
-### ¿Esto afectará el sitio web principal de copuno.com?
-**No.** Solo estamos agregando un subdominio. El sitio principal en `www.copuno.com` o `copuno.com` no se verá afectado.
-
-### ¿Puedo usar otro nombre en lugar de "partesobra"?
-**Sí.** Si prefieres otro nombre, podemos usar:
-- `partes.copuno.com`
-- `gestion.copuno.com`
-- `app.copuno.com`
-- Otro que prefieras
-
-Solo avísame antes de configurar el DNS.
-
-### ¿Qué pasa si me equivoco en la configuración?
-**No hay problema.** Puedes:
-1. Borrar el registro y volver a crearlo
-2. Editar el registro existente
-3. Contactarme y te ayudo
-
-### ¿Es seguro dar acceso a Vercel al DNS?
-**No es necesario.** Con el método CNAME, solo apuntas el subdominio a Vercel. No necesitas darles acceso a tu cuenta de DNS.
-
----
-
-## 🚀 ¿Qué Sigue?
-
-Una vez que confirmes que el DNS está configurado:
-
-1. Yo verificaré que todo funcione correctamente
-2. Vercel configurará SSL automáticamente
-3. La aplicación estará disponible en: **https://partesobra.copuno.com**
-4. Te enviaré confirmación cuando esté todo listo
-
-**Tiempo total estimado:** 1-2 horas (incluyendo propagación DNS)
-
----
-
-**Gracias por tu ayuda! 🙏**
-
----
-
-**Documento creado:** 29 de Octubre de 2025
-**Versión:** 1.0
+- [ ] Registro `CNAME app → cname.vercel-dns.com` creado en el panel de Hostalia/Acens
+- [ ] `nslookup app.copuno.com` resuelve
+- [ ] Dominio añadido en Vercel → Settings → Domains
+- [ ] Certificado SSL emitido (candado en el navegador)
+- [ ] App migrada de `/` a `/partes` y verificada
+- [ ] `ALLOWED_ORIGINS=https://app.copuno.com` en Vercel
+- [ ] `@regression-checker` sobre firma, PDF y sync Notion
+- [ ] README / CLAUDE.md / AGENTS.md actualizados con el dominio real
