@@ -263,6 +263,29 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 
 ---
 
+## Decisiones de arquitectura (ADR)
+
+Viven en [docs/adr/](docs/adr/). Antes de proponer un cambio estructural, **leer el ADR que le
+corresponda**: varias de estas preguntas ya se han evaluado y descartado con su motivo.
+
+| ADR | Qué decide | Estado |
+|---|---|---|
+| [001](docs/adr/ADR-001-notion-como-bbdd.md) | Notion como BBDD, y los **5 criterios** que activarían migrar | Vigente |
+| [002](docs/adr/ADR-002-capa-abstraccion-datos.md) | Capa `data.js` que permite cambiar de motor sin tocar endpoints | Implementado |
+| [003](docs/adr/ADR-003-supabase-destino-migracion.md) | Supabase como destino **cuando** se active la migración | Vigente, no ejecutado |
+| [004](docs/adr/ADR-004-idempotencia-enviar-datos.md) | Idempotencia de `enviar-datos` | Implementado |
+| [005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md) | `app.copuno.com`, un módulo por ruta | Dominio ✅ / rutas ⬜ |
+| [006](docs/adr/ADR-006-autenticacion-unica-autorizacion-por-modulo.md) | Auth única de plataforma + autorización por módulo | Desarrollado, sin activar |
+| [007](docs/adr/ADR-007-sincronizacion-notion-supabase.md) | Sincronización Notion ↔ Supabase | 🟡 **Borrador — evaluado y APLAZADO** |
+
+⚠️ **Sobre el 007**: la idea de "la app lee y escribe en Supabase y se sincroniza con Notion" ya se
+evaluó (3-ago-2026) y se aplazó. Antes de retomarla hay que hacer **C2 y C3** de la auditoría: hoy
+el único criterio activado del ADR-001 es "listados >3 s", y se cumple por el N+1 y por traer 934 KB
+sin `filter_properties` — con **190 partes**, no por volumen. Migrar ahora sería cambiar de base de
+datos para no optimizar una consulta. Y si algún día se ejecuta, la variante por defecto es
+**unidireccional** (Supabase como caché de lectura): la bidireccional exige polling contra Notion,
+que es justo el límite que se quería esquivar.
+
 ## Subagentes disponibles
 
 Definidos en [.claude/agents/](.claude/agents/). Invocar con `@<nombre>` cuando aplique:

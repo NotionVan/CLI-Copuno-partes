@@ -188,6 +188,14 @@ Lo que sí cambia:
 3. **Protección de previews granular.** En Hobby los previews protegidos exigen sesión de Vercel («todo o nada», gotcha documentado). Pro permite bypass y accesos compartidos — facilita el E2E en preview con usuarios reales del cliente antes del corte de auth.
 4. **Cumplimiento.** Hobby es para uso personal no comercial según los términos de Vercel; esta es una app interna comercial de cliente. El salto ya consta en el IMD con coste a cargo de Copuno según la Propuesta.
 
+**Al completar el upgrade, dar de alta la revisión periódica.** Contratar Pro y no mirar nunca los
+log drains no sirve de nada: la telemetría es justo lo que Pro desbloquea. Existe
+[`scripts/revision-telemetria.sh`](../scripts/revision-telemetria.sh), que **comprueba primero si el
+plan ya es Pro** y se calla si sigue en Hobby (para que el recordatorio no eduque a ignorarlo).
+Lo dispara una tarea programada mensual (`revision-telemetria-copuno`, día 8 a las 10:00).
+Lo que mide y lo que hay que mirar a mano está en el propio script; los criterios que reabrirían la
+decisión de arquitectura, en [ADR-007](./adr/ADR-007-sincronizacion-notion-supabase.md).
+
 **Operativa del upgrade:** transferir el proyecto a un team Pro implica cambio de ownership — verificar después que las variables de entorno (en especial `SUPABASE_*` del scope Preview y el futuro `AUTH_OBLIGATORIA`), el dominio y la integración GitHub siguen en su sitio, y revisar los defaults de Deployment Protection del team nuevo. **Orden recomendado:** upgrade antes del corte de auth y de la demo de septiembre, para que la validación en preview y la telemetría estén disponibles cuando toquen.
 
 ---
