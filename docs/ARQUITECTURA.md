@@ -63,7 +63,9 @@ Este contexto **manda sobre cualquier principio arquitectónico genérico**. Lo 
 │  - 3 req/s limit │                │  - Recibe firma jefe   │
 └──────────────────┘                └────────────────────────┘
 
-Hosting: Vercel (región cdg1, plan Pro recomendado al cliente — pendiente de contratación)
+Hosting: Vercel — **la función corre en `iad1` (Washington)**, no en `cdg1` como decía esta línea hasta el 2026-08-03: `vercel.json` no fija `regions` y se quedó el valor por defecto. Verificado con `x-vercel-id: cdg1::iad1::…` (el primer tramo es el edge, el segundo la ejecución). Plan Pro recomendado al cliente — pendiente de contratación.
+
+> 💡 **Y `iad1` probablemente conviene**: Notion está en EEUU y la app hace muchas llamadas a Notion por cada petición del usuario (N+1, 9 en el arranque). Desde `iad1` son domésticas; desde `cdg1` cada una cruzaría el Atlántico — se ganaría un salto hacia el usuario y se perderían N hacia Notion. **Hipótesis razonada, sin medir**: comprobarlo con la query de partes real (no con `/api/health`, que no toca Notion) antes de mover nada.
 ```
 
 ### Capas lógicas actuales

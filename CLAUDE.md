@@ -22,7 +22,7 @@ El contexto de negocio y las decisiones viven en `javintnvn/SB` (segundo cerebro
 | Backend | Node.js + Express 4 — **monolítico en [server.js](server.js)** (~830 líneas) |
 | BBDD | Notion API v1 (vía `src-server/services/notion.js`, sin SDK) |
 | PDF + firma | Make.com vía webhook (`PARTES_DATOS_WEBHOOK_URL`) |
-| Hosting | Vercel (config en [vercel.json](vercel.json), región `cdg1`) |
+| Hosting | Vercel (config en [vercel.json](vercel.json), **la función se ejecuta en `iad1`** — verificado 2026-08-03 con `x-vercel-id: cdg1::iad1::…`; el `cdg1` que se leía es el edge que recibe la petición, no donde corre el código. `vercel.json` **no fija `regions`**) |
 | Cliente API frontend | [src/services/notionService.js](src/services/notionService.js) (axios contra `/api/*` same-origin) |
 
 **Tests:** `npm run test:smoke` — suite de humo con `node:test` (45 casos: flujos críticos + idempotencia en `src-server/tests/smoke/smoke.test.js`, middleware JWT en `auth.test.js`). Corre contra el mock, sin tocar Notion/Make. **Ejecutarla antes de cualquier merge.** Gotchas: `smoke.test.js` neutraliza `SUPABASE_URL` a propósito (con ella definida todo daría 401); `auth.test.js` fija el entorno **antes** del `require` porque `auth.js` captura la variable al cargarse. Sin `SUPABASE_URL`, el middleware NO autentica (modo desarrollo) — en producción el día del corte se añade `AUTH_OBLIGATORIA=true` para que esa ausencia sea un abort y no una API pública silenciosa. La verificación de frontend sigue siendo manual.

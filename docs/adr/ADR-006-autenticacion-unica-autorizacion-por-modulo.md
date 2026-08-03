@@ -20,10 +20,16 @@ Novedades que obligan a decidirla ahora:
 1. **El cliente tiene cuenta Supabase propia**: organización **Grupo Copuno** (plan Free),
    owner `notionvan@copuno.com`. La plataforma se monta ahí, **no** en la cuenta personal de
    NotionVan. Proyecto: **"Partes de Obra"** (`cuwtneprjbvumfjycnmn`), región `eu-west-1`
-   (Irlanda). Se valoró recrearlo en `eu-west-3` (París, pareja con Vercel `cdg1`) y se
+   (Irlanda). Se valoró recrearlo en `eu-west-3` (París, "pareja con Vercel `cdg1`") y se
    **descartó el 2026-07-29**: el JWT se valida en local en el servidor (sin llamada de red por
    petición), ambas regiones son UE a efectos de RGPD y el beneficio de latencia era marginal.
    Decisión cerrada — no mover.
+   - 🔎 **Corrección del 2026-08-03**: esa "pareja con Vercel `cdg1`" **no existe** — la función
+     de Vercel se ejecuta en **`iad1` (Washington)**, no en `cdg1` (verificado con
+     `x-vercel-id: cdg1::iad1::…`; el `cdg1` que aparecía es el edge que recibe la petición, no
+     donde corre el código). **La decisión no cambia** —sigue sin haber llamada de red por
+     petición, que es el motivo real— pero uno de sus argumentos citaba un emparejamiento
+     inexistente. Se deja escrito para que nadie lo reutilice como premisa.
 2. **Las bases de usuarios de los módulos futuros son disjuntas.** Los usuarios de vehículos o
    del portal de empleado no son los jefes de obra de partes. Se planteó un proyecto Supabase
    por módulo para reflejarlo.

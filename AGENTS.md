@@ -20,7 +20,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 | Backend | Node.js + Express 4 — **monolítico en [server.js](server.js)** (~830 líneas) |
 | BBDD | Notion API v1 (vía `src-server/services/notion.js`, sin SDK) |
 | PDF + firma | Make.com vía webhook (`PARTES_DATOS_WEBHOOK_URL`) |
-| Hosting | Vercel (config en [vercel.json](vercel.json), región `cdg1`) |
+| Hosting | Vercel (config en [vercel.json](vercel.json), **la función se ejecuta en `iad1`** — verificado 2026-08-03 con `x-vercel-id: cdg1::iad1::…`; el `cdg1` que se leía es el edge que recibe la petición, no donde corre el código. `vercel.json` **no fija `regions`**) |
 | Cliente API frontend | [src/services/notionService.js](src/services/notionService.js) (axios contra `/api/*` same-origin) |
 
 **Nota:** no hay tests automatizados en el repo. Verificación es manual.
