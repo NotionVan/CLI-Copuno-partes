@@ -1,7 +1,7 @@
 # ADR-005 — Dominio propio y espacio de nombres de la plataforma
 
 - **Fecha:** 2026-07-28
-- **Estado:** Vigente (aprobado, pendiente de ejecución DNS por el cliente)
+- **Estado:** Vigente — **dominio ejecutado (2026-08-03); espacio de nombres NO ejecutado** (ver "Estado de ejecución" al final)
 - **Autor:** Javi Collado
 - **Relacionado con:** [ADR-003](./ADR-003-supabase-destino-migracion.md) (Supabase como destino, incluye auth)
 - **Extendido por:** [ADR-006](./ADR-006-autenticacion-unica-autorizacion-por-modulo.md) (2026-07-29: confirma `app`, un único proyecto Supabase para toda la plataforma y autorización por módulo — el portal en `/` muestra a cada usuario sus módulos)
@@ -125,3 +125,57 @@ protege.
 5. **Javi:** pasar `@regression-checker` sobre firma, PDF y sync Notion antes de dar el corte por
    bueno.
 6. **Javi:** actualizar README, CLAUDE.md y AGENTS.md con el dominio real (ya no con el previsto).
+
+---
+
+## Estado de ejecución (2026-08-03)
+
+| Paso | Estado |
+|---|---|
+| 1. CNAME en el panel del cliente | ✅ hecho por el administrador (≈30/07) |
+| 2. Alta del dominio en Vercel + certificado | ✅ **03/08 09:20** — Let's Encrypt, `https://app.copuno.com` responde 200 |
+| 3. Migrar la app de `/` a `/partes` | ⬜ **NO hecha** — ver abajo |
+| 4. `ALLOWED_ORIGINS` | ⬜ pendiente, va con la activación del login |
+| 5. `@regression-checker` (firma, PDF, sync) | ⬜ pendiente |
+| 6. Actualizar README / CLAUDE.md / AGENTS.md | ✅ 03/08 |
+
+**Lo que hay hoy**: `app.copuno.com/` sirve la app de partes; **`app.copuno.com/partes` devuelve
+404**. Es decir, el dominio de este ADR existe pero **su espacio de nombres todavía no**. Cuidado
+al citar la URL: durante meses la doc dio por buenos dos subdominios que nunca se crearon, y el
+mismo error se repite un nivel más abajo si se reparte `/partes` antes de que exista.
+
+### Por qué la migración a `/partes` sigue sin hacerse — y cuándo tocará
+
+No es pereza: **con un solo módulo, migrar no le da nada al usuario y sí cuesta**. El trabajo real
+(además de lo ya listado en "Negativas"):
+
+1. **Introducir enrutado, que hoy no existe.** `react-router-dom` está en `package.json` pero **no
+   se usa**: no hay `BrowserRouter` en el código. `vercel.json` manda todo lo que no es `/api/*` al
+   mismo `index.html` y el frontend pinta siempre la misma pantalla. Servir en `/partes` no es
+   reescribir una ruta: es meter enrutado de verdad.
+2. **`base` de Vite y rutas de assets**, o los `.js`/`.css` se piden desde la raíz y la página sale
+   en blanco — el fallo clásico de este cambio.
+3. **Enlaces ya repartidos.** Bartomeu tiene la URL desde el 28/07 y el resto la recibirá al activar
+   el login. Migrar sin dejar `/` redirigiendo a `/partes` rompe lo que la gente tenga guardado.
+4. **Verificar el flujo de firma** (`firma-parte.html` + fórmula `Firmar` de Notion + escenarios
+   Make), que es crítico y vive fuera de la app.
+
+**Momento natural: cuando entre el segundo módulo** (vehículos/flota). Ahí `/partes` deja de ser
+cosmética —hace falta distinguir módulos— y el portal de `/` pasa a tener contenido. Hacerlo antes
+es pagar el coste sin cobrar el beneficio.
+
+### El portal de `/`: qué es y qué no
+
+`app.copuno.com/` queda reservado como **selector de módulos**, y el [ADR-006](./ADR-006-autenticacion-unica-autorizacion-por-modulo.md)
+ya define de dónde saca lo que muestra: la tabla `accesos_modulo` dice a qué módulos entra cada
+usuario, y el portal pinta una tarjeta por cada uno.
+
+Dos precisiones que conviene no perder:
+
+- **El portal es UX, no seguridad** (punto 6 del ADR-006). Ocultar una tarjeta no protege nada:
+  cada módulo debe validar en su propio servidor que el JWT pertenece a alguien con acceso. Hoy el
+  middleware **solo valida el JWT** y no mira `accesos_modulo` (`src-server/middleware/auth.js`
+  lo deja anotado como pendiente) — con un solo módulo da igual, con dos no.
+- **No es un "router" en el sentido de infraestructura.** Todos los módulos comparten origen, así
+  que es una pantalla de la propia aplicación, no un proxy ni un servicio aparte. Lo que hace que
+  esto funcione es justamente lo que decidió este ADR: **un solo origen ⇒ una sola sesión**.

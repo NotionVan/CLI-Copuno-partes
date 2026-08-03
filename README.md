@@ -71,14 +71,23 @@ La aplicación está lista para desplegar en Vercel con configuración optimizad
    - Click en "Deploy"
    - URL pública disponible en 2-3 minutos
 
-#### Dominio Personalizado
+#### Dominio Personalizado — ✅ ya configurado
 
-Para configurar `gestionpartes.copuno.com`:
+**La app está en https://app.copuno.com/** desde el 2026-08-03 (`copuno-gestion-partes.vercel.app`
+sigue funcionando y sirve lo mismo). El alta se hizo así, por si hay que repetirla para otro módulo:
 
-1. En Vercel: Settings → Domains → Add `gestionpartes.copuno.com`
-2. Configurar DNS (CNAME): `cname.vercel-dns.com`
-3. Actualizar `ALLOWED_ORIGINS` en variables de entorno
-4. Re-desplegar
+1. DNS en el panel del dominio (Hostalia/Acens): `CNAME app → cname.vercel-dns.com`
+2. En Vercel: Settings → Domains → Add `app.copuno.com` — o
+   `vercel domains add app.copuno.com copuno-gestion-partes --scope copunos-projects`
+3. Esperar al certificado (tardó ~30 s) y comprobar que `https://` responde 200
+4. Fijar `ALLOWED_ORIGINS=https://app.copuno.com` y re-desplegar ⬅️ **pendiente**
+
+> ⚠️ **La app se sirve en la raíz `/`.** `app.copuno.com/partes` devuelve 404: el espacio de
+> nombres por módulo ([ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md)) está aprobado
+> pero **sin implementar**. No repartas la URL con `/partes`.
+>
+> El proyecto vive en la cuenta de Vercel **del cliente** (scope `copunos-projects`), no en la de
+> NotionVan.
 
 📖 **Documentación completa**: [VERCEL_QUICK_START.md](VERCEL_QUICK_START.md) y [docs/DESPLIEGUE_VERCEL.md](docs/DESPLIEGUE_VERCEL.md)
 

@@ -145,8 +145,9 @@ kbd{background:var(--surface);border:1px solid var(--border);border-bottom-width
 		<dt>Versión de la app</dt><dd>1.9.0 (rama <code>feature/auth-supabase</code>)</dd>
 		<dt>Fecha del documento</dt><dd>31 de julio de 2026</dd>
 		<dt>Elaborado por</dt><dd>NotionVan · Javi Collado</dd>
-		<dt>Producción</dt><dd>copuno-gestion-partes.vercel.app</dd>
-		<dt>Destino acordado</dt><dd>app.copuno.com/partes (pendiente de DNS)</dd>
+		<dt>Producción</dt><dd>app.copuno.com <em>(activo desde el 03/08/2026; la app se sirve en la raíz)</em></dd>
+		<dt>URL técnica</dt><dd>copuno-gestion-partes.vercel.app <em>(sigue funcionando, mismo contenido)</em></dd>
+		<dt>Destino acordado</dt><dd>app.copuno.com/partes <em>(sin implementar: hoy da 404)</em></dd>
 	</dl>
 	<p class="aviso">Documento autocontenido: funciona sin conexión. Incluye una sección de documentación interna (deuda técnica, incidencias y lecciones) marcada como «interno»; retirar esa sección antes de compartir con el cliente.</p>
 </div>
@@ -565,7 +566,7 @@ kbd{background:var(--surface);border:1px solid var(--border);border-bottom-width
 <tr><td>002</td><td>Capa de abstracción de datos</td><td>Completo (2026-05-27)</td><td><code>data.js</code> (interfaz neutra) + <code>notion.js</code> (implementación). Ningún endpoint toca axios/Notion directamente. Reduce la migración futura de 2 meses a 1-2 semanas</td></tr>
 <tr><td>003</td><td>Supabase como destino de migración</td><td>Vigente, no ejecutado</td><td>Cuando se active un criterio del ADR-001: Postgres relacional + auth + realtime + storage en una pieza, sin lock-in real. ~25 €/mes a escala</td></tr>
 <tr><td>004</td><td>Idempotencia en enviar-datos</td><td>Implementado (2026-05-27)</td><td>Store TTL 10 min en memoria; clave por defecto por parte. Limita: no cubre creación de partes (H2) ni escalado horizontal</td></tr>
-<tr><td>005</td><td>Dominio y espacio de nombres</td><td>Aprobado, pendiente DNS del cliente</td><td><code>app.copuno.com</code> único origen, un módulo por ruta (<code>/partes</code>, <code>/vehiculos</code>…). Un origen = una sesión de Supabase = un solo login. <code>partesobra.copuno.com</code> nunca existió (NXDOMAIN) — descartado</td></tr>
+<tr><td>005</td><td>Dominio y espacio de nombres</td><td>Dominio activo (03/08/2026); espacio de nombres <code>/partes</code> sin implementar</td><td><code>app.copuno.com</code> único origen, un módulo por ruta (<code>/partes</code>, <code>/vehiculos</code>…). Un origen = una sesión de Supabase = un solo login. <code>partesobra.copuno.com</code> nunca existió (NXDOMAIN) — descartado</td></tr>
 <tr><td>006</td><td>Auth única, autorización por módulo</td><td>Vigente, en ejecución (v1.9.0)</td><td>Un solo proyecto Supabase; acceso por módulo vía tabla <code>accesos_modulo</code>. El portal en <code>/</code> es UX, no seguridad: cada módulo valida en servidor</td></tr>
 </table></div>
 </section>

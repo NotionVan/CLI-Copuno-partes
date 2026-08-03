@@ -116,11 +116,31 @@ Vercel gratuitamente.
 
 ## Checklist
 
-- [ ] Registro `CNAME app → cname.vercel-dns.com` creado en el panel de Hostalia/Acens
-- [ ] `nslookup app.copuno.com` resuelve
-- [ ] Dominio añadido en Vercel → Settings → Domains
-- [ ] Certificado SSL emitido (candado en el navegador)
-- [ ] App migrada de `/` a `/partes` y verificada
-- [ ] `ALLOWED_ORIGINS=https://app.copuno.com` en Vercel
+- [x] Registro `CNAME app → cname.vercel-dns.com` creado en el panel de Hostalia/Acens *(el administrador, ≈30/07)*
+- [x] `nslookup app.copuno.com` resuelve *(verificado 02/08)*
+- [x] Dominio añadido en Vercel → Settings → Domains *(03/08 09:20)*
+- [x] Certificado SSL emitido (candado en el navegador) *(03/08, ~30 s después; Let's Encrypt, válido hasta el 01/11/2026)*
+- [x] README / CLAUDE.md / AGENTS.md actualizados con el dominio real *(03/08)*
+- [ ] `ALLOWED_ORIGINS=https://app.copuno.com` en Vercel ⬅️ **pendiente**, va con la activación del login
 - [ ] `@regression-checker` sobre firma, PDF y sync Notion
-- [ ] README / CLAUDE.md / AGENTS.md actualizados con el dominio real
+- [ ] **App migrada de `/` a `/partes`** ⬅️ **no hecha y no urgente** — ver "Estado del espacio de nombres" abajo
+
+---
+
+## Estado del espacio de nombres (03/08/2026)
+
+**El dominio está listo; el espacio de nombres del ADR-005, no.** Hoy:
+
+| URL | Responde |
+|---|---|
+| `https://app.copuno.com/` | ✅ 200 — la app de partes |
+| `https://app.copuno.com/partes` | ❌ 404 |
+
+La app **no tiene router**: `react-router-dom` está en `package.json` pero no se usa; `vercel.json`
+manda todo lo que no sea `/api/*` al mismo `index.html`, y el frontend renderiza siempre la misma
+pantalla. Servir en `/partes` no es cambiar un enlace: hay que introducir enrutado real.
+
+**Mientras haya un solo módulo, migrar no aporta nada al usuario y sí tiene coste** (enlaces que la
+gente ya haya guardado, `firma-parte.html`, `ALLOWED_ORIGINS`, documentación). El momento natural
+de hacerlo es **cuando entre el segundo módulo** (vehículos), que es cuando el portal en `/` empieza
+a tener sentido. Hasta entonces: **repartir la URL raíz**.

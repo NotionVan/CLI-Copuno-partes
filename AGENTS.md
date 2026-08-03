@@ -2,7 +2,9 @@
 
 Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen partes de trabajo diarios. Backend de datos en **Notion**, generación de PDFs y firma vía **Make.com**, hosting en **Vercel**.
 
-- **Producción:** https://copuno-gestion-partes.vercel.app/ — dominio propio acordado y pendiente de alta DNS: `app.copuno.com/partes` (ver [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md)). `partesobra.copuno.com` **nunca existió** (NXDOMAIN, verificado 2026-07-28); queda descartado.
+- **Producción:** **https://app.copuno.com/** — activo desde 2026-08-03 (certificado emitido, HTTP 200 verificado). `https://copuno-gestion-partes.vercel.app/` sigue viva y sirve lo mismo.
+  - ⚠️ **La ruta es `/`, no `/partes`**: `app.copuno.com/partes` da **404**. El espacio de nombres por módulo de [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md) está **sin implementar** (no hay router en el frontend).
+  - `partesobra.copuno.com` y `gestionpartes.copuno.com` **nunca existieron** (NXDOMAIN); descartados.
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.Codex/scope-rules.md](.Codex/scope-rules.md).
@@ -183,7 +185,7 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 | `PARTES_DATOS_WEBHOOK_URL` | — | Webhook Make. Sin él, `enviar-datos` se simula. |
 | `PORT` | `3001` | En Vercel se asigna automáticamente. |
 | `CACHE_TTL_MS` | `5000` | TTL del cache del servidor (alineado con Smart Polling). |
-| `ALLOWED_ORIGINS` | (vacío = permitir todos) | CSV. En producción configurar a `https://partesobra.copuno.com`. |
+| `ALLOWED_ORIGINS` | (vacío = permitir todos) | CSV. **Sin configurar en producción a 2026-08-03** (CORS abierto). Fijar a `https://app.copuno.com` al activar el login. |
 | `RATE_LIMIT_WINDOW_MS` | `900000` | 15 min. |
 | `RATE_LIMIT_MAX` | `100` | Peticiones por ventana e IP. |
 | `PARTES_WEBHOOK_TIMEOUT_MS` | `10000` | Timeout al webhook Make. |
@@ -196,7 +198,7 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 - **Deuda técnica conocida documentada en [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md).** Consultar antes de proponer mejoras "nuevas" — probablemente ya está catalogada con severidad y coste.
 - **El servidor falla rápido sin `NOTION_TOKEN`** ([server.js:75-79](server.js#L75-L79)): `process.exit(1)` si faltan token y mock está off.
 - **`vercel.json` usa `rewrites`**, no `routes` como dice [docs/DESPLIEGUE_VERCEL.md](docs/DESPLIEGUE_VERCEL.md). La doc está desfasada — el archivo manda.
-- **Discrepancia de dominios en docs (resuelta 2026-07-28):** ni `gestionpartes.copuno.com` (README) ni `partesobra.copuno.com` llegaron a existir. La única URL viva es la de Vercel; el destino acordado es `app.copuno.com/partes`, un dominio único con un módulo por ruta ([ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md)).
+- **Discrepancia de dominios en docs (cerrada 2026-08-03):** ni `gestionpartes.copuno.com` (README) ni `partesobra.copuno.com` llegaron a existir. El dominio real es **`app.copuno.com`**, ya activo. Pero **la ruta `/partes` sigue sin existir**: el espacio de nombres por módulo de [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md) está aprobado y sin implementar. Que un dominio exista no implica que sus rutas existan.
 - **Saneado económico:** los endpoints `/api/*` redactan precios/importes antes de devolver. No "arregles" esto pensando que es un bug.
 - **8 h por defecto al seleccionar empleado** (v1.0.2, [src/App.jsx](src/App.jsx)). Es UX intencional.
 - **El `Documento Firmado` lo sube Make, no el frontend.** Si ves que falta, mira el escenario Make.

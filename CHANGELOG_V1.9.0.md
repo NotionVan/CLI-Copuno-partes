@@ -52,7 +52,7 @@ Sin `SUPABASE_URL` el servidor avisa y deja pasar (modo desarrollo); sin las
   (`copuno-gestion-partes-git-feature-auth-3911d1-copunos-projects.vercel.app`, fijado el
   2026-07-30; el valor previo era `http://localhost:3000`). Ese alias **muere al borrar la
   rama** y con él dejarían de resolver los enlaces de invitación y de reset de contraseña.
-  Destino: la URL de producción, y `https://app.copuno.com` cuando exista el DNS (ADR-005).
+  Destino: `https://app.copuno.com` (activo desde 2026-08-03) y la URL de Vercel.
 - Añadir las tres variables `SUPABASE_*` al scope **Production** de Vercel (hoy solo en Preview):
   hasta que estén, producción sigue sin login — deliberado, para que el corte sea una decisión
   explícita y no un efecto colateral del merge.

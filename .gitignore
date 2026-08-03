@@ -108,3 +108,4 @@ docs/Contexto para claude app/
 # NUNCA commitear esta carpeta. La versión SANEADA y versionable vive en
 # docs/blueprints-make/ y se genera con scripts/export-blueprints-make.py
 docs/Escenarios Make/
+.vercel

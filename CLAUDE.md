@@ -4,7 +4,9 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 
 El contexto de negocio y las decisiones viven en `javintnvn/SB` (segundo cerebro).
 
-- **Producción:** https://copuno-gestion-partes.vercel.app/ — **dominio propio pendiente de alta DNS por el cliente:** `app.copuno.com/partes` (ver [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md) e [INSTRUCCIONES_DNS_DOMINIO.md](docs/INSTRUCCIONES_DNS_DOMINIO.md)). **`partesobra.copuno.com` nunca existió** (NXDOMAIN, verificado 2026-07-28) pese a estar documentado como producción durante meses — queda descartado.
+- **Producción:** **https://app.copuno.com/** — dominio propio **activo desde 2026-08-03** (CNAME aplicado por el administrador, dominio dado de alta en Vercel, certificado emitido; HTTP 200 verificado). `https://copuno-gestion-partes.vercel.app/` **sigue viva** y sirve lo mismo: es el dominio técnico de Vercel, no se ha retirado.
+  - ⚠️ **La ruta de uso es la raíz `/`, NO `/partes`** — `app.copuno.com/partes` devuelve **404** hoy (verificado 2026-08-03). `/partes` es el destino de [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md) y **está sin implementar**: no hay router en el frontend (`react-router-dom` figura en `package.json` pero no se usa). Ver "Migración a `/partes`" en [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md).
+  - **`partesobra.copuno.com` y `gestionpartes.copuno.com` nunca existieron** (NXDOMAIN) pese a estar documentados como producción durante meses — descartados ambos.
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
 - **Modelo comercial:** retainer mensual 20 h. Detalle y reglas de scope en [.claude/scope-rules.md](.claude/scope-rules.md).
@@ -223,7 +225,7 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 | `PARTES_DATOS_WEBHOOK_URL` | — | Webhook Make. Sin él, `enviar-datos` se simula. |
 | `PORT` | `3001` | En Vercel se asigna automáticamente. |
 | `CACHE_TTL_MS` | `30000` | TTL del cache de catálogos del servidor (30 s). En tests se fuerza a `0`. |
-| `ALLOWED_ORIGINS` | (vacío = permitir todos) | CSV. En producción configurar a `https://app.copuno.com` cuando el dominio esté activo (ADR-005). |
+| `ALLOWED_ORIGINS` | (vacío = permitir todos) | CSV. **Sin configurar en producción a 2026-08-03** → la app responde `access-control-allow-origin: *`. Fijar a `https://app.copuno.com` (o esa más la URL de Vercel si se sigue usando) en el mismo pase que se active el login. |
 | `RATE_LIMIT_WINDOW_MS` | `900000` | 15 min. |
 | `RATE_LIMIT_MAX` | `100` | Peticiones por ventana e IP. |
 | `PARTES_WEBHOOK_TIMEOUT_MS` | `10000` | Timeout al webhook Make. |
@@ -236,8 +238,10 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 - **Deuda técnica conocida documentada en [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md).** Consultar antes de proponer mejoras "nuevas" — probablemente ya está catalogada con severidad y coste.
 - **El servidor falla rápido sin `NOTION_TOKEN`** ([server.js:75-79](server.js#L75-L79)): `process.exit(1)` si faltan token y mock está off.
 - **`vercel.json` usa `rewrites`**, no `routes` como dice [docs/DESPLIEGUE_VERCEL.md](docs/DESPLIEGUE_VERCEL.md). La doc está desfasada — el archivo manda.
-- **Discrepancia de dominios en docs (resuelta 2026-07-28):** durante meses convivieron tres nombres — `gestionpartes.copuno.com` (README), `partesobra.copuno.com` (CLAUDE.md, instrucciones DNS) y la URL de Vercel. **Ninguno de los dos subdominios llegó a crearse**: `partesobra.copuno.com` devuelve NXDOMAIN. La única URL viva es `https://copuno-gestion-partes.vercel.app/`. El destino acordado es **`app.copuno.com/partes`** ([ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md)). Lección: la doc declaraba una intención como si fuera un hecho — verificar con `nslookup` antes de dar un dominio por bueno.
-- **Un dominio, un módulo por ruta (ADR-005).** La plataforma vive bajo `app.copuno.com` y cada módulo es una ruta de primer nivel (`/partes`, `/vehiculos`, `/almacen`). Motivo principal más allá del DNS: **Supabase Auth ligará la sesión al origen**, así que un único dominio = un único login para todos los módulos. No crear subdominios por app.
+- **Discrepancia de dominios en docs (abierta 2026-07-28, cerrada 2026-08-03):** durante meses convivieron tres nombres — `gestionpartes.copuno.com` (README), `partesobra.copuno.com` (CLAUDE.md, instrucciones DNS) y la URL de Vercel. **Ninguno de los dos subdominios llegó a crearse** (NXDOMAIN). Hoy el dominio real es **`app.copuno.com`**, activo y con certificado. Lección: la doc declaraba una intención como si fuera un hecho — verificar con `nslookup`/`curl` antes de dar un dominio por bueno.
+  - ⚠️ **La misma trampa sigue viva con la RUTA**: la doc decía "`app.copuno.com/partes`" y esa ruta **da 404**. Que el dominio ya exista no significa que la ruta exista. Al citar una URL, citar la que responde.
+- **Un dominio, un módulo por ruta (ADR-005).** La plataforma vive bajo `app.copuno.com` y cada módulo será una ruta de primer nivel (`/partes`, `/vehiculos`, `/almacen`). Motivo principal más allá del DNS: **Supabase Auth liga la sesión al origen**, así que un único dominio = un único login para todos los módulos. No crear subdominios por app.
+  - **Estado 2026-08-03**: el dominio existe, **el espacio de nombres no**. Partes se sirve en `/` y es el único módulo. La migración a `/partes` + portal en `/` está descrita en ADR-005 y no se ha hecho: mientras haya un solo módulo no aporta nada al usuario, y hacerla tiene coste (rutas, enlaces guardados por los usuarios, `firma-parte.html`).
 - **Mover la app de `/` a `/partes` no es un alias DNS.** Hay que tocar el `base` de Vite, el catch-all SPA de [server.js](server.js) y las rutas de assets de [vercel.json](vercel.json). Y antes del corte, revisar el flujo de firma: `Firmar` es una fórmula Notion que construye una URL externa y Make escribe sobre ella.
 - **Saneado económico:** los endpoints `/api/*` redactan precios/importes antes de devolver. No "arregles" esto pensando que es un bug.
 - **8 h por defecto al seleccionar empleado** (v1.0.2, [src/App.jsx](src/App.jsx)). Es UX intencional.

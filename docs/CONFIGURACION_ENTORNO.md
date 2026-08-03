@@ -65,7 +65,7 @@ CACHE_TTL_MS = 5000
 ### Variables opcionales recomendadas:
 
 ```
-ALLOWED_ORIGINS = https://partesobra.copuno.com
+ALLOWED_ORIGINS = https://app.copuno.com
 RATE_LIMIT_WINDOW_MS = 900000
 RATE_LIMIT_MAX = 100
 PARTES_WEBHOOK_TIMEOUT_MS = 10000

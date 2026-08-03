@@ -1,7 +1,7 @@
 # Referencia de API — Copuno Gestión de Partes
 
 **Última edición:** 2026-07-30 (v1.9.0 en rama — autenticación JWT en todo `/api/*`)
-**Base URL (producción):** `https://copuno-gestion-partes.vercel.app` (destino futuro: `app.copuno.com/partes`, ADR-005)
+**Base URL (producción):** `https://app.copuno.com` — activo desde 2026-08-03. `https://copuno-gestion-partes.vercel.app` sigue sirviendo lo mismo. ⚠️ La app está en la **raíz**; `/partes` da 404 (espacio de nombres de ADR-005 sin implementar).
 **Base URL (local):** `http://localhost:3001`
 
 > **Nota de seguridad:** Todas las respuestas de `/api/*` (excepto `/api/health`) aplican un saneado automático que elimina o redacta datos económicos (precios, importes, tarifas, euros). Este comportamiento es deliberado y no debe modificarse.

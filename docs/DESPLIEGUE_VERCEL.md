@@ -117,7 +117,7 @@ Script `vercel-build` añadido para el build automático.
 
 | Variable | Valor | Cuándo configurar |
 |----------|-------|-------------------|
-| `ALLOWED_ORIGINS` | `https://partesobra.copuno.com` | Al configurar dominio personalizado |
+| `ALLOWED_ORIGINS` | `https://app.copuno.com` | ⬅️ **pendiente**: hoy sin configurar → CORS abierto |
 
 ### Configuración mediante CLI
 
@@ -189,11 +189,20 @@ vercel --prod
 
 Una vez validado el despliegue en la URL pública, configurar el subdominio personalizado.
 
+> ✅ **HECHO el 2026-08-03: el dominio es `app.copuno.com` y está activo** (CNAME aplicado por el
+> administrador del dominio, alta en Vercel, certificado emitido, HTTP 200 verificado). Esta
+> sección queda como referencia para futuros módulos.
+>
+> ⚠️ La app se sirve en la **raíz**. `app.copuno.com/partes` da **404** — el espacio de nombres
+> por módulo de [ADR-005](./adr/ADR-005-dominio-y-espacio-de-nombres.md) está sin implementar.
+>
+> El proyecto vive en la cuenta de Vercel **del cliente** (scope `copunos-projects`).
+
 ### 1. Añadir Dominio en Vercel
 
 1. En el proyecto de Vercel, ir a **Settings** → **Domains**
 2. Click en "Add Domain"
-3. Introducir: `partesobra.copuno.com`
+3. Introducir: `app.copuno.com`
 4. Vercel mostrará los registros DNS a configurar
 
 ### 2. Configurar DNS
@@ -203,14 +212,14 @@ Vercel proporcionará uno de estos métodos:
 #### Método A: CNAME (Recomendado)
 ```
 Type: CNAME
-Name: gestionpartes
+Name: app
 Value: cname.vercel-dns.com
 ```
 
 #### Método B: A Record
 ```
 Type: A
-Name: gestionpartes
+Name: app
 Value: 76.76.21.21
 ```
 
@@ -230,13 +239,13 @@ Una vez configurado el dominio:
 ```bash
 # Actualizar ALLOWED_ORIGINS para restringir acceso
 vercel env add ALLOWED_ORIGINS production
-# Valor: https://partesobra.copuno.com,https://copuno-gestion-partes.vercel.app
+# Valor: https://app.copuno.com,https://copuno-gestion-partes.vercel.app
 ```
 
 O desde el Dashboard:
 - Settings → Environment Variables
 - Editar `ALLOWED_ORIGINS`
-- Añadir: `https://partesobra.copuno.com,https://copuno-gestion-partes.vercel.app`
+- Añadir: `https://app.copuno.com,https://copuno-gestion-partes.vercel.app`
 
 ### 4. Re-desplegar
 
@@ -253,13 +262,13 @@ vercel --prod
 
 - [ ] **Página principal carga correctamente**
   ```bash
-  curl -I https://partesobra.copuno.com
+  curl -I https://app.copuno.com
   # Debe retornar: HTTP/2 200
   ```
 
 - [ ] **API responde**
   ```bash
-  curl https://partesobra.copuno.com/api/health
+  curl https://app.copuno.com/api/health
   # Debe retornar: {"status":"ok","mode":"production"}
   ```
 
@@ -279,18 +288,18 @@ vercel --prod
 
 - [ ] **HTTPS activo**
   ```bash
-  curl -I https://partesobra.copuno.com | grep "HTTP/2"
+  curl -I https://app.copuno.com | grep "HTTP/2"
   ```
 
 - [ ] **Headers de seguridad presentes**
   ```bash
-  curl -I https://partesobra.copuno.com | grep -E "(X-Frame-Options|X-Content-Type-Options|Strict-Transport-Security)"
+  curl -I https://app.copuno.com | grep -E "(X-Frame-Options|X-Content-Type-Options|Strict-Transport-Security)"
   ```
 
 - [ ] **Rate limiting funciona**
   ```bash
   # Hacer 101 peticiones rápidas
-  for i in {1..101}; do curl https://partesobra.copuno.com/api/health; done
+  for i in {1..101}; do curl https://app.copuno.com/api/health; done
   # La petición 101 debe retornar 429 Too Many Requests
   ```
 
@@ -298,7 +307,7 @@ vercel --prod
   ```bash
   curl -H "Origin: https://malicious-site.com" \
        -H "Access-Control-Request-Method: POST" \
-       -X OPTIONS https://partesobra.copuno.com/api/partes
+       -X OPTIONS https://app.copuno.com/api/partes
   # No debe retornar Access-Control-Allow-Origin si ALLOWED_ORIGINS está configurado
   ```
 
@@ -330,7 +339,7 @@ vercel --prod
 #### Desde CLI
 ```bash
 # Ver logs en tiempo real
-vercel logs https://partesobra.copuno.com --follow
+vercel logs https://app.copuno.com --follow
 
 # Ver logs de una función específica
 vercel logs --output=raw --follow
@@ -401,7 +410,7 @@ vercel env ls
 
 # Si no está configurado, añadirlo
 vercel env add ALLOWED_ORIGINS production
-# Valor: https://partesobra.copuno.com
+# Valor: https://app.copuno.com
 ```
 
 ### Problema: Assets 404
@@ -423,8 +432,8 @@ vercel env add ALLOWED_ORIGINS production
 **Soluciones**:
 1. Verificar configuración DNS:
    ```bash
-   nslookup partesobra.copuno.com
-   dig partesobra.copuno.com
+   nslookup app.copuno.com
+   dig app.copuno.com
    ```
 2. Esperar propagación DNS (hasta 48h)
 3. Limpiar caché DNS local:
@@ -476,7 +485,7 @@ vercel project rm copuno-gestion-partes
 vercel rollback [deployment-url]
 
 # Alias para crear URL personalizada
-vercel alias set [deployment-url] partesobra.copuno.com
+vercel alias set [deployment-url] app.copuno.com
 ```
 
 ---
