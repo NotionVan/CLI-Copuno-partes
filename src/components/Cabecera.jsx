@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react'
-import { Download, Loader2, RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import { Download, HelpCircle, Loader2, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import MenuCuenta from '../auth/MenuCuenta.jsx'
 import './cabecera.css'
 
@@ -109,6 +109,19 @@ export default function Cabecera({
 								</span>
 							</button>
 						)}
+						{/* El manual es un HTML estático de public/, no una vista de la app: se
+						    abre aparte para poder consultarlo con la app delante. Y va SIEMPRE
+						    visible, sin depender de `operativo` — cuando algo falla es justo
+						    cuando hace falta. */}
+						<a
+							className="cabecera-accion cabecera-accion--fantasma cabecera-ayuda"
+							href="/manual.html" target="_blank" rel="noopener noreferrer"
+							title="Abrir el manual de usuario en una pestaña nueva"
+							aria-label="Manual de usuario (se abre en una pestaña nueva)"
+						>
+							<HelpCircle size={16} aria-hidden="true" />
+							<span className="cabecera-accion-texto">Ayuda</span>
+						</a>
 						<span className="cabecera-separador" aria-hidden="true" />
 						<MenuCuenta />
 					</div>

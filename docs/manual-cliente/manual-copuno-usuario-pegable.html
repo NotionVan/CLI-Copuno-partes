@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grupo Copuno — Gestión de Partes · Manual de usuario</title>
+<style>
+:root{
+	--primary:#01146d; --primary-hover:#14179a; --primary-soft:#e3e6ff; --primary-soft-strong:#ccd2ff;
+	--success:#059669; --warning:#d97706; --danger:#b91c1c;
+	--surface:#ffffff; --surface-muted:#eaedff; --bg:#f4f6ff;
+	--border:#cfd5ff; --text:#050716; --text-2:#3b4263; --text-3:#7c83a5;
+	--radius:12px; --radius-sm:8px;
+	--sidebar-w:290px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--text);background:var(--bg);line-height:1.65;font-size:16px}
+code,pre{font-family:"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em}
+code{background:var(--primary-soft);color:var(--primary);padding:.12em .4em;border-radius:5px;word-break:break-word}
+pre{background:#0b1030;color:#dfe4ff;padding:16px 20px;border-radius:var(--radius-sm);overflow-x:auto;line-height:1.55;margin:14px 0}
+pre code{background:none;color:inherit;padding:0}
+a{color:var(--primary)}
+h1,h2,h3,h4{line-height:1.25;color:var(--primary)}
+h2{font-size:1.7rem;margin:0 0 6px;padding-top:38px;border-top:none}
+h3{font-size:1.22rem;margin:30px 0 10px;color:var(--text)}
+h4{font-size:1.02rem;margin:22px 0 8px;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em}
+p{margin:10px 0}
+ul,ol{margin:10px 0 10px 24px}
+li{margin:4px 0}
+strong{color:var(--text)}
+/* ── Layout ── */
+.layout{display:flex;min-height:100vh}
+nav.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:22px 18px;z-index:50}
+main{margin-left:var(--sidebar-w);flex:1;min-width:0}
+.contenido{max-width:900px;margin:0 auto;padding:20px 40px 90px}
+section{border-bottom:1px solid var(--border);padding-bottom:34px;margin-bottom:6px}
+section:last-child{border-bottom:none}
+/* ── Sidebar ── */
+.sidebar .brand{display:flex;flex-direction:column;gap:6px;padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.sidebar .brand img{width:170px;height:auto}
+.sidebar .brand span{font-size:.82rem;color:var(--text-3);font-weight:600}
+.sidebar h5{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);margin:16px 0 6px}
+.sidebar a{display:block;padding:4px 10px;border-radius:6px;color:var(--text-2);text-decoration:none;font-size:.88rem}
+.sidebar a:hover{background:var(--primary-soft);color:var(--primary)}
+/* ── Portada ── */
+.portada{min-height:92vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;border-bottom:1px solid var(--border);padding:60px 20px}
+.portada img.logo{width:300px;max-width:80%;height:auto;margin-bottom:34px}
+.portada h1{font-size:2.5rem;margin-bottom:8px}
+.portada .subtitulo{font-size:1.25rem;color:var(--text-2);margin-bottom:30px}
+.portada .meta{display:inline-grid;grid-template-columns:auto auto;gap:6px 18px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 30px;font-size:.95rem}
+.portada .meta dt{color:var(--text-3);font-weight:600}
+.portada .meta dd{color:var(--text)}
+.portada .aviso{margin-top:28px;font-size:.85rem;color:var(--text-3);max-width:560px}
+/* ── Componentes ── */
+.kicker{font-size:.78rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);margin-top:38px}
+figure{margin:20px 0}
+figure img{width:100%;height:auto;border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 6px 24px rgba(1,20,109,.10)}
+figcaption{font-size:.85rem;color:var(--text-3);margin-top:8px;text-align:center}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.92rem;background:var(--surface);border-radius:var(--radius-sm);overflow:hidden}
+th{background:var(--primary);color:#fff;text-align:left;padding:9px 12px;font-weight:600}
+td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.tabla-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-sm)}
+.tabla-scroll table{margin:0;border-radius:0}
+.caja{border-radius:var(--radius);padding:16px 20px;margin:16px 0;border:1px solid}
+.caja.info{background:var(--primary-soft);border-color:var(--primary-soft-strong)}
+.caja.aviso{background:#fef3c7;border-color:#fcd34d}
+.caja.peligro{background:#fee2e2;border-color:#fca5a5}
+.caja.ok{background:#d1fae5;border-color:#6ee7b7}
+.caja .titulo{font-weight:700;margin-bottom:4px;display:block}
+.badge{display:inline-block;font-size:.75rem;font-weight:700;border-radius:999px;padding:2px 10px;vertical-align:middle}
+.badge.rojo{background:#fee2e2;color:var(--danger)}
+.badge.naranja{background:#ffedd5;color:#c2410c}
+.badge.amarillo{background:#fef3c7;color:#92400e}
+.badge.azul{background:var(--primary-soft);color:var(--primary)}
+.badge.verde{background:#d1fae5;color:#065f46}
+.badge.gris{background:#e5e7eb;color:#374151}
+.paso{display:flex;gap:14px;margin:14px 0}
+.paso .num{flex:none;width:32px;height:32px;border-radius:999px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+.svg-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin:18px 0}
+kbd{background:var(--surface);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-size:.85em}
+/* ── Responsive / print ── */
+@media (max-width: 980px){
+	nav.sidebar{display:none}
+	main{margin-left:0}
+	.contenido{padding:16px 20px 70px}
+}
+@media print{
+	nav.sidebar{display:none}
+	main{margin-left:0}
+	body{background:#fff}
+	.portada{min-height:auto}
+	section{break-inside:avoid-page}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+	<div class="brand">
+		<img src="capturas/logo-copuno.png" alt="Grupo Copuno">
+		<span>Gestión de Partes · Manual de usuario</span>
+	</div>
+	<h5>Contenido</h5>
+	<a href="#a1">1. Qué es esta aplicación</a>
+	<a href="#a2">2. Acceso y cuenta</a>
+	<a href="#a3">3. Pantalla de inicio</a>
+	<a href="#a4">4. Crear un parte</a>
+	<a href="#a5">5. Consultar y filtrar partes</a>
+	<a href="#a6">6. Detalles y estados del parte</a>
+	<a href="#a7">7. Enviar datos y firma</a>
+	<a href="#a8">8. Rectificar un parte</a>
+	<a href="#a9">9. Exportar CSV (Chorus)</a>
+	<a href="#a10">10. Sincronización y problemas</a>
+</nav>
+<main>
+
+<div class="portada">
+	<img class="logo" src="capturas/logo-copuno.png" alt="Grupo Copuno">
+	<h1>Gestión de Partes de Trabajo</h1>
+	<p class="subtitulo">Manual de usuario</p>
+	<dl class="meta">
+		<dt>Aplicación</dt><dd>Gestión de Partes · Grupo Copuno</dd>
+		<dt>Dirección de acceso</dt><dd><a href="https://app.copuno.com">app.copuno.com</a></dd>
+		<dt>Versión</dt><dd>1.9.0</dd>
+		<dt>Fecha del documento</dt><dd>4 de agosto de 2026</dd>
+		<dt>Elaborado por</dt><dd>NotionVan · Javi Collado</dd>
+	</dl>
+	<p class="aviso">Documento de consulta para los usuarios de la aplicación. Recoge el funcionamiento de la versión 1.9.0; cuando la aplicación cambie, el manual se actualiza y se vuelve a distribuir.</p>
+</div>
+
+<div class="contenido">
+
+<section id="a1">
+<h2>1 · Qué es esta aplicación</h2>
+<p><strong>Gestión de Partes</strong> es la aplicación interna de Grupo Copuno para crear, firmar y archivar los <strong>partes de trabajo diarios</strong> de las obras. Un parte recoge, para una obra y una fecha, qué empleados trabajaron, cuántas horas hizo cada uno, qué vehículos se usaron y cualquier nota relevante.</p>
+<p>La usan dos perfiles:</p>
+<ul>
+	<li><strong>Jefes de obra</strong> — crean los partes desde el móvil o la tablet a pie de obra y firman digitalmente el PDF resultante.</li>
+	<li><strong>Oficina</strong> — consulta los partes, comprueba estados, exporta las horas para los cuadrantes y detecta partes sin firmar.</li>
+</ul>
+<p>Detrás de la pantalla, los datos quedan registrados en el sistema de gestión de Copuno y el PDF se genera, se firma y se archiva de forma automática. Nada de eso requiere acción del usuario: la app lo orquesta todo desde los botones que se describen en este manual.</p>
+<div class="caja info"><span class="titulo">La regla de oro del sistema</span>Un parte <strong>firmado no se puede editar</strong>. Si un parte firmado contiene un error, no se corrige: se <a href="#a8">rectifica</a>, generando un parte nuevo que sustituye al original sin destruirlo.</div>
+</section>
+
+<section id="a2">
+<h2>2 · Acceso y cuenta</h2>
+<p>La aplicación requiere <strong>iniciar sesión con email y contraseña</strong>. No hay registro público ni autoservicio: las cuentas las crea el administrador del sistema.</p>
+<figure><img src="capturas/01-login.jpg" alt="Pantalla de inicio de sesión"><figcaption>Pantalla de acceso. Único método: email y contraseña.</figcaption></figure>
+<h3>Primer acceso</h3>
+<div class="paso"><div class="num">1</div><div>El administrador te facilita tu <strong>email de acceso y una contraseña inicial</strong>.</div></div>
+<div class="paso"><div class="num">2</div><div>Entra en <strong>app.copuno.com</strong> con esos datos.</div></div>
+<div class="paso"><div class="num">3</div><div><strong>Cambia la contraseña</strong> desde el menú de cuenta (arriba a la derecha). Mínimo 10 caracteres, con letras y números.</div></div>
+<div class="caja info"><span class="titulo">Cuentas nuevas</span>El alta de un usuario nuevo se pide al administrador del sistema y se resuelve en el momento.</div>
+<h3>¿Contraseña olvidada?</h3>
+<p>En la pantalla de acceso, pulsa <strong>«¿Has olvidado tu contraseña?»</strong>, escribe tu email y recibirás un enlace para fijar una nueva. Este es el mecanismo normal de rescate: no hace falta avisar al administrador.</p>
+<div class="caja aviso"><span class="titulo">Si el enlace «ha caducado o ya se había usado»</span>Los enlaces para restablecer la contraseña son de <strong>un solo uso y caducan</strong>; además, algunos gestores de correo los «pre-abren» y los consumen. La propia pantalla lo avisa: pide otro desde «¿Has olvidado tu contraseña?».</div>
+<h3>Menú de cuenta</h3>
+<p>Con la sesión iniciada, en la esquina superior derecha aparece el menú de tu cuenta, desde el que puedes <strong>cambiar la contraseña</strong> o <strong>cerrar sesión</strong>.</p>
+</section>
+
+<section id="a3">
+<h2>3 · Pantalla de inicio</h2>
+<figure><img src="capturas/02-inicio.jpg" alt="Pantalla de inicio"><figcaption>Inicio: dos accesos directos (crear y consultar) y la barra superior, siempre visible.</figcaption></figure>
+<p>La barra superior acompaña en toda la aplicación:</p>
+<ul>
+	<li><strong>Logo Copuno</strong> — vuelve al inicio desde cualquier pantalla.</li>
+	<li><strong>Indicador de conexión</strong> — «Conectado» y el modo de sincronización actual (<a href="#a10">ver sección 10</a>).</li>
+	<li><strong>Exportar CSV</strong> — genera el fichero de horas para los cuadrantes de Chorus (<a href="#a9">sección 9</a>).</li>
+	<li><strong>Refrescar</strong> — fuerza una recarga inmediata de los datos.</li>
+</ul>
+</section>
+
+<section id="a4">
+<h2>4 · Crear un parte</h2>
+<p>Desde el inicio, pulsa <strong>«Crear Nuevo Parte»</strong> y completa el formulario de arriba abajo:</p>
+<figure><img src="capturas/03-crear-parte.jpg" alt="Formulario de creación de parte"><figcaption>Cabecera del formulario: provincia, obra, fecha y persona autorizada.</figcaption></figure>
+<div class="paso"><div class="num">1</div><div><strong>Provincia</strong> — filtra la lista de obras.</div></div>
+<div class="paso"><div class="num">2</div><div><strong>Obra</strong> — solo aparecen obras activas de la provincia elegida.</div></div>
+<div class="paso"><div class="num">3</div><div><strong>Fecha del parte</strong> — por defecto, hoy.</div></div>
+<div class="paso"><div class="num">4</div><div><strong>Persona autorizada</strong> — quién firmará el parte. La casilla «Buscar en toda la base» permite elegir una persona no vinculada a la obra.</div></div>
+<div class="paso"><div class="num">5</div><div><strong>Empleados y horas</strong> — selecciona los empleados que trabajaron. Al marcar uno se le asignan <strong>8 horas por defecto</strong>; ajusta con los botones +/− o tecleando. El total de horas se calcula en vivo.</div></div>
+<div class="paso"><div class="num">6</div><div><strong>Vehículos</strong> — escribe parte de una matrícula y elige de las sugerencias (salen de la flota real). Se añaden como «chips»; no hay texto libre, así no hay errores de tecleo. Si un vehículo sugerido no está operativo se marca con ⚠️.</div></div>
+<div class="paso"><div class="num">7</div><div><strong>Notas</strong> — texto libre opcional que aparecerá en el PDF.</div></div>
+<figure><img src="capturas/04-empleados-horas.jpg" alt="Selección de empleados y horas"><figcaption>Selección de empleados con horas por empleado y buscador.</figcaption></figure>
+<p>Al guardar, el parte se crea en estado <span class="badge gris">Borrador</span>: sigue siendo editable hasta que se envíen los datos.</p>
+<div class="caja info"><span class="titulo">Buscar empleados que no aparecen</span>El buscador de empleados admite <strong>nombre</strong> (desde 3 letras) o <strong>ID Copuno</strong> (3-6 dígitos). Al editar un parte también puede añadirse un trabajador por ID aunque no esté vinculado a la obra.</div>
+</section>
+
+<section id="a5">
+<h2>5 · Consultar y filtrar partes</h2>
+<figure><img src="capturas/05-listado-filtros.jpg" alt="Listado de partes con filtros"><figcaption>Listado con filtros combinables y una tarjeta por parte, con sus acciones según estado.</figcaption></figure>
+<p>La pantalla <strong>«Consultar Partes»</strong> lista todos los partes, del más reciente al más antiguo. Los filtros se pueden combinar:</p>
+<ul>
+	<li><strong>Obra</strong>, <strong>fecha</strong>, <strong>estado</strong> y <strong>persona autorizada</strong>.</li>
+	<li><strong>Vehículo (matrícula)</strong> — encuentra los partes donde participó un vehículo; ignora mayúsculas, guiones y espacios (<code>7072-KLC</code> y <code>7072klc</code> dan lo mismo).</li>
+	<li>El botón <strong>«Limpiar»</strong> aparece cuando hay filtros activos y los restablece de un clic.</li>
+</ul>
+<p>Cada tarjeta muestra la obra, la fecha, las horas totales, las matrículas (si las hay) y su <strong>estado</strong>, y ofrece solo las acciones que ese estado permite:</p>
+<div class="tabla-scroll"><table>
+<tr><th>Estado</th><th>Qué significa</th><th>Acciones disponibles</th></tr>
+<tr><td><span class="badge gris">Borrador</span></td><td>Recién creado o devuelto a edición. Aún no ha salido de la app.</td><td>Ver detalles · Editar · Enviar datos</td></tr>
+<tr><td><span class="badge azul">Procesando</span></td><td>Los datos están viajando hacia la generación del PDF. Estado transitorio.</td><td>Ver detalles</td></tr>
+<tr><td><span class="badge amarillo">Datos Enviados</span></td><td>El PDF se está generando o ya espera la firma del jefe de obra.</td><td>Ver detalles · Rectificar</td></tr>
+<tr><td><span class="badge verde">Firmado</span></td><td>El jefe de obra firmó. El PDF firmado queda archivado. <strong>No editable.</strong></td><td>Ver detalles · Rectificar</td></tr>
+</table></div>
+<p>Los partes rectificativos y los rectificados se distinguen con insignias <span class="badge azul">Rectificativo</span> / <span class="badge gris">Rectificado</span> en la tarjeta.</p>
+</section>
+
+<section id="a6">
+<h2>6 · Detalles y estados del parte</h2>
+<figure><img src="capturas/06-detalle-parte.jpg" alt="Modal de detalles de un parte"><figcaption>Detalle de un parte firmado: la franja amarilla avisa de que ya no puede modificarse.</figcaption></figure>
+<p><strong>«Ver Detalles»</strong> abre una ficha con la cabecera del parte, el estado, la última edición, el resumen de horas por categoría (Oficial 1ª, Oficial 2ª, Capataz, Encargado…) y el desglose por empleado.</p>
+<p>Mientras la ficha está abierta, la app <strong>vigila el estado del parte</strong> automáticamente: si se genera el PDF o el jefe de obra firma mientras miras, el cambio aparece sin refrescar (ver <a href="#a10">sección 10</a>).</p>
+<div class="caja aviso"><span class="titulo">¿Por qué no puedo editar?</span>Un parte deja de ser editable cuando está <strong>Procesando</strong>, en <strong>Datos Enviados</strong> o <strong>Firmado</strong>: sus datos ya han salido hacia el PDF o llevan una firma. Si necesitas cambiar algo, usa <a href="#a8">Rectificar</a>.</div>
+</section>
+
+<section id="a7">
+<h2>7 · Enviar datos y firma</h2>
+<p>Cuando el parte está completo, el botón <strong>«Enviar Datos»</strong> pone en marcha el circuito de firma:</p>
+<div class="paso"><div class="num">1</div><div>El parte pasa a <span class="badge azul">Procesando</span> y queda bloqueado (nadie puede enviarlo dos veces, ni siquiera con un doble clic).</div></div>
+<div class="paso"><div class="num">2</div><div>El sistema genera el <strong>PDF del parte</strong> con la plantilla oficial y lo archiva. El parte pasa a <span class="badge amarillo">Datos Enviados</span>.</div></div>
+<div class="paso"><div class="num">3</div><div>La <strong>persona autorizada recibe el enlace de firma</strong> y firma desde su móvil o tablet.</div></div>
+<div class="paso"><div class="num">4</div><div>El PDF firmado queda adjunto al parte, que pasa a <span class="badge verde">Firmado</span>. Fin del ciclo.</div></div>
+<div class="caja info"><span class="titulo">Si algo falla por el camino</span>Si el parte se queda en «Procesando» mucho tiempo, el envío no llegó a completarse: avisa a oficina/soporte para reconciliarlo — el bloqueo es deliberado para impedir duplicados. La firma no caduca: el enlace sigue siendo válido hasta que se firme.</div>
+</section>
+
+<section id="a8">
+<h2>8 · Rectificar un parte</h2>
+<p>Si un parte <span class="badge verde">Firmado</span> o en <span class="badge amarillo">Datos Enviados</span> contiene un error (horas mal contadas, empleado que faltaba, matrícula equivocada…), pulsa <strong>«Rectificar»</strong> en su tarjeta:</p>
+<div class="paso"><div class="num">1</div><div>Se crea un <strong>parte nuevo en Borrador</strong>, copia exacta del original (obra, fecha, firmante, empleados, horas, vehículos y notas).</div></div>
+<div class="paso"><div class="num">2</div><div>Sus notas llevan el prefijo <strong>«PARTE RECTIFICATIVO»</strong> con la referencia al original, y ambos quedan enlazados de forma permanente.</div></div>
+<div class="paso"><div class="num">3</div><div>Corrige lo que haga falta y sigue el ciclo normal: <strong>Enviar datos → PDF → firma</strong>.</div></div>
+<p>El original <strong>no se modifica ni se borra</strong> — conserva su PDF firmado. Un parte solo puede rectificarse una vez (el botón desaparece si ya tiene rectificativo), y a efectos de cómputo de horas (por ejemplo, en la exportación a Chorus) <strong>manda el rectificativo</strong>: el original rectificado se excluye automáticamente.</p>
+</section>
+
+<section id="a9">
+<h2>9 · Exportar CSV para los cuadrantes (Chorus)</h2>
+<figure><img src="capturas/07-exportar-csv.jpg" alt="Diálogo de exportación a CSV"><figcaption>Exportación: rango de fechas con el mes en curso preseleccionado.</figcaption></figure>
+<p>El botón <strong>«Exportar CSV»</strong> de la barra superior genera el fichero de horas que consume la macro de cuadrantes de Chorus. Uso típico de oficina, una vez al mes:</p>
+<div class="paso"><div class="num">1</div><div>Elige el rango <strong>Desde / Hasta</strong>. Por defecto: del día 1 del mes en curso a hoy — pensado para no mezclar meses.</div></div>
+<div class="paso"><div class="num">2</div><div>Si el rango cruza más de un mes natural, la app pide <strong>confirmación explícita</strong> antes de continuar (evita reabrir un mes ya cerrado en Chorus).</div></div>
+<div class="paso"><div class="num">3</div><div>Se descarga <code>Partes_MM-AAAA.csv</code>, listo para Excel.</div></div>
+<p>Reglas que la exportación aplica sola:</p>
+<ul>
+	<li>Una fila por <strong>obra + trabajador + día</strong>, con las horas agregadas.</li>
+	<li>Excluye los partes <strong>rectificados</strong> (cuenta el rectificativo, no el original) y las <strong>obras de prueba</strong>.</li>
+	<li>Las líneas con datos incompletos (por ejemplo, un trabajador sin ID) no se pierden en silencio: se listan como <strong>incidencias</strong> para revisarlas.</li>
+	<li>Antes de descargar, avisa si en el rango hay <strong>partes sin firmar</strong>.</li>
+</ul>
+</section>
+
+<section id="a10">
+<h2>10 · Sincronización y resolución de problemas</h2>
+<h3>La app se actualiza sola</h3>
+<p>No hace falta refrescar: la aplicación consulta cambios cada pocos segundos, más deprisa cuanto más reciente es la actividad (3 s tras un cambio, 8 s en reposo corto, 15 s en reposo largo). El indicador de la barra superior muestra el modo actual (<strong>RÁPIDO / NORMAL / LENTO</strong>). El botón <strong>«Refrescar»</strong> fuerza la recarga inmediata si no quieres esperar.</p>
+<h3>Aviso de nueva versión</h3>
+<p>Cuando se publica una versión nueva de la app, aparece un <strong>banner de actualización</strong>. Púlsalo (o recarga la página) para cargar la última versión.</p>
+<h3>Problemas frecuentes</h3>
+<div class="tabla-scroll"><table>
+<tr><th>Síntoma</th><th>Qué hacer</th></tr>
+<tr><td>«No puedo editar un parte»</td><td>Mira su estado: Procesando, Datos Enviados y Firmado bloquean la edición. Usa Rectificar si ya está firmado o enviado.</td></tr>
+<tr><td>«El parte lleva mucho en Procesando»</td><td>El envío no llegó a completarse. Avisa a soporte — no intentes recrearlo, el bloqueo evita duplicados.</td></tr>
+<tr><td>«Falta el PDF firmado»</td><td>La firma y la subida del documento son automáticas pero externas a la app; si tras firmar no aparece, es una incidencia del circuito de firma: avisa a soporte.</td></tr>
+<tr><td>«El enlace para restablecer la contraseña no funciona»</td><td>Caducó o ya se usó. Pide otro desde «¿Has olvidado tu contraseña?».</td></tr>
+<tr><td>«La app me pide entrar otra vez»</td><td>La sesión caducó o se cerró en otro dispositivo. Entra de nuevo; si no recuerdas la contraseña, restablécela.</td></tr>
+</table></div>
+</section>
+
+<section>
+<p style="margin-top:34px;color:var(--text-3);font-size:.9rem;text-align:center">Gestión de Partes v1.9.0 · Manual de usuario · 4 de agosto de 2026<br>NotionVan para Grupo Copuno</p>
+</section>
+
+</div><!-- /contenido -->
+</main>
+</div><!-- /layout -->
+</body>
+</html>

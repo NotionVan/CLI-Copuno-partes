@@ -99,6 +99,9 @@
 	border: 1px solid transparent;
 	border-radius: var(--border-radius-sm);
 	cursor: pointer;
+	/* La familia la usan <button> y también el <a> de Ayuda: sin esto el enlace
+	   llegaría subrayado y con el color de enlace del navegador. */
+	text-decoration: none;
 	transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
@@ -197,15 +200,17 @@ button.cabecera-estado:focus-visible {
 /* ── Responsive: de más ancha a más estrecha, cortes no solapados ── */
 
 @media (max-width: 1023px) {
-	/* Exportar pierde la etiqueta; el modo de sync deja de mostrarse */
-	.cabecera-exportar .cabecera-accion-texto { display: none; }
+	/* Exportar y Ayuda pierden la etiqueta; el modo de sync deja de mostrarse */
+	.cabecera-exportar .cabecera-accion-texto,
+	.cabecera-ayuda .cabecera-accion-texto { display: none; }
 	.cabecera-estado-modo { display: none; }
 }
 
 @media (max-width: 767px) {
 	.cabecera-fila { min-height: 44px; padding-block: 6px; } /* 56px */
 	/* Objetivo táctil 44px y solo iconos; Exportar fuera (el CSV de Chorus
-	   es de oficina, en un móvil de obra no tiene uso) */
+	   es de oficina, en un móvil de obra no tiene uso). Ayuda SÍ se queda:
+	   quien consulta el manual desde el móvil es justo el jefe de obra. */
 	.cabecera-accion { min-width: 44px; min-height: 44px; padding: 0 10px; justify-content: center; }
 	.cabecera-accion-texto { display: none; }
 	.cabecera-exportar { display: none; }
