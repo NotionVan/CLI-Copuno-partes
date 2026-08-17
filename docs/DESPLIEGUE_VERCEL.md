@@ -74,10 +74,15 @@ Configuración principal de Vercel en la raíz del proyecto:
       "source": "/assets/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
-  ],
-  "regions": ["cdg1"]
+  ]
 }
 ```
+
+> ⚠️ **NO fijar `"regions"`.** El `vercel.json` real no lo hace y es deliberado: la función corre en
+> `iad1` (EE. UU.), pegada a la API de Notion (us-east), y cada petición de usuario provoca de 1 a 24
+> round-trips a Notion frente a UNO solo hacia el usuario. Fijar `cdg1` "para acercar la app a España"
+> añadiría ~90-120 ms POR round-trip a Notion (≈1-1,3 s extra al crear un parte) para ahorrar ~80 ms
+> en el único salto al usuario. Verificado 2026-08 (auditoría de rendimiento, BE-16).
 
 ### 2. `.vercelignore`
 Archivos que se excluyen del despliegue (ya configurado).
