@@ -5,7 +5,7 @@ Webapp interna del cliente **Copuno** para que los jefes de obra creen y firmen 
 El contexto de negocio y las decisiones viven en `javintnvn/SB` (segundo cerebro).
 
 - **Producción:** **https://app.copuno.com/** — dominio propio **activo desde 2026-08-03** (CNAME aplicado por el administrador, dominio dado de alta en Vercel, certificado emitido; HTTP 200 verificado). `https://copuno-gestion-partes.vercel.app/` **sigue viva** y sirve lo mismo: es el dominio técnico de Vercel, no se ha retirado.
-  - ⚠️ **La ruta de uso es la raíz `/`, NO `/partes`** — `app.copuno.com/partes` devuelve **404** hoy (verificado 2026-08-03). `/partes` es el destino de [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md) y **está sin implementar**: no hay router en el frontend (`react-router-dom` figura en `package.json` pero no se usa). Ver "Migración a `/partes`" en [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md).
+  - ⚠️ **La ruta de uso es la raíz `/`, NO `/partes`** — `app.copuno.com/partes` devuelve **404** hoy (verificado 2026-08-03). `/partes` es el destino de [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md) y **está sin implementar**: no hay router en el frontend (`react-router-dom` se eliminó en v1.9.2 al estar sin uso). Ver "Migración a `/partes`" en [ADR-005](docs/adr/ADR-005-dominio-y-espacio-de-nombres.md).
   - **`partesobra.copuno.com` y `gestionpartes.copuno.com` nunca existieron** (NXDOMAIN) pese a estar documentados como producción durante meses — descartados ambos.
 - **Versión actual:** [package.json](package.json) → `version`
 - **Cliente:** Copuno (sector construcción, varias delegaciones)
