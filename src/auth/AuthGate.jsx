@@ -192,6 +192,12 @@ export default function AuthGate({ children }) {
 		supabase.auth.getSession().then(({ data }) => {
 			setSesion(data.session)
 			setListo(true)
+		}).catch(() => {
+			// Sin el catch, un fallo de red aquí dejaba la pantalla en blanco para
+			// siempre (UX-51/I-D). Con sesión null se muestra el login, que sí
+			// explica qué hacer.
+			setSesion(null)
+			setListo(true)
 		})
 		const { data: sub } = supabase.auth.onAuthStateChange((evento, nuevaSesion) => {
 			if (evento === 'PASSWORD_RECOVERY') setFijandoPassword(true)
@@ -201,7 +207,17 @@ export default function AuthGate({ children }) {
 	}, [])
 
 	if (!supabase) return children
-	if (!listo) return null
+	if (!listo) {
+		// Mismo shell (logo + spinner) que index.html pinta antes de montar React:
+		// sin esto, el montaje borraba el shell y volvía el blanco hasta que
+		// getSession() resolvía (UX-51).
+		return (
+			<div className="shell-arranque" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+				<img src="/logo-copuno.png" alt="Grupo Copuno" style={{ width: 220, maxWidth: '60vw', height: 'auto' }} />
+				<div style={{ width: 28, height: 28, border: '3px solid #ccd2ff', borderTopColor: '#01146d', borderRadius: '50%', animation: 'shell-girar 0.9s linear infinite' }} />
+			</div>
+		)
+	}
 	if (fijandoPassword && sesion) {
 		return (
 			<PantallaNuevaPassword

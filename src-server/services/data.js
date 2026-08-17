@@ -232,10 +232,10 @@ const exportaciones = {
 }
 
 const partesTrabajo = {
-	async listar() {
+	async listar({ desde, hasta } = {}) {
 		requireInit()
 		if (state.mode === 'mock') return state.mockStore.getPartesTrabajo()
-		return notion.partesTrabajo.listar({ client: state.notionClient })
+		return notion.partesTrabajo.listar({ client: state.notionClient, desde, hasta })
 	},
 
 	/**

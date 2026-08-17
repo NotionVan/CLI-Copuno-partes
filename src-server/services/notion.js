@@ -811,8 +811,15 @@ const vehiculos = {
 }
 
 const partesTrabajo = {
-	async listar({ client }) {
+	async listar({ client, desde, hasta }) {
+		// BE-13a: ventana de fechas opcional y aditiva. Sin parámetros, el
+		// comportamiento es idéntico al histórico (100 más recientes).
+		const filtros = []
+		if (desde) filtros.push({ property: 'Fecha', date: { on_or_after: desde } })
+		if (hasta) filtros.push({ property: 'Fecha', date: { on_or_before: hasta } })
+		const cuerpoExtra = filtros.length ? { filter: filtros.length > 1 ? { and: filtros } : filtros[0] } : {}
 		const data = await client.request('POST', conProps(`/databases/${DATABASES.PARTES_TRABAJO}/query`, PROPS_CATALOGO.PARTES), {
+			...cuerpoExtra,
 			page_size: 100,
 			sorts: [{ property: 'Fecha', direction: 'descending' }]
 		})

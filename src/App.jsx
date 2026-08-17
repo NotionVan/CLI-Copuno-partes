@@ -499,7 +499,8 @@ function App() {
 			}
 		}
 
-		poll()
+		// F3: sin poll() inmediato — cargarOpcionesEstado() ya se llama en el
+		// montaje y al volver a la pestaña; esto duplicaba la petición.
 		estadoOptionsPollRef.current = setInterval(poll, 10000)
 	}
 
@@ -579,23 +580,13 @@ function App() {
 		try {
 			setLoading(true)
 			setError(null)
-			setConnectivity({ status: 'checking', message: 'Verificando conectividad...' })
+			// F3: sin health previo bloqueante — la conectividad se deriva del propio
+			// resultado de la carga (un round-trip menos en el camino crítico).
+			setConnectivity({ status: 'checking', message: 'Actualizando...' })
 
-			// Verificar conectividad primero
-			const connectivityCheck = await checkConnectivity()
-			setConnectivity({
-				status: connectivityCheck.status,
-				message: connectivityCheck.status === 'ok' ? 'Conectado' : connectivityCheck.message
-			})
-
-			if (connectivityCheck.status === 'error') {
-				throw new Error(`Problema de conectividad: ${connectivityCheck.message}`)
-			}
-
-			// Cargar datos con reintentos
 			const datosCompletos = await retryOperation(async () => {
 				return await getDatosCompletos()
-			}, 3, 1000)
+			}, 2, 1000)
 
 			console.log('📊 Datos cargados:', datosCompletos)
 			console.log('🏗️ Obras cargadas:', datosCompletos.obras.length)
@@ -706,13 +697,14 @@ function App() {
 
 					{/* Contenido principal */}
 					<div className="content">
-						{loading ? (
+						{/* F3 (P2): el menú principal es estático — se pinta SIEMPRE, sin
+						    esperar a Notion. Solo Consulta/Crear dependen de datos. */}
+						{activeSection === 'main' ? (
+							<PantallaPrincipal onNavigate={setActiveSection} />
+						) : loading ? (
 							<div className="loading-container">
 								<Loader2 size={48} className="loading-spinner" />
 								<p className="loading-text">Cargando partes y obras...</p>
-								{connectivity.status === 'checking' && (
-									<p className="loading-subtext">Verificando conectividad...</p>
-								)}
 							</div>
 						) : error ? (
 							<div className="error-container">
@@ -733,9 +725,7 @@ function App() {
 							</div>
 						) : (
 							<>
-								{activeSection === 'main' ? (
-									<PantallaPrincipal onNavigate={setActiveSection} />
-								) : activeSection === 'consulta' ? (
+								{activeSection === 'consulta' ? (
 									<ConsultaPartes datos={datos} onVolver={() => setActiveSection('main')} estadoOptions={estadoOptions} onRefrescarPartes={refrescarPartes} />
 								) : activeSection === 'crear' ? (
 									<CrearParte datos={datos} estadoOptions={estadoOptions} onParteCreado={cargarDatos} onVolver={() => setActiveSection('main')} />

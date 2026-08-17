@@ -462,29 +462,27 @@ export const componerCsvChorus = (filas) => {
 }
 
 export const getDatosCompletos = async () => {
+	// F3 (P6/BE-4b): UNA petición — el servidor hace el Promise.all en una sola
+	// lambda, con cache e invalidación tras escrituras. Antes eran 4 peticiones
+	// paralelas (4 lambdas frías) precedidas de un health redundante.
+	// Fallback al camino de 4 llamadas: un fallo del endpoint consolidado no
+	// puede dejar la app peor que antes.
 	try {
-		// Primero verificar conectividad
-		const connectivity = await checkConnectivity()
-		if (connectivity.status === 'error') {
-			throw new Error(`Problema de conectividad: ${connectivity.message}`)
+		const response = await apiClient.get('/api/datos-completos')
+		const { obras, jefesObra, empleados, partesTrabajo } = response.data || {}
+		if (Array.isArray(obras) && Array.isArray(partesTrabajo)) {
+			return { obras, jefesObra: jefesObra || [], empleados: empleados || [], partesTrabajo }
 		}
-
+		throw new Error('Respuesta incompleta de /datos-completos')
+	} catch (error) {
+		console.warn('datos-completos falló; usando el camino de 4 llamadas:', error?.message)
 		const [obras, jefesObra, empleados, partesTrabajo] = await Promise.all([
 			getObras(),
 			getJefesObra(),
 			getEmpleados(),
 			getPartesTrabajo()
 		])
-
-		return {
-			obras,
-			jefesObra,
-			empleados,
-			partesTrabajo
-		}
-	} catch (error) {
-		console.error('Error al obtener datos completos:', error)
-		throw error
+		return { obras, jefesObra, empleados, partesTrabajo }
 	}
 }
 

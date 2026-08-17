@@ -5,14 +5,37 @@
 	<link rel="icon" type="image/png" href="/favicon.png" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>Copuno - Gestión de Partes</title>
-    <style>
-        /* Reglas mínimas, todo el estilo en CSS de src */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #f6f8fc; }
-    </style>
+	<!-- F3 (P3): el logo es el primer píxel de marca (login y shell) y Supabase
+	     es el primer host externo que toca AuthGate — adelantar ambos. -->
+	<link rel="preload" as="image" href="/logo-copuno.png" />
+	<link rel="preconnect" href="https://cuwtneprjbvumfjycnmn.supabase.co" crossorigin />
+	<style>
+		/* Reglas mínimas, todo el estilo en CSS de src */
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body { background: #f6f8fc; }
+		/* App-shell: visible desde el primer frame, React lo sustituye al montar.
+		   Elimina la pantalla en blanco de parse de JS + AuthGate (FE-1/UX-51). */
+		.shell-arranque {
+			min-height: 100vh;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 18px;
+		}
+		.shell-arranque img { width: 220px; max-width: 60vw; height: auto; }
+		.shell-spinner {
+			width: 28px; height: 28px;
+			border: 3px solid #ccd2ff;
+			border-top-color: #01146d;
+			border-radius: 50%;
+			animation: shell-girar 0.9s linear infinite;
+		}
+		@keyframes shell-girar { to { transform: rotate(360deg) } }
+	</style>
 </head>
 <body>
-	<div id="root"></div>
+	<div id="root"><div class="shell-arranque"><img src="/logo-copuno.png" alt="Grupo Copuno"><div class="shell-spinner"></div></div></div>
 	<script type="module" src="/src/main.jsx"></script>
 </body>
-</html> 
+</html>

@@ -455,12 +455,19 @@ app.get('/api/obras/:obraId/empleados', async (req, res) => {
 })
 
 // Obtener todos los partes de trabajo — refactorizado a data.js (ADR-002)
+const FECHA_AAAA_MM_DD = /^\d{4}-\d{2}-\d{2}$/
 app.get('/api/partes-trabajo', async (req, res) => {
 	try {
-		const cached = getCache('partes-trabajo')
-		if (cached) return res.json(cached)
-		const partesTrabajo = await data.partesTrabajo.listar()
-		setCache('partes-trabajo', partesTrabajo)
+		// BE-13a: ventana de fechas opcional (?desde=AAAA-MM-DD&hasta=AAAA-MM-DD).
+		const desde = FECHA_AAAA_MM_DD.test(req.query.desde || '') ? req.query.desde : undefined
+		const hasta = FECHA_AAAA_MM_DD.test(req.query.hasta || '') ? req.query.hasta : undefined
+		const conVentana = Boolean(desde || hasta)
+		if (!conVentana) {
+			const cached = getCache('partes-trabajo')
+			if (cached) return res.json(cached)
+		}
+		const partesTrabajo = await data.partesTrabajo.listar({ desde, hasta })
+		if (!conVentana) setCache('partes-trabajo', partesTrabajo)
 		res.json(partesTrabajo)
 	} catch (error) {
 		console.error('Error al obtener partes de trabajo:', error.message)
