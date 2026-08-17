@@ -40,13 +40,17 @@ import sys
 
 AQUI = pathlib.Path(__file__).resolve().parent
 ORIGEN = AQUI.parent / "manual" / "index.html"
-FECHA_DOC = "4 de agosto de 2026"
-VERSION = "1.9.0"
+FECHA_DOC = "17 de agosto de 2026"
+VERSION = "1.12.2"
 
-# Las 7 capturas del manual de usuario, en el orden en que aparecen.
+# Las 10 capturas del manual de usuario, en el ORDEN DE APARICIÓN en el HTML
+# (el zip con imgs[2:] depende de este orden — v1.12.2 añadió las tres últimas
+# en §a7 y §a10; el toast aparece antes que exportar-csv... comprobar con el
+# orden real del documento si se añaden más).
 CAPTURAS = [
     "01-login.jpg", "02-inicio.jpg", "03-crear-parte.jpg", "04-empleados-horas.jpg",
-    "05-listado-filtros.jpg", "06-detalle-parte.jpg", "07-exportar-csv.jpg",
+    "05-listado-filtros.jpg", "06-detalle-parte.jpg", "08-toast-confirmacion.jpg",
+    "07-exportar-csv.jpg", "09-actualizacion-automatica.jpg", "10-sin-conexion.jpg",
 ]
 
 REEMPLAZOS = [

@@ -123,11 +123,11 @@ kbd{background:var(--surface);border:1px solid var(--border);border-bottom-width
 	<dl class="meta">
 		<dt>Aplicación</dt><dd>Gestión de Partes · Grupo Copuno</dd>
 		<dt>Dirección de acceso</dt><dd><a href="https://app.copuno.com">app.copuno.com</a></dd>
-		<dt>Versión</dt><dd>1.9.0</dd>
-		<dt>Fecha del documento</dt><dd>4 de agosto de 2026</dd>
+		<dt>Versión</dt><dd>1.12.2</dd>
+		<dt>Fecha del documento</dt><dd>17 de agosto de 2026</dd>
 		<dt>Elaborado por</dt><dd>NotionVan · Javi Collado</dd>
 	</dl>
-	<p class="aviso">Documento de consulta para los usuarios de la aplicación. Recoge el funcionamiento de la versión 1.9.0; cuando la aplicación cambie, el manual se actualiza y se vuelve a distribuir.</p>
+	<p class="aviso">Documento de consulta para los usuarios de la aplicación. Recoge el funcionamiento de la versión 1.12.2; cuando la aplicación cambie, el manual se actualiza y se vuelve a distribuir.</p>
 </div>
 
 <div class="contenido">
@@ -219,8 +219,9 @@ kbd{background:var(--surface);border:1px solid var(--border);border-bottom-width
 <section id="a7">
 <h2>7 · Enviar datos y firma</h2>
 <p>Cuando el parte está completo, el botón <strong>«Enviar Datos»</strong> pone en marcha el circuito de firma:</p>
-<div class="paso"><div class="num">1</div><div>El parte pasa a <span class="badge azul">Procesando</span> y queda bloqueado (nadie puede enviarlo dos veces, ni siquiera con un doble clic).</div></div>
+<div class="paso"><div class="num">1</div><div>El parte pasa a <span class="badge azul">Procesando</span> <strong>al instante</strong> y queda bloqueado (nadie puede enviarlo dos veces, ni siquiera con un doble clic). Si en ese momento pierdes cobertura, la tarjeta mantiene el estado correcto: no vuelve a «Borrador» ni te invita a reenviar.</div></div>
 <div class="paso"><div class="num">2</div><div>El sistema genera el <strong>PDF del parte</strong> con la plantilla oficial y lo archiva. El parte pasa a <span class="badge amarillo">Datos Enviados</span>.</div></div>
+<figure><img src="capturas/08-toast-confirmacion.jpg" alt="Aviso de confirmación tras enviar un parte"><figcaption>Cada acción confirma con un aviso flotante siempre visible; los de éxito se cierran solos.</figcaption></figure>
 <div class="paso"><div class="num">3</div><div>La <strong>persona autorizada recibe el enlace de firma</strong> y firma desde su móvil o tablet.</div></div>
 <div class="paso"><div class="num">4</div><div>El PDF firmado queda adjunto al parte, que pasa a <span class="badge verde">Firmado</span>. Fin del ciclo.</div></div>
 <div class="caja info"><span class="titulo">Si algo falla por el camino</span>Si el parte se queda en «Procesando» mucho tiempo, el envío no llegó a completarse: avisa a oficina/soporte para reconciliarlo — el bloqueo es deliberado para impedir duplicados. La firma no caduca: el enlace sigue siendo válido hasta que se firme.</div>
@@ -254,9 +255,11 @@ kbd{background:var(--surface);border:1px solid var(--border);border-bottom-width
 <section id="a10">
 <h2>10 · Sincronización y resolución de problemas</h2>
 <h3>La app se actualiza sola</h3>
-<p>No hace falta refrescar: la aplicación consulta cambios cada pocos segundos, más deprisa cuanto más reciente es la actividad (3 s tras un cambio, 8 s en reposo corto, 15 s en reposo largo). El indicador de la barra superior muestra el modo actual (<strong>RÁPIDO / NORMAL / LENTO</strong>). El botón <strong>«Refrescar»</strong> fuerza la recarga inmediata si no quieres esperar.</p>
+<p>No hace falta refrescar: la lista de partes se actualiza sola cada pocos segundos. Si un compañero crea, edita o firma un parte, aparecerá en tu pantalla en menos de medio minuto. Mientras tienes una edición abierta, la actualización automática se pausa para no tocar lo que estás escribiendo, y se reanuda al cerrar. Pulsando el indicador «Conectado» de la barra superior verás la hora de la última actualización. El botón <strong>«Refrescar»</strong> fuerza la recarga inmediata si no quieres esperar.</p>
+<figure><img src="capturas/09-actualizacion-automatica.jpg" alt="Ventana de actualización automática"><figcaption>Pulsando «Conectado» en la barra superior se ve la hora de la última actualización.</figcaption></figure>
 <h3>Aviso de nueva versión</h3>
 <p>Cuando se publica una versión nueva de la app, aparece un <strong>banner de actualización</strong>. Púlsalo (o recarga la página) para cargar la última versión.</p>
+<figure><img src="capturas/10-sin-conexion.jpg" alt="Indicador de estado sin conexión"><figcaption>Si se pierde la cobertura, la app lo dice claro: no guardes hasta que vuelva «Conectado».</figcaption></figure>
 <h3>Problemas frecuentes</h3>
 <div class="tabla-scroll"><table>
 <tr><th>Síntoma</th><th>Qué hacer</th></tr>
@@ -269,7 +272,7 @@ kbd{background:var(--surface);border:1px solid var(--border);border-bottom-width
 </section>
 
 <section>
-<p style="margin-top:34px;color:var(--text-3);font-size:.9rem;text-align:center">Gestión de Partes v1.9.0 · Manual de usuario · 4 de agosto de 2026<br>NotionVan para Grupo Copuno</p>
+<p style="margin-top:34px;color:var(--text-3);font-size:.9rem;text-align:center">Gestión de Partes v1.12.2 · Manual de usuario · 17 de agosto de 2026<br>NotionVan para Grupo Copuno</p>
 </section>
 
 </div><!-- /contenido -->
