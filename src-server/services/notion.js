@@ -642,6 +642,111 @@ async function resolverPaginas({ client, ids, mapear, propIds, concurrencia = 5 
 	return salida
 }
 
+/**
+ * F7 (BE-10) — ejecuta fn(item) en tandas de `concurrencia` con barrera entre
+ * tandas (mismo patrón que resolverPaginas). Devuelve resultados EN EL ORDEN
+ * de `items`: { ok: true, value } | { ok: false, item, error }.
+ * Sin sleeps: el semáforo global (BE-7) ya modula el ritmo hacia Notion.
+ */
+async function enLotes(items, concurrencia, fn) {
+	const salida = []
+	for (let i = 0; i < items.length; i += concurrencia) {
+		const lote = items.slice(i, i + concurrencia)
+		const resultados = await Promise.all(lote.map(item =>
+			fn(item).then(value => ({ ok: true, value }))
+				.catch(error => ({ ok: false, item, error }))
+		))
+		salida.push(...resultados)
+	}
+	return salida
+}
+// 3 y no 5: las escrituras comparten el semáforo global de 5 con las lecturas
+// del polling de otros usuarios — dejar hueco evita encolarlas.
+const DETALLES_CONCURRENCIA = 3
+
+/**
+ * F7 — retry de 429 SOLO para las escrituras de detalles. El retry global de
+ * request() cubre solo lecturas (la idempotencia de escrituras vive en capas
+ * superiores), pero al quitar los sleeps de 100 ms un 429 aquí dejaría un
+ * parte con horas incompletas en silencio — un reintento único honrando
+ * Retry-After lo evita sin cambiar la semántica global.
+ */
+async function conReintento429(fn) {
+	try {
+		return await fn()
+	} catch (err) {
+		if (err?.status !== 429) throw err
+		const esperaMs = Math.min((Number(err.retryAfter) || 1) * 1000, 5000) + Math.floor(Math.random() * 250)
+		await new Promise(r => setTimeout(r, esperaMs))
+		return fn()
+	}
+}
+
+/** Propiedades de una página de Detalle Horas (compartido por crear/actualizar/rectificar). */
+function buildDetalleProps(parteId, empleadoId, horas) {
+	return {
+		'Detalle': { title: [{ text: { content: 'Detalle Horas' } }] },
+		'Partes de trabajo': { relation: [{ id: parteId }] },
+		'Empleados': { relation: [{ id: empleadoId }] },
+		'Cantidad Horas': { number: horas }
+	}
+}
+
+/**
+ * F7 — archiva los detalles existentes de un parte con semántica transaccional
+ * real: corta al primer fallo (no lanza tandas posteriores) y DESARCHIVA lo ya
+ * archivado antes de abortar, para que el parte quede exactamente como estaba.
+ * (El enLotes genérico no vale aquí: completa todas las tandas aunque una
+ * falle, y un archivado parcial oculta horas reales del parte — hallazgo del
+ * regression-checker de v1.12.0.)
+ * Devuelve { ok: true } o { ok: false, error, noRestaurados: [ids] }.
+ */
+async function archivarDetallesConRollback({ client, detalles }) {
+	const archivados = []
+	let fallo = null
+	for (let i = 0; i < detalles.length && !fallo; i += DETALLES_CONCURRENCIA) {
+		const lote = detalles.slice(i, i + DETALLES_CONCURRENCIA)
+		const res = await Promise.all(lote.map(d =>
+			conReintento429(() => client.request('PATCH', `/pages/${d.id}`, { archived: true }))
+				.then(() => ({ ok: true, id: d.id }))
+				.catch(error => ({ ok: false, id: d.id, error }))
+		))
+		res.filter(r => r.ok).forEach(r => archivados.push(r.id))
+		fallo = res.find(r => !r.ok) || null
+	}
+	if (!fallo) return { ok: true }
+
+	console.error(`Error al archivar detalle ${fallo.id}:`, fallo.error.message)
+	const rollback = await enLotes(archivados, DETALLES_CONCURRENCIA, id =>
+		conReintento429(() => client.request('PATCH', `/pages/${id}`, { archived: false }))
+	)
+	const noRestaurados = rollback.filter(r => !r.ok).map(r => r.item)
+	noRestaurados.forEach(id => console.error(`Rollback fallido: el detalle ${id} quedó archivado`))
+	return { ok: false, error: fallo.error, noRestaurados }
+}
+
+/**
+ * F7 — crea los detalles de horas de un parte en lotes. Mantiene el contrato
+ * histórico: { detallesCreados (en orden), erroresDetalles: [{empleadoId, error}] }.
+ */
+async function crearDetallesEnLotes({ client, parteId, empleados, empleadosHoras }) {
+	const resultados = await enLotes(empleados, DETALLES_CONCURRENCIA, (empleadoId) => {
+		const horasCrudas = Number(empleadosHoras[empleadoId] ?? 8)
+		// ?? y no ||: un 0 explícito es legítimo (asistió sin trabajar) y no debe convertirse en jornada de 8 h (UX-23)
+		const horas = Number.isFinite(horasCrudas) ? Math.min(24, Math.max(0, horasCrudas)) : 8
+		return conReintento429(() => client.request('POST', '/pages', {
+			parent: { database_id: DATABASES.DETALLES_HORA },
+			properties: buildDetalleProps(parteId, empleadoId, horas)
+		}))
+	})
+	const detallesCreados = resultados.filter(r => r.ok).map(r => r.value)
+	const erroresDetalles = resultados.filter(r => !r.ok).map(r => {
+		console.error(`Error al crear detalle para empleado ${r.item}:`, r.error.message)
+		return { empleadoId: r.item, error: r.error.message }
+	})
+	return { detallesCreados, erroresDetalles }
+}
+
 /** Primer id de una relación, o null. */
 function primeraRelacion(property) {
 	const rel = property?.relation
@@ -845,17 +950,17 @@ const vehiculos = {
 	 * preservando el orden. Un ID ilegible aporta '' (no rompe el resto).
 	 */
 	async matriculasPorIds({ client, ids }) {
-		const matriculas = []
-		for (const id of (Array.isArray(ids) ? ids : [])) {
-			try {
-				const page = await client.request('GET', `/pages/${id}`)
-				matriculas.push(String(extractPropertyValue(page.properties['Matrícula']) || '').trim())
-			} catch (e) {
-				console.error(`No se pudo leer la matrícula del vehículo ${id}:`, e.message)
-				matriculas.push('')
-			}
-		}
-		return matriculas
+		// F7 (BE-11): en paralelo — N≤5 típico, dentro del semáforo global. El
+		// contrato se mantiene: orden por índice, '' en fallo sin romper el resto.
+		const lista = Array.isArray(ids) ? ids : []
+		return Promise.all(lista.map(id =>
+			client.request('GET', `/pages/${id}`)
+				.then(page => String(extractPropertyValue(page.properties['Matrícula']) || '').trim())
+				.catch(e => {
+					console.error(`No se pudo leer la matrícula del vehículo ${id}:`, e.message)
+					return ''
+				})
+		))
 	}
 }
 
@@ -989,47 +1094,26 @@ const partesTrabajo = {
 			}
 		})
 
-		const parteCompleto = await client.request('GET', `/pages/${parteData.id}`)
-		const notionId = extractPropertyValue(parteCompleto.properties['ID'])
+		// F7: el POST ya devuelve la página con el unique_id asignado — el GET
+		// de releer queda solo como fallback por si la respuesta no lo trae
+		// (nunca quitar el fallback: un nombre "Parte Obraundefined" viajaría
+		// al PDF firmado, clase de fallo M8).
+		let notionId = extractPropertyValue(parteData.properties?.['ID'])
+		if (notionId === null || notionId === undefined || notionId === '') {
+			const parteCompleto = await client.request('GET', `/pages/${parteData.id}`)
+			notionId = extractPropertyValue(parteCompleto.properties['ID'])
+		}
 		const nombreFinal = `Parte ${obra}${notionId}`
 
 		await client.request('PATCH', `/pages/${parteData.id}`, {
 			properties: { 'Nombre': { title: [{ text: { content: nombreFinal } }] } }
 		})
 
-		// F1: IDs asignados a la obra para diagnóstico en logs del endpoint
-		let asignadosObraIds = []
-		try {
-			const obraPage = await client.request('GET', `/pages/${obraId}`)
-			const rel = extractPropertyValue(obraPage.properties['Empleados'])
-			if (Array.isArray(rel)) asignadosObraIds = rel.map(r => r.id)
-		} catch (_) { /* no bloquear la creación si falla */ }
+		const { detallesCreados, erroresDetalles } = await crearDetallesEnLotes({
+			client, parteId: parteData.id, empleados, empleadosHoras
+		})
 
-		const detallesCreados = []
-		const erroresDetalles = []
-		for (const empleadoId of empleados) {
-			try {
-				const horasCrudas = Number(empleadosHoras[empleadoId] ?? 8)
-				// ?? y no ||: un 0 explícito es legítimo (asistió sin trabajar) y no debe convertirse en jornada de 8 h (UX-23)
-				const horas = Number.isFinite(horasCrudas) ? Math.min(24, Math.max(0, horasCrudas)) : 8
-				const detalle = await client.request('POST', '/pages', {
-					parent: { database_id: DATABASES.DETALLES_HORA },
-					properties: {
-						'Detalle': { title: [{ text: { content: 'Detalle Horas' } }] },
-						'Partes de trabajo': { relation: [{ id: parteData.id }] },
-						'Empleados': { relation: [{ id: empleadoId }] },
-						'Cantidad Horas': { number: horas }
-					}
-				})
-				detallesCreados.push(detalle)
-				await new Promise(r => setTimeout(r, 100))
-			} catch (err) {
-				console.error(`Error al crear detalle para empleado ${empleadoId}:`, err.message)
-				erroresDetalles.push({ empleadoId, error: err.message })
-			}
-		}
-
-		return { parteData, nombreFinal, detallesCreados, erroresDetalles, asignadosObraIds }
+		return { parteData, nombreFinal, detallesCreados, erroresDetalles }
 	},
 
 	async actualizar({ client, parteId, obraId, fecha, personaAutorizadaId, notas, vehiculos, vehiculosIds, empleados = [], empleadosHoras = {} }) {
@@ -1044,10 +1128,6 @@ const partesTrabajo = {
 		}
 
 		const necesitaCambioEstado = estadoParte && String(estadoParte).toLowerCase() === 'listo para firmar'
-
-		const obraData = await client.request('GET', `/pages/${obraId}`)
-		const relEmpleadosObra = extractPropertyValue(obraData.properties['Empleados'])
-		const asignadosObraIds = Array.isArray(relEmpleadosObra) ? relEmpleadosObra.map(r => r.id) : []
 
 		const propertiesToUpdate = {
 			'Fecha': { date: { start: fecha } },
@@ -1068,46 +1148,29 @@ const partesTrabajo = {
 			filter: { property: 'Partes de trabajo', relation: { contains: parteId } },
 			page_size: 100
 		})
-		for (const detalle of detallesExistentes.results) {
-			try {
-				await client.request('PATCH', `/pages/${detalle.id}`, { archived: true })
-				await new Promise(r => setTimeout(r, 100))
-			} catch (err) {
-				console.error(`Error al archivar detalle ${detalle.id}:`, err.message)
-			}
+		// F7 — archivado transaccional: corta al primer fallo y desarchiva lo ya
+		// archivado antes de abortar (nunca coexisten detalles viejos y nuevos,
+		// y un fallo a medias no deja el parte con horas ocultas). La barrera
+		// del await garantiza que la recreación no empieza hasta terminar.
+		const resultadoArchivado = await archivarDetallesConRollback({ client, detalles: detallesExistentes.results })
+		if (!resultadoArchivado.ok) {
+			const err = new Error(resultadoArchivado.noRestaurados.length === 0
+				? 'No se pudieron actualizar las horas del parte. No se ha cambiado nada — vuelve a intentar guardar.'
+				: 'No se pudieron actualizar las horas del parte y algunas podrían no verse. Abre el parte, revisa los empleados y guarda de nuevo; si el aviso se repite, avisa a oficina.')
+			err.status = 500
+			throw err
 		}
 
-		const detallesCreados = []
-		const erroresDetalles = []
-		for (const empleadoId of empleados) {
-			try {
-				const horasCrudas = Number(empleadosHoras[empleadoId] ?? 8)
-				// ?? y no ||: un 0 explícito es legítimo (asistió sin trabajar) y no debe convertirse en jornada de 8 h (UX-23)
-				const horas = Number.isFinite(horasCrudas) ? Math.min(24, Math.max(0, horasCrudas)) : 8
-				const detalle = await client.request('POST', '/pages', {
-					parent: { database_id: DATABASES.DETALLES_HORA },
-					properties: {
-						'Detalle': { title: [{ text: { content: 'Detalle Horas' } }] },
-						'Partes de trabajo': { relation: [{ id: parteId }] },
-						'Empleados': { relation: [{ id: empleadoId }] },
-						'Cantidad Horas': { number: horas }
-					}
-				})
-				detallesCreados.push(detalle)
-				await new Promise(r => setTimeout(r, 100))
-			} catch (err) {
-				console.error(`Error al crear detalle para empleado ${empleadoId}:`, err.message)
-				erroresDetalles.push({ empleadoId, error: err.message })
-			}
-		}
+		const { detallesCreados, erroresDetalles } = await crearDetallesEnLotes({
+			client, parteId, empleados, empleadosHoras
+		})
 
 		return {
 			parteActualizado,
 			estadoAnterior: estadoParte,
 			necesitaCambioEstado,
 			detallesCreados,
-			erroresDetalles,
-			asignadosObraIds
+			erroresDetalles
 		}
 	},
 
@@ -1196,44 +1259,41 @@ const partesTrabajo = {
 			properties: propsNuevo
 		})
 
-		const parteCompleto = await client.request('GET', `/pages/${parteData.id}`)
-		const notionId = extractPropertyValue(parteCompleto.properties['ID'])
+		// F7: unique_id del propio POST, con GET solo como fallback (ver crear).
+		let notionId = extractPropertyValue(parteData.properties?.['ID'])
+		if (notionId === null || notionId === undefined || notionId === '') {
+			const parteCompleto = await client.request('GET', `/pages/${parteData.id}`)
+			notionId = extractPropertyValue(parteCompleto.properties['ID'])
+		}
 		const nombreFinal = `Parte ${obraTexto}${notionId}`
 
 		await client.request('PATCH', `/pages/${parteData.id}`, {
 			properties: { 'Nombre': { title: [{ text: { content: nombreFinal } }] } }
 		})
 
-		// Copiar los Detalle Horas del original al rectificativo.
+		// Copiar los Detalle Horas del original al rectificativo (F7: en lotes).
 		const detallesOriginal = await client.request('POST', `/databases/${DATABASES.DETALLES_HORA}/query`, {
 			filter: { property: 'Partes de trabajo', relation: { contains: parteOriginalId } },
 			page_size: 100
 		})
 
-		const detallesCopiados = []
-		const erroresDetalles = []
-		for (const detalle of detallesOriginal.results) {
-			try {
-				const empleadoRel = extractPropertyValue(detalle.properties['Empleados'])
-				const empleadoId = Array.isArray(empleadoRel) && empleadoRel[0] ? empleadoRel[0].id : null
-				if (!empleadoId) continue
-				const horas = detalle.properties['Cantidad Horas']?.number ?? 8
-				const nuevo = await client.request('POST', '/pages', {
-					parent: { database_id: DATABASES.DETALLES_HORA },
-					properties: {
-						'Detalle': { title: [{ text: { content: 'Detalle Horas' } }] },
-						'Partes de trabajo': { relation: [{ id: parteData.id }] },
-						'Empleados': { relation: [{ id: empleadoId }] },
-						'Cantidad Horas': { number: horas }
-					}
-				})
-				detallesCopiados.push(nuevo)
-				await new Promise(r => setTimeout(r, 100))
-			} catch (err) {
-				console.error(`Error al copiar detalle ${detalle.id} al rectificativo:`, err.message)
-				erroresDetalles.push({ detalleId: detalle.id, error: err.message })
-			}
-		}
+		const copiables = detallesOriginal.results.filter(detalle => {
+			const empleadoRel = extractPropertyValue(detalle.properties['Empleados'])
+			return Array.isArray(empleadoRel) && empleadoRel[0]
+		})
+		const resultados = await enLotes(copiables, DETALLES_CONCURRENCIA, (detalle) => {
+			const empleadoId = extractPropertyValue(detalle.properties['Empleados'])[0].id
+			const horas = detalle.properties['Cantidad Horas']?.number ?? 8
+			return conReintento429(() => client.request('POST', '/pages', {
+				parent: { database_id: DATABASES.DETALLES_HORA },
+				properties: buildDetalleProps(parteData.id, empleadoId, horas)
+			}))
+		})
+		const detallesCopiados = resultados.filter(r => r.ok).map(r => r.value)
+		const erroresDetalles = resultados.filter(r => !r.ok).map(r => {
+			console.error(`Error al copiar detalle ${r.item.id} al rectificativo:`, r.error.message)
+			return { detalleId: r.item.id, error: r.error.message }
+		})
 
 		return { parteData, nombreFinal, parteOriginalId, detallesCopiados, erroresDetalles }
 	}
@@ -1252,6 +1312,11 @@ module.exports = {
 	// que los necesiten temporalmente desde server.js)
 	extractPropertyValue,
 	buildEstadoUpdatePayload,
+
+	// F7 — helpers de escritura en lotes (expuestos para la suite smoke)
+	enLotes,
+	conReintento429,
+	archivarDetallesConRollback,
 
 	// Mappers
 	mapObra,

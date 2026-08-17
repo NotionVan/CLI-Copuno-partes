@@ -178,8 +178,8 @@ Escenarios del team `2014883` (Copuno): PARTES1/4 `5595847` · PARTES2/4 `559587
 |---|---|---|
 | PARTES 1/4 | `PARTES1-4 - Recojo cabecera del parte.blueprint.json` | Recoge cabecera del parte desde Notion |
 | PARTES 2/4 | `PARTES2-4  - Recupero detalles parte.blueprint.json` | Recupera detalles (horas por empleado) |
-| PARTES 3/4 | `PARTES3-4  - Recibo datos del parte para generar el pdf.blueprint.json` | Genera el PDF y lo guarda en OneDrive → escribe `URL PDF` + `AUX ID PDF Onedrive` en Notion |
-| PARTES 4/4 | `PARTES4-4  - Recojo Firma.blueprint.json` | Recibe la firma del jefe de obra → sube `Documento Firmado` a Notion |
+| PARTES 3/4 | `PARTES3-4  - Recibo datos del parte para generar el pdf.blueprint.json` | Rellena la plantilla .docx, la sube a OneDrive y pone el estado «Listo para firmar». **NO escribe `URL PDF`** (verificado contra el blueprint el 17-08 — la doc decía lo contrario durante meses) |
+| PARTES 4/4 | `PARTES4-4  - Recojo Firma.blueprint.json` | Recibe la firma → convierte a PDF (pdf-co), lo sube a OneDrive y escribe `URL PDF` + `AUX ID PDF Onedrive` + `Estado: Firmado`. Un parte sin firmar NUNCA tiene `URL PDF` — es lo esperado, no un fallo del pipeline |
 | Envío cliente | `Envío del parte al cliente - botón enviar email.blueprint.json` | Botón "Enviar email" → entrega el parte firmado al cliente |
 
 Cuando se debuguee un fallo del lado Make (p. ej. `invalid_grant`, PDF no se genera, firma no aparece), comparar el escenario activo en Make.com contra el blueprint del repo permite detectar drift de configuración. Invocar `@notion-integration-inspector` para diagnosis cruzada Notion↔Make.

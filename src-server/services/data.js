@@ -312,7 +312,7 @@ const partesTrabajo = {
 
 	/**
 	 * Crea un nuevo parte con sus detalles de horas.
-	 * Devuelve { parteData, nombreFinal, detallesCreados, erroresDetalles, asignadosObraIds }.
+	 * Devuelve { parteData, nombreFinal, detallesCreados, erroresDetalles }.
 	 */
 	async crear(params) {
 		requireInit()
@@ -322,7 +322,7 @@ const partesTrabajo = {
 
 	/**
 	 * Actualiza un parte existente, archivando los detalles anteriores y creando los nuevos.
-	 * Devuelve { parteActualizado, estadoAnterior, necesitaCambioEstado, detallesCreados, erroresDetalles, asignadosObraIds }.
+	 * Devuelve { parteActualizado, estadoAnterior, necesitaCambioEstado, detallesCreados, erroresDetalles }.
 	 * Lanza Error con .status = 409 si el parte no es editable.
 	 */
 	async actualizar(parteId, params) {

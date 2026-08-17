@@ -581,8 +581,9 @@ app.post('/api/partes-trabajo', async (req, res) => {
 			return res.json(result)
 		}
 
-		const { parteData, nombreFinal, detallesCreados, erroresDetalles, asignadosObraIds } = result
-		const empleadosNoAsignados = (empleados || []).filter(id => !asignadosObraIds.includes(id))
+		// F7: fuera el GET de obra que solo alimentaba empleadosNoAsignados — era
+		// diagnóstico de F1 (julio), investigación cerrada con I9/F6.
+		const { parteData, nombreFinal, detallesCreados, erroresDetalles } = result
 
 		console.log(JSON.stringify({
 			reqId: req.id,
@@ -590,8 +591,6 @@ app.post('/api/partes-trabajo', async (req, res) => {
 			parteId: parteData.id,
 			nombreFinal,
 			empleadosPretendidos: empleados?.length || 0,
-			empleadosNoAsignadosObra: empleadosNoAsignados.length,
-			empleadosNoAsignadosIds: empleadosNoAsignados,
 			detallesCreados: detallesCreados.length,
 			errores: erroresDetalles
 		}))
@@ -601,7 +600,11 @@ app.post('/api/partes-trabajo', async (req, res) => {
 			empleadosCreados: empleados?.length || 0,
 			detallesCreados: detallesCreados.length,
 			erroresDetalles: erroresDetalles.length,
-			mensaje: `Parte creado exitosamente. ${detallesCreados.length} empleados asignados.`
+			// F7: si algo no se pudo asignar tras los reintentos, decirlo alto y
+			// claro — antes quedaba enterrado en un contador.
+			mensaje: erroresDetalles.length > 0
+				? `⚠️ Parte creado, pero ${erroresDetalles.length} de ${empleados?.length || 0} empleados no se pudieron asignar. Abre el parte, revisa los empleados y guarda de nuevo.`
+				: `Parte creado exitosamente. ${detallesCreados.length} empleados asignados.`
 		})
 	} catch (error) {
 		console.error('Error al crear parte de trabajo:', error.message)
@@ -919,24 +922,23 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 			return res.json(result)
 		}
 
-		const { parteActualizado, estadoAnterior, necesitaCambioEstado, detallesCreados, erroresDetalles, asignadosObraIds } = result
+		const { parteActualizado, estadoAnterior, necesitaCambioEstado, detallesCreados, erroresDetalles } = result
 
 		if (necesitaCambioEstado) {
 			console.log(JSON.stringify({ reqId: req.id, event: 'parte_estado_borrador', parteId, estadoAnterior }))
 		}
-		const noAsignados = (empleados || []).filter(id => !asignadosObraIds.includes(id))
 		console.log(JSON.stringify({
 			reqId: req.id,
 			event: 'detalles_actualizados',
 			parteId,
 			pretendidos: empleados?.length || 0,
 			creados: detallesCreados.length,
-			errores: erroresDetalles,
-			empleadosNoAsignadosObra: noAsignados.length,
-			empleadosNoAsignadosIds: noAsignados
+			errores: erroresDetalles
 		}))
 
-		let mensaje = `Parte actualizado exitosamente. ${detallesCreados.length} empleados asignados.`
+		let mensaje = erroresDetalles.length > 0
+			? `⚠️ Parte actualizado, pero ${erroresDetalles.length} de ${empleados?.length || 0} empleados no se pudieron asignar. Revisa el parte y guarda de nuevo.`
+			: `Parte actualizado exitosamente. ${detallesCreados.length} empleados asignados.`
 		if (necesitaCambioEstado) {
 			mensaje += ` ⚠️ El estado ha cambiado de "${estadoAnterior}" a "Borrador". Deberás enviar los datos nuevamente.`
 		}
