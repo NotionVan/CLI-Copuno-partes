@@ -399,9 +399,17 @@ app.get('/api/exportaciones/chorus', async (req, res) => {
 })
 
 // Opciones válidas de Estado de empleados — refactorizado a data.js (ADR-002)
+// TTL largo propio: las opciones de un select de Notion cambian una vez al
+// trimestre, pero el frontend las polea cada 10-30 s por pestaña (BE-5/C4).
+const ESTADO_OPCIONES_TTL_MS = Number(process.env.ESTADO_OPCIONES_TTL_MS || 10 * 60 * 1000)
+let estadoOpcionesCache = null
 app.get('/api/empleados/estado-opciones', async (req, res) => {
 	try {
+		if (estadoOpcionesCache && Date.now() - estadoOpcionesCache.ts < ESTADO_OPCIONES_TTL_MS) {
+			return res.json(estadoOpcionesCache.data)
+		}
 		const resultado = await data.empleados.opcionesEstado()
+		estadoOpcionesCache = { data: resultado, ts: Date.now() }
 		res.json(resultado)
 	} catch (error) {
 		console.error('Error al obtener opciones de Estado:', error.message)
@@ -916,13 +924,17 @@ app.post('/api/partes-trabajo/:parteId/rectificar', async (req, res) => {
 // Usa data.* directamente en vez de llamadas HTTP internas a sí mismo.
 app.get('/api/datos-completos', async (req, res) => {
 	try {
+		const cached = getCache('datos-completos')
+		if (cached) return res.json(cached)
 		const [obras, jefesObra, empleados, partesTrabajo] = await Promise.all([
 			data.obras.listar(),
 			data.jefesObra.listar(),
 			data.empleados.listar(),
 			data.partesTrabajo.listar()
 		])
-		res.json({ obras, jefesObra, empleados, partesTrabajo })
+		const payload = { obras, jefesObra, empleados, partesTrabajo }
+		setCache('datos-completos', payload)
+		res.json(payload)
 	} catch (error) {
 		console.error('Error al obtener datos completos:', error.message)
 		res.status(500).json({

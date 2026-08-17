@@ -201,6 +201,16 @@ function buildEstadoUpdatePayload(estadoProperty, nuevoEstado) {
 // Cambiar la forma de salida = breaking change para el frontend.
 // ────────────────────────────────────────────────────────────────────────────
 
+// El title de una BD Notion puede renombrarse en cualquier momento desde la UI
+// (pasó con EMPLEADOS: 'Nombre Completo' → '' y los nombres salían vacíos y la
+// búsqueda devolvía 400). Leerlo por TIPO lo hace inmune a renombres.
+function titleDe(page) {
+	for (const prop of Object.values(page.properties || {})) {
+		if (prop.type === 'title') return extractPropertyValue(prop)
+	}
+	return ''
+}
+
 function mapObra(page) {
 	return {
 		id: page.id,
@@ -231,7 +241,7 @@ function mapEmpleado(page) {
 	return {
 		id: page.id,
 		idCopuno: page.properties['ID COPUNO']?.number ?? null,
-		nombre: extractPropertyValue(page.properties['Nombre Completo']),
+		nombre: titleDe(page),
 		categoria: extractPropertyValue(page.properties['Categoría']),
 		provincia: extractPropertyValue(page.properties['Provincia']),
 		localidad: extractPropertyValue(page.properties['Localidad']),
@@ -258,7 +268,7 @@ function mapParte(page) {
 		estado: extractPropertyValue(page.properties['Estado']),
 		obra: extractPropertyValue(page.properties['AUX Obra']),
 		personaAutorizada: extractPropertyValue(page.properties['AUX Jefe de Obra']),
-		cliente: extractPropertyValue(page.properties['AUX Cliente - texto-']),
+		cliente: extractPropertyValue(page.properties['AUX Cliente - texto- ']), // OJO espacio final — así se llama en Notion
 		rpHorasTotales: extractPropertyValue(page.properties['RP Horas totales']),
 		horasOficial1: extractPropertyValue(page.properties['Horas Oficial 1ª']),
 		horasOficial2: extractPropertyValue(page.properties['Horas Oficial 2ª ']),
@@ -312,7 +322,7 @@ const obras = {
 	async listar({ client }) {
 		// Filtramos por Estado=Activa para no superar el límite de 100 y mostrar
 		// solo las obras relevantes en el desplegable de crear/editar parte.
-		const data = await client.request('POST', `/databases/${DATABASES.OBRAS}/query`, {
+		const data = await client.request('POST', conProps(`/databases/${DATABASES.OBRAS}/query`, PROPS_CATALOGO.OBRAS), {
 			filter: { property: 'Estado', status: { equals: 'Activa' } },
 			page_size: 100
 		})
@@ -321,7 +331,7 @@ const obras = {
 
 	async empleadosDeObra({ client, obraId }) {
 		// C3 resuelto: query filtrada por relación inversa Empleados → Obras (no N+1).
-		const data = await client.request('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
+		const data = await client.request('POST', conProps(`/databases/${DATABASES.EMPLEADOS}/query`, PROPS_CATALOGO.EMPLEADOS), {
 			filter: { property: 'Obras', relation: { contains: obraId } },
 			page_size: 100
 		})
@@ -349,7 +359,7 @@ const obras = {
 		const firmantes = []
 		for (const ref of relaciones) {
 			try {
-				const jefe = await client.request('GET', `/pages/${ref.id}`)
+				const jefe = await client.request('GET', conProps(`/pages/${ref.id}`, PROPS_CATALOGO.JEFE_OBRAS))
 				firmantes.push(mapFirmanteAutorizado(jefe))
 			} catch (e) {
 				console.error(`Error al leer firmante ${ref.id}:`, e.message)
@@ -361,7 +371,7 @@ const obras = {
 
 const jefesObra = {
 	async listar({ client }) {
-		const data = await client.request('POST', `/databases/${DATABASES.JEFE_OBRAS}/query`, {
+		const data = await client.request('POST', conProps(`/databases/${DATABASES.JEFE_OBRAS}/query`, PROPS_CATALOGO.JEFE_OBRAS), {
 			page_size: 100
 		})
 		return data.results.map(mapJefeObra)
@@ -370,7 +380,7 @@ const jefesObra = {
 
 const empleados = {
 	async listar({ client }) {
-		const data = await client.request('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
+		const data = await client.request('POST', conProps(`/databases/${DATABASES.EMPLEADOS}/query`, PROPS_CATALOGO.EMPLEADOS), {
 			page_size: 100
 		})
 		return data.results.map(mapEmpleado)
@@ -381,7 +391,7 @@ const empleados = {
 	 * Devuelve { resultados, duplicado } — el endpoint decide qué hacer con duplicados.
 	 */
 	async buscarPorIdCopuno({ client, idCopuno, limite = 20 }) {
-		const data = await client.request('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
+		const data = await client.request('POST', conProps(`/databases/${DATABASES.EMPLEADOS}/query`, PROPS_CATALOGO.EMPLEADOS), {
 			filter: { property: 'ID COPUNO', number: { equals: idCopuno } },
 			page_size: limite
 		})
@@ -396,8 +406,9 @@ const empleados = {
 	 * El endpoint valida que `q.length >= 3` antes de llamar.
 	 */
 	async buscarPorNombre({ client, q, limite = 20 }) {
-		const data = await client.request('POST', `/databases/${DATABASES.EMPLEADOS}/query`, {
-			filter: { property: 'Nombre Completo', title: { contains: q } },
+		const data = await client.request('POST', conProps(`/databases/${DATABASES.EMPLEADOS}/query`, PROPS_CATALOGO.EMPLEADOS), {
+			// 'title' es el ID canónico de la propiedad título: sobrevive a renombres
+			filter: { property: 'title', title: { contains: q } },
 			page_size: limite
 		})
 		return data.results.map(mapEmpleado)
@@ -519,6 +530,27 @@ const resolucionCache = new Map()
 // de 3,9 s a 0,6 s (medido sobre junio 2026). Los IDs son estables aunque se renombre
 // la propiedad; vienen ya URL-encoded tal y como los devuelve la API.
 // Obtenerlos con: GET /v1/databases/<id> → .properties['<nombre>'].id
+// F2 (BE-1): las queries de catálogo traían ~50-60 propiedades por página cuando
+// los mappers usan 3-20. Con filter_properties el payload de partes baja de
+// ~935 KB a ~340 KB y la query de 3,5 s a ~2,5 s (medido). La lista de cada BD
+// es EXACTAMENTE lo que lee su mapper — ni una menos (un ID omitido = campo
+// undefined silencioso). IDs vía GET /v1/databases/<id>, verificados 2026-08-17.
+const PROPS_CATALOGO = Object.freeze({
+	// mapObra: Obra - Codigo (title), Provincia, Estado
+	OBRAS: ['title', 'Z%7BQq', '%60%60%40K'],
+	// mapJefeObra/mapFirmanteAutorizado: Persona Autorizada (title), ' Email', Rol
+	JEFE_OBRAS: ['title', 'mOK%5E', 'hX%3F%7B'],
+	// mapEmpleado: title, ID COPUNO, Categoría, Provincia, Localidad, Teléfono, DNI, Estado, Delegado
+	EMPLEADOS: ['title', 'ttZi', '%3AAQe', 'X~zG', 'l%3FMZ', 'dCli', 'wV%5EZ', '%60Qg%5D', '%40%60Ju'],
+	// mapParte: Nombre (title), Fecha, Última edición, Estado, AUX Obra, AUX Jefe de Obra,
+	// AUX Cliente - texto- , RP Horas totales, Horas O1ª, Horas O2ª , Horas Capataz,
+	// Horas Encargado , URL PDF, Enviado a cliente, Notas, Vehiculos, Vehiculos , Firmar,
+	// Rectifica a , Rectificado por
+	PARTES: ['title', 'FhR%5E', '%60VGH', 'vFUO', 'CsZU', 'Jt%3FS', '%3EaPO', 'qA%7DH', 'Itm_', 'f%3F%5C%5B', 'L_%5DL', 'XeRY', 'VOLq', 'HuYd', 'd%3Cev', 'b%60%3AZ', 'V%5B%3DZ', 'XPMw', 'b~Fc', 'i~K%3E'],
+	// partesTrabajo.estado: Estado + Última edición — el GET más poleado de la app
+	ESTADO_PARTE: ['vFUO', '%60VGH']
+})
+
 const PROPS_EXPORT = Object.freeze({
 	PARTES: ['vFUO', 'i~K%3E'], // Estado, 'Rectificado por '
 	DETALLES: ['T_%5Bi', 'A%7DJl', '%3BpXM', 'HF%5Dc', 'rerm'], // Cantidad Horas, Fecha, Empleados, Partes de trabajo, AUX Obra del parte
@@ -677,7 +709,7 @@ const exportaciones = {
 				// poder reportarlo como incidencia (extractPropertyValue lo volvería 0).
 				mapear: page => ({
 					idCopuno: page.properties['ID COPUNO']?.number ?? null,
-					nombre: page.properties['Nombre Completo']?.title?.[0]?.plain_text || ''
+					nombre: titleDe(page)
 				})
 			}),
 			resolverPaginas({
@@ -780,7 +812,7 @@ const vehiculos = {
 
 const partesTrabajo = {
 	async listar({ client }) {
-		const data = await client.request('POST', `/databases/${DATABASES.PARTES_TRABAJO}/query`, {
+		const data = await client.request('POST', conProps(`/databases/${DATABASES.PARTES_TRABAJO}/query`, PROPS_CATALOGO.PARTES), {
 			page_size: 100,
 			sorts: [{ property: 'Fecha', direction: 'descending' }]
 		})
@@ -824,7 +856,9 @@ const partesTrabajo = {
 	},
 
 	async estado({ client, parteId }) {
-		const page = await client.request('GET', `/pages/${parteId}`)
+		// Solo Estado + Última edición: la página completa son ~60 propiedades y este
+		// GET es el más frecuente de la app (polling del modal de detalles).
+		const page = await client.request('GET', conProps(`/pages/${parteId}`, PROPS_CATALOGO.ESTADO_PARTE))
 		return {
 			estado: extractPropertyValue(page.properties['Estado']),
 			ultimaEdicion: extractPropertyValue(page.properties['Última edición'])
