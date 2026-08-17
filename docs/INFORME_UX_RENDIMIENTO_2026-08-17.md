@@ -122,7 +122,7 @@ Ficha completa solo para los que entran en el plan de fases (§5); el resto, en 
 | BE-2 | `no-store` global impide hasta el 304 del navegador (934 KB por refresco aunque nada cambie) | 🟠 | 1 h | F5 |
 | BE-6/7/8 | 429→500 sin retry; sin semáforo global; rate limit por IP (el NAT de la central lo agota con ~3 pestañas si revive el polling) | 🟠 | 4 h | F5 |
 | Delta | **Delta polling por `last_edited_time`**: 0 resultados en ~0,4 s vs query completa de 2,5 s | 🟠 | 2 h | F6 |
-| BE-10/11 | Escrituras 4+N secuenciales con `sleep(100 ms)`; espejo de vehículos en el path de enviar | 🔴 | 4,5 h | F7 |
+| BE-10/11 | Escrituras 4+N secuenciales con `sleep(100 ms)`; espejo de vehículos en el path de enviar | 🔴 | 4,5 h | F7 ✅ **HECHO v1.12.0** (lotes de 3 sin sleeps + archivado transaccional; crear 8,5→4,8 s, editar 17,2→13,1 s. El espejo NO se movió: hacerlo reabriría M8 — se paralelizó `matriculasPorIds` en su sitio) |
 | FE-20 | `react-router-dom` muerto pero en `manualChunks` (bomba de build); `@vercel/speed-insights` instalado y nunca importado | 🟡 | 0,5 h | F0/F1 |
 | BE-16 | `docs/DESPLIEGUE_VERCEL.md:78` recomienda `regions: cdg1` — **empeoraría ~1-1,3 s por parte** (Notion está en us-east) | 🟠 | 0,1 h | F0 |
 

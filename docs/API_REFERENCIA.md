@@ -333,6 +333,9 @@ Proceso: archiva los `Detalle Horas` existentes (marcados `archived: true`) y cr
 
 Respuesta `200`: página Notion actualizada + `{ empleadosActualizados, detallesCreados, erroresDetalles, estadoCambiado, estadoAnterior, estadoNuevo, mensaje }`.
 
+> **v1.12.0:** si `erroresDetalles > 0`, el campo `mensaje` lo dice explícitamente («⚠️ N de M empleados no se pudieron asignar…») en vez de dejarlo en un contador — la UI lo muestra tal cual.
+> **v1.12.0 — nuevo `500` posible:** si falla el archivado de las horas anteriores (tras reintento de 429), el endpoint **aborta antes de recrear nada**, desarchiva lo que ya hubiera archivado y responde `500` con un mensaje accionable. El parte queda exactamente como estaba: nunca con horas duplicadas ni ocultas.
+
 ### Rectificar parte (crear rectificativo)
 
 | Método | Ruta |

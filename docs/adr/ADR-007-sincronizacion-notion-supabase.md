@@ -52,10 +52,21 @@ activaría la migración es justo el contrario del que se cumple.
 Lo propuesto —la app lee **y escribe** en Supabase, y algo sincroniza con Notion— es
 **sincronización bidireccional**, la variante más cara de todas. Problemas concretos, no teóricos:
 
-1. **Notion no ofrece webhooks fiables de cambios en bases de datos.** Para enterarse de lo que
+1. ~~**Notion no ofrece webhooks fiables de cambios en bases de datos.**~~ Para enterarse de lo que
    edita la oficina hay que **hacer polling contra Notion** — es decir, martillear justo la API
    cuyo límite de 3 req/s se quería esquivar. La sincronización se comería el presupuesto de
-   peticiones que se pretende liberar. **Esto solo ya descarta la variante.**
+   peticiones que se pretende liberar. ~~**Esto solo ya descarta la variante.**~~
+
+   > ⚠️ **PREMISA CADUCADA (verificado 2026-08-17).** Notion **sí** tiene webhooks oficiales (GA),
+   > con eventos `page.created` / `properties_updated` / `deleted` / `undeleted` sobre las páginas
+   > de una base de datos. La detección de cambios ya no exige polling: el evento llega por push
+   > (entrega típica <1 min) y solo hay que hacer un fetch dirigido para leer el dato. Esto **no
+   > reabre por sí solo la variante bidireccional** —los problemas 2 a 5 (eco, conflictos, doble
+   > fuente de verdad, coste) siguen intactos— pero sí **abarata mucho la variante unidireccional**
+   > (Supabase como caché de lectura), que era ya la preferida, y añade un escalón intermedio más
+   > barato antes de ejecutarla: **webhooks + KV compartido** manteniendo Notion como único motor.
+   > Detalle, cifras y fuentes en [INVESTIGACION_NOTION_API_2026-08.md](../INVESTIGACION_NOTION_API_2026-08.md);
+   > catalogado como P3 en [DEUDA_TECNICA.md](../DEUDA_TECNICA.md).
 2. **Bucles y eco.** Make escribe `URL PDF`, `AUX ID PDF Onedrive` y `Documento Firmado` en Notion
    **desde fuera del perímetro de la app**. Habría que traer esos cambios de vuelta y, a la vez,
    distinguir "cambio legítimo de Make" de "eco de mi propia escritura", o el sistema se
