@@ -124,6 +124,21 @@ const getCache = (key) => {
 	}
 	return e.data
 }
+// Invalidación tras escrituras (BE-3): sin esto, un GET que caiga en esta misma
+// instancia durante el TTL sirve el listado SIN el parte recién creado/editado —
+// el síntoma intermitente de "la app no actualiza". Acepta claves exactas o
+// prefijos terminados en ':' (p. ej. 'empleados-por-obra:').
+const invalidateCache = (...claves) => {
+	for (const clave of claves) {
+		if (clave.endsWith(':')) {
+			for (const k of cache.keys()) if (k.startsWith(clave)) cache.delete(k)
+		} else {
+			cache.delete(clave)
+		}
+	}
+}
+const invalidarPartes = () => invalidateCache('partes-trabajo', 'datos-completos', 'export-chorus-ctx:')
+const invalidarEmpleados = () => invalidateCache('empleados', 'datos-completos', 'buscar-id:', 'buscar-q:', 'empleados-por-obra:')
 
 // Sanitización de datos económicos en respuestas API
 const ECONOMIC_KEY_SUBSTRINGS = ['importe', 'precio', 'coste', 'tarifa', 'eur', 'euro']
@@ -405,6 +420,7 @@ app.put('/api/empleados/:empleadoId/estado', async (req, res) => {
 		}
 
 		const result = await data.empleados.actualizarEstado(empleadoId, estado)
+		invalidarEmpleados()
 		res.json(result)
 	} catch (error) {
 		if (error.status === 404) return res.status(404).json({ error: error.message })
@@ -460,6 +476,7 @@ app.post('/api/partes-trabajo', async (req, res) => {
 		}
 
 		const result = await data.partesTrabajo.crear({ obra, obraId, fecha, jefeObraId, notas, vehiculos: sanearTextoPlano(vehiculos), vehiculosIds: sanearIdsRelacion(vehiculosIds), empleados, empleadosHoras })
+		invalidarPartes()
 
 		// Mock devuelve una página Notion-like directamente; live devuelve { parteData, ... }
 		if (USE_MOCK_DATA) {
@@ -671,6 +688,7 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 			estadoProperty: parteData.properties['Estado'],
 			nuevoEstado: PARTE_ESTADO_PROCESANDO
 		})
+	invalidarPartes()
 	} catch (error) {
 		console.error('Error al marcar parte como Procesando:', {
 			message: error.message,
@@ -711,6 +729,7 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 					estadoProperty: parteData.properties['Estado'],
 					nuevoEstado: PARTE_ESTADO_BORRADOR.charAt(0).toUpperCase() + PARTE_ESTADO_BORRADOR.slice(1)
 				})
+			invalidarPartes()
 			} catch (revertError) {
 				console.error('Error al revertir estado a Borrador tras fallo de webhook:', {
 					message: revertError.message,
@@ -738,6 +757,7 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 			estadoProperty: parteData.properties['Estado'],
 			nuevoEstado: PARTE_ESTADO_DATOS_ENVIADOS
 		})
+	invalidarPartes()
 	} catch (error) {
 		console.error('Error al actualizar estado del parte tras enviar datos:', {
 			message: error.message,
@@ -791,6 +811,7 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 		const result = await data.partesTrabajo.actualizar(parteId, {
 			obraId, fecha, personaAutorizadaId, notas, vehiculos: sanearTextoPlano(vehiculos), vehiculosIds: sanearIdsRelacion(vehiculosIds), empleados, empleadosHoras
 		})
+		invalidarPartes()
 
 		// Mock devuelve una página Notion-like directamente
 		if (USE_MOCK_DATA) {
@@ -847,6 +868,7 @@ app.post('/api/partes-trabajo/:parteId/rectificar', async (req, res) => {
 	try {
 		const { parteId } = req.params
 		const result = await data.partesTrabajo.rectificar(parteId)
+		invalidarPartes()
 
 		if (USE_MOCK_DATA) {
 			return res.json(result)

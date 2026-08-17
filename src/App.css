@@ -296,12 +296,12 @@
 	gap: var(--spacing-md);
 	margin-bottom: var(--spacing-xl);
 	padding: var(--spacing-md) var(--spacing-lg);
-	background: rgba(255, 255, 255, 0.95);
+	/* Sin backdrop-filter: sobre un contenedor sticky se recomponía en cada frame
+	   de scroll (jank en iPad); un fondo casi opaco da el mismo efecto visual. */
+	background: rgba(255, 255, 255, 0.98);
 	border-radius: var(--border-radius-lg);
 	border: 1px solid rgba(1, 20, 109, 0.08);
 	box-shadow: var(--shadow-md);
-	backdrop-filter: blur(12px);
-	-webkit-backdrop-filter: blur(12px);
 }
 
 .filtros-heading {
@@ -544,6 +544,17 @@
 
 .estado-badge.datos-enviados {
 	background-color: #f58220;
+	color: white;
+}
+
+/* UX-18: estados que salían sin estilo por la clase sin normalizar */
+.estado-badge.procesando {
+	background-color: #2563eb;
+	color: white;
+}
+
+.estado-badge.listo-para-firmar {
+	background-color: #0d9488;
 	color: white;
 }
 

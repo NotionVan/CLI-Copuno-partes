@@ -231,6 +231,29 @@ test('POST /api/partes-trabajo crea parte y devuelve id', async () => {
 	assert.ok(res.body.id, 'el parte creado debería tener id')
 })
 
+// UX-23: un 0 explícito de horas es legítimo (asistió sin trabajar) y NO debe
+// convertirse en la jornada por defecto de 8 h. El bug vivía solo en el código
+// live (|| 8 en notion.js) — este test fija el contrato a nivel de API.
+test('POST /api/partes-trabajo respeta 0 horas explícitas (no las convierte en 8)', async () => {
+	const res = await request(app)
+		.post('/api/partes-trabajo')
+		.send({
+			obra: 'Reforma Sede Central',
+			obraId: 'obra-1',
+			fecha: '2026-05-26',
+			jefeObraId: 'jefe-1',
+			empleados: ['empleado-1'],
+			empleadosHoras: { 'empleado-1': 0 }
+		})
+	assert.equal(res.status, 200)
+	const parteId = res.body.id
+	const detalles = await request(app).get(`/api/partes-trabajo/${parteId}/empleados`)
+	assert.equal(detalles.status, 200)
+	const detalle = detalles.body.find(d => d.empleadoId === 'empleado-1')
+	assert.ok(detalle, 'debería existir el detalle del empleado')
+	assert.equal(detalle.horas, 0, 'las 0 horas explícitas deben conservarse, no convertirse en 8')
+})
+
 test('GET /api/vehiculos/buscar devuelve coincidencias por matrícula', async () => {
 	const res = await request(app).get('/api/vehiculos/buscar?q=1234')
 	assert.equal(res.status, 200)

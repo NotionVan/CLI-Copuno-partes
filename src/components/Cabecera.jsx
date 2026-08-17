@@ -101,7 +101,7 @@ export default function Cabecera({
 							<button
 								type="button" className="cabecera-accion cabecera-accion--suave"
 								onClick={onRefrescar} disabled={refrescando}
-								title="Refrescar datos desde Notion" aria-label="Refrescar datos"
+								title="Actualizar datos" aria-label="Actualizar datos"
 							>
 								<RefreshCw size={16} className={refrescando ? 'spinning' : ''} aria-hidden="true" />
 								<span className="cabecera-accion-texto">

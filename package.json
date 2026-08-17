@@ -1,6 +1,6 @@
 {
   "name": "copuno-gestion-partes",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Aplicación web para gestión de partes de trabajo con backend en Notion",
   "main": "index.js",
   "scripts": {
@@ -29,7 +29,6 @@
     "morgan": "^1.10.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.8.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

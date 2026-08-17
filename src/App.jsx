@@ -106,6 +106,12 @@ function CampoVehiculos({ value, onChange }) {
 					className="empleados-search-input"
 					value={termino}
 					onChange={(e) => setTermino(e.target.value)}
+					onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+					enterKeyHint="search"
+					autoCapitalize="characters"
+					autoCorrect="off"
+					spellCheck={false}
+					autoComplete="off"
 					placeholder="Escribe una matrícula para buscar en la flota"
 				/>
 				{buscando && <Loader2 size={16} className="loading-spinner" />}
@@ -703,7 +709,7 @@ function App() {
 						{loading ? (
 							<div className="loading-container">
 								<Loader2 size={48} className="loading-spinner" />
-								<p className="loading-text">Cargando datos desde Notion...</p>
+								<p className="loading-text">Cargando partes y obras...</p>
 								{connectivity.status === 'checking' && (
 									<p className="loading-subtext">Verificando conectividad...</p>
 								)}
@@ -1035,7 +1041,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		setEnviandoParteId(parte.id)
 		try {
 			const resultado = await enviarDatosParte(parte.id)
-			setMensajeUI({ tipo: 'success', texto: 'Datos del parte enviados a generar el documento correctamente' })
+			setMensajeUI({ tipo: 'success', texto: 'Enviado. En un par de minutos el parte pasará a "Datos Enviados" y quedará esperando la firma.' })
 
 			let partesActualizados = null
 			if (typeof onRefrescarPartes === 'function') {
@@ -1212,7 +1218,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 				if (empleadoId) {
 					empleadosActuales.push(empleadoId)
-					horasActuales[empleadoId] = detalle.horas || 8
+					// ?? y no ||: un detalle con 0 horas debe mostrarse como 0, no como 8 (UX-23)
+					horasActuales[empleadoId] = detalle.horas ?? 8
 				}
 			})
 
@@ -1430,7 +1437,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				vehiculos: (editandoParte.vehiculosSel || []).map(v => v.matricula).join(', '),
 				vehiculosIds: (editandoParte.vehiculosSel || []).map(v => v.id),
 				empleados: editandoParte.empleados || [],
-				empleadosHoras: editandoParte.empleadosHoras || {}
+				empleadosHoras: Object.fromEntries(
+					Object.entries(editandoParte.empleadosHoras || {}).map(([id, h]) => [id, clampRoundHoras(h)])
+				)
 			}
 
 			console.log('Actualizando parte:', editandoParte.id, datosActualizacion)
@@ -1447,9 +1456,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			}
 			setMensajeUI({ tipo: resultado.estadoCambiado ? 'warning' : 'success', texto: mensajeExito })
 
-			// Esperar un momento para que el usuario lea el mensaje antes de cerrar
-			await new Promise(resolve => setTimeout(resolve, resultado.estadoCambiado ? 4000 : 2000))
-
+			// El mensaje queda visible en el banner del listado tras cerrar (mismo estado)
 			// Refrescar listado de partes sin recargar la página completa
 			if (onRefrescarPartes) {
 				await onRefrescarPartes()
@@ -1462,11 +1469,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			console.error('Error al actualizar parte:', error)
 			if (error.status === 409) {
 				setMensajeUI({ tipo: 'error', texto: error.message })
-				// Cerrar edición y refrescar para mostrar el estado real del parte
-				setTimeout(() => {
-					cancelarEdicion()
-					if (onRefrescarPartes) onRefrescarPartes()
-				}, 2500)
+				// Cerrar edición y refrescar ya: el mensaje persiste en el banner del listado
+				cancelarEdicion()
+				if (onRefrescarPartes) onRefrescarPartes()
 			} else {
 				setMensajeUI({ tipo: 'error', texto: `No se pudo actualizar el parte: ${error.message}` })
 			}
@@ -1554,14 +1559,23 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		return Math.round(n * 2) / 2
 	}
 
-	// Función para cambiar horas de un empleado
+	// Mientras se teclea se guarda el texto crudo (permite "7." de camino a "7.5");
+	// el clamp/redondeo se aplica al salir del campo y como cinturón al guardar.
 	const cambiarHorasEmpleado = (empleadoId, horas) => {
-		const h = clampRoundHoras(horas)
 		setEditandoParte(prev => ({
 			...prev,
 			empleadosHoras: {
 				...prev.empleadosHoras,
-				[empleadoId]: h
+				[empleadoId]: horas
+			}
+		}))
+	}
+	const normalizarHorasEmpleado = (empleadoId) => {
+		setEditandoParte(prev => ({
+			...prev,
+			empleadosHoras: {
+				...prev.empleadosHoras,
+				[empleadoId]: clampRoundHoras(prev.empleadosHoras[empleadoId])
 			}
 		}))
 	}
@@ -1879,6 +1893,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 											setBusquedaIdEdicion(e.target.value)
 											setErrorBusquedaIdEdicion('')
 										}}
+										onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+										enterKeyHint="search"
 									/>
 									{buscandoIdEdicion && <Loader2 size={16} className="loading-spinner" />}
 								</div>
@@ -1950,8 +1966,10 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 															min="0"
 															max="24"
 															step="0.5"
-															value={editandoParte.empleadosHoras[empleado.id] || 8}
+															inputMode="decimal"
+															value={editandoParte.empleadosHoras[empleado.id] ?? 8}
 															onChange={(e) => cambiarHorasEmpleado(empleado.id, e.target.value)}
+															onBlur={() => normalizarHorasEmpleado(empleado.id)}
 														/>
 														<span className="horas-unidad">h</span>
 													</div>
@@ -1962,7 +1980,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 															onChange={(e) => cambiarEstadoEmpleado(empleado.id, e.target.value)}
 															defaultValue={empleado.estado || ''}
 														>
-															<option value="">{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
+															<option value="" disabled>{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
 															{(estadoOptions.options || []).map(opt => (
 																<option key={opt.name} value={opt.name}>
 																	{opt.name}
@@ -2028,7 +2046,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 																onChange={(e) => cambiarEstadoEmpleado(empleado.id, e.target.value)}
 																defaultValue={estadoLocal[empleado.id] || empleado.estado || ''}
 															>
-																<option value="">{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
+																<option value="" disabled>{empleado.estado ? `Estado actual: ${empleado.estado}` : 'Sin estado'}</option>
 																{(estadoOptions.options || []).map(opt => (
 																	<option key={opt.name} value={opt.name}>
 																		{opt.name}
@@ -2460,7 +2478,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 										<div key={parte.id} className={`parte-card ${estadoClase}`}>
 											<div className="parte-header">
 												<h3 className="parte-nombre">{parte.nombre}</h3>
-												<span className={`estado-badge ${parte.estado?.toLowerCase() || 'pendiente'}`}>
+												<span className={`estado-badge ${estadoClase.replace('estado-', '')}`}>
 													{parte.estado || 'Pendiente'}
 												</span>
 												{parte.esRectificativo && (() => {
@@ -3185,9 +3203,11 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 																	type="number"
 																	className="horas-input"
 																	min="0" max="24" step="0.5"
+																	inputMode="decimal"
 																	value={formData.empleadosHoras[empId] ?? ''}
 																	onFocus={(e) => e.target.select()}
-																	onChange={(e) => setFormData({ ...formData, empleadosHoras: { ...formData.empleadosHoras, [empId]: clampRoundHoras(e.target.value) } })}
+																	onChange={(e) => setFormData({ ...formData, empleadosHoras: { ...formData.empleadosHoras, [empId]: e.target.value } })}
+																	onBlur={(e) => setFormData({ ...formData, empleadosHoras: { ...formData.empleadosHoras, [empId]: clampRoundHoras(e.target.value) } })}
 																/>
 																<button
 																	type="button"
@@ -3222,6 +3242,8 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 											placeholder={busquedaLibreEmpleados ? "Buscar por ID Copuno (4-5 dígitos) o nombre (3+ letras)..." : "Buscar empleado por nombre..."}
 											value={busquedaEmpleado}
 											onChange={(e) => setBusquedaEmpleado(e.target.value)}
+											onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+											enterKeyHint="search"
 											className="empleados-search-input"
 										/>
 										{busquedaEmpleado && (

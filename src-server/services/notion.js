@@ -902,7 +902,9 @@ const partesTrabajo = {
 		const erroresDetalles = []
 		for (const empleadoId of empleados) {
 			try {
-				const horas = empleadosHoras[empleadoId] || 8
+				const horasCrudas = Number(empleadosHoras[empleadoId] ?? 8)
+				// ?? y no ||: un 0 explícito es legítimo (asistió sin trabajar) y no debe convertirse en jornada de 8 h (UX-23)
+				const horas = Number.isFinite(horasCrudas) ? Math.min(24, Math.max(0, horasCrudas)) : 8
 				const detalle = await client.request('POST', '/pages', {
 					parent: { database_id: DATABASES.DETALLES_HORA },
 					properties: {
@@ -972,7 +974,9 @@ const partesTrabajo = {
 		const erroresDetalles = []
 		for (const empleadoId of empleados) {
 			try {
-				const horas = empleadosHoras[empleadoId] || 8
+				const horasCrudas = Number(empleadosHoras[empleadoId] ?? 8)
+				// ?? y no ||: un 0 explícito es legítimo (asistió sin trabajar) y no debe convertirse en jornada de 8 h (UX-23)
+				const horas = Number.isFinite(horasCrudas) ? Math.min(24, Math.max(0, horasCrudas)) : 8
 				const detalle = await client.request('POST', '/pages', {
 					parent: { database_id: DATABASES.DETALLES_HORA },
 					properties: {
