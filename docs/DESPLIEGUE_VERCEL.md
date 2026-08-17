@@ -43,40 +43,25 @@ Configuración principal de Vercel en la raíz del proyecto:
 
 ```json
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
-    },
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/server.js"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/dist/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
-    }
-  ]
+	"framework": "vite",
+	"outputDirectory": "dist",
+	"functions": {
+		"api/index.js": { "maxDuration": 60 }
+	},
+	"rewrites": [
+		{ "source": "/api/(.*)", "destination": "/api/index" },
+		{ "source": "/(.*)", "destination": "/index.html" }
+	]
 }
 ```
+
+> **v1.12.2 (2026-08-17, F7):** migrado de `builds` (legacy) a `functions`. La función
+> es el wrapper [api/index.js](../api/index.js) (2 líneas) sobre `server.js`, que exporta
+> la app Express sin `listen()` al ser importado. `maxDuration: 60` mitiga H2 (ediciones
+> grandes ya no pueden morir por timeout). El catch-all SPA apunta a `/index.html`
+> (con `outputDirectory` los estáticos se sirven en la raíz — `/dist/index.html` dejaría
+> los deep-links en blanco). Headers completos (incluye `manual.html` y logos) en el
+> [vercel.json](../vercel.json) real — **el archivo manda sobre esta doc**.
 
 > ⚠️ **NO fijar `"regions"`.** El `vercel.json` real no lo hace y es deliberado: la función corre en
 > `iad1` (EE. UU.), pegada a la API de Notion (us-east), y cada petición de usuario provoca de 1 a 24
@@ -112,7 +97,7 @@ Script `vercel-build` añadido para el build automático.
 
 | Variable | Valor por Defecto | Descripción |
 |----------|-------------------|-------------|
-| `PORT` | `3001` | Puerto (Vercel lo asigna automáticamente) |
+| `PORT` | `3001` | Solo para local — en Vercel serverless no aplica (no hay listen()) |
 | `CACHE_TTL_MS` | `5000` | TTL de caché en milisegundos |
 | `PARTES_WEBHOOK_TIMEOUT_MS` | `10000` | Timeout del webhook |
 | `RATE_LIMIT_WINDOW_MS` | `900000` | Ventana de rate limiting (15 min) |
