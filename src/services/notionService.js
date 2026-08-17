@@ -140,32 +140,37 @@ const extractPropertyValue = (property) => {
 	}
 }
 
-// Función para manejar errores de API
+// UX-41: los mensajes técnicos («rate limit», «timeout of 20000ms exceeded»,
+// «Token de Notion inválido») provocaban llamadas a oficina y sensación de
+// producto frágil. El detalle técnico va a consola; a pantalla, qué hacer.
 const handleApiError = (error, operation) => {
 	const errorMessage = error.response?.data?.details || error.response?.data?.error || error.message
 	console.error(`Error en ${operation}:`, errorMessage)
-	
-	if (operation === 'obtener obras' && error.response?.status === 429) {
-		throw new Error('Error en obtener obras')
-	}
-	
-	if (error.response?.status === 0) {
-		throw new Error('No se puede conectar con el servidor. Verifica que el servidor esté ejecutándose.')
-	} else if (error.response?.status === 404) {
-		throw new Error('El servicio no está disponible. Contacta al administrador.')
-	} else if (error.response?.status === 409) {
+
+	const status = error.response?.status
+	const esTimeout = error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')
+	const esRed = !error.response && (error.code === 'ERR_NETWORK' || esTimeout || error.message === 'Network Error')
+
+	let msg
+	if (esRed) {
+		msg = 'No hay conexión ahora mismo. Comprueba la cobertura e inténtalo de nuevo — lo que habías rellenado sigue aquí.'
+	} else if (status === 503 || status === 429) {
+		msg = 'El sistema está ocupado. Espera unos segundos y vuelve a intentarlo.'
+	} else if (status === 401 || status === 403) {
+		msg = 'Tu sesión no es válida. Cierra sesión y vuelve a entrar; si se repite, avisa a oficina.'
+	} else if (status === 404) {
+		msg = 'No se encontró lo que buscabas. Actualiza los datos y vuelve a intentarlo.'
+	} else if (status === 409) {
 		const estado = error.response?.data?.estado
-		const msg = estado
-			? `Este parte está en estado "${estado}" y no se puede editar. Recarga la página para ver el estado actual.`
-			: 'Este parte ya no se puede editar. Puede que otro usuario haya cambiado su estado. Recarga la página.'
-		const err = new Error(msg)
-		err.status = 409
-		throw err
-	} else if (error.response?.status === 500) {
-		throw new Error(`Error del servidor: ${errorMessage}`)
+		msg = estado
+			? `Este parte está en estado "${estado}" y no se puede editar. Actualiza para ver el estado actual.`
+			: 'Este parte ya no se puede editar. Puede que otro usuario haya cambiado su estado. Actualiza los datos.'
 	} else {
-		throw new Error(`Error en ${operation}: ${errorMessage}`)
+		msg = 'Hay un problema en el sistema. Vuelve a intentarlo; si se repite, avisa a oficina.'
 	}
+	const err = new Error(msg)
+	err.status = status
+	throw err
 }
 
 // Obtener todas las obras

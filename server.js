@@ -68,7 +68,6 @@ app.use(morgan(logFormat, {
 	}
 }))
 app.use(express.json())
-app.use(express.static(path.join(__dirname, 'dist')))
 
 // Verificar token al iniciar o activar modo mock
 if (!NOTION_TOKEN && !USE_MOCK_DATA) {
@@ -94,22 +93,40 @@ data.init({
 // Defensa contra doble-click y reintentos de red. TTL 10 min.
 const enviarDatosIdempotency = createIdempotencyStore({ ttlMs: 10 * 60 * 1000 })
 
-// Rate limiting para /api con valores configurables
+// Rate limiting en dos capas (BE-8, auditoría 2026-08):
+//  1. Limiter GRUESO por IP delante de auth — protege la verificación JWT de
+//     martilleo anónimo. Umbral alto: detrás del NAT de la central todos los
+//     usuarios comparten IP y este limiter no debe tocarles en uso normal.
+//  2. Limiter FINO por usuario autenticado detrás de auth — el cupo real es
+//     por persona, no por oficina (con IP compartida, 3 pestañas agotaban
+//     el cupo de todos).
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000) // 15 minutos
-const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 1000) // 1000 req por ventana (NAT compartido)
-const apiLimiter = rateLimit({
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 1000) // por usuario (o IP si no hay auth)
+const RATE_LIMIT_IP_MAX = Number(process.env.RATE_LIMIT_IP_MAX || 5000) // grueso, anti-abuso anónimo
+const limiterGruesoPorIp = rateLimit({
 	windowMs: RATE_LIMIT_WINDOW_MS,
-	max: RATE_LIMIT_MAX,
+	max: RATE_LIMIT_IP_MAX,
 	standardHeaders: true,
 	legacyHeaders: false,
-	skip: (req) => (req.path === '/health') // no limitar health
+	skip: (req) => (req.path === '/health')
 })
-app.use('/api', apiLimiter)
+app.use('/api', limiterGruesoPorIp)
 
 // Autenticación de plataforma (ADR-006): JWT de Supabase en todo /api/*
 // salvo /api/health. Sin SUPABASE_URL, se desactiva (modo desarrollo).
 const { authMiddleware } = require('./src-server/middleware/auth')
 app.use('/api', authMiddleware)
+
+const limiterFinoPorUsuario = rateLimit({
+	windowMs: RATE_LIMIT_WINDOW_MS,
+	max: RATE_LIMIT_MAX,
+	standardHeaders: true,
+	legacyHeaders: false,
+	skip: (req) => (req.path === '/health'),
+	// req.usuario lo deja authMiddleware; sin auth (dev/mock) cae a la IP.
+	keyGenerator: (req) => req.usuario?.id || req.ip
+})
+app.use('/api', limiterFinoPorUsuario)
 
 // Cache simple en memoria para catálogos (TTL configurable)
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30 * 1000) // 30 segundos para reducir requests innecesarios a Notion
@@ -138,6 +155,16 @@ const invalidateCache = (...claves) => {
 	}
 }
 const invalidarPartes = () => invalidateCache('partes-trabajo', 'datos-completos', 'export-chorus-ctx:')
+// BE-6: un 429 de Notion NO es un error del servidor — es «espera y reintenta».
+// Responder 503 + Retry-After permite al cliente (y a cualquier proxy) tratarlo.
+const responderSiRateLimit = (res, error) => {
+	if (error?.status === 429) {
+		res.set('Retry-After', String(error.retryAfter || 2))
+		res.status(503).json({ error: 'El sistema está ocupado, vuelve a intentarlo en unos segundos.', retryAfter: error.retryAfter || 2 })
+		return true
+	}
+	return false
+}
 const invalidarEmpleados = () => invalidateCache('empleados', 'datos-completos', 'buscar-id:', 'buscar-q:', 'empleados-por-obra:')
 
 // Sanitización de datos económicos en respuestas API
@@ -207,6 +234,7 @@ app.get('/api/obras', async (req, res) => {
 		res.json(obras)
 	} catch (error) {
 		console.error('Error al obtener obras:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al obtener obras',
 			details: error.message
@@ -224,6 +252,7 @@ app.get('/api/jefes-obra', async (req, res) => {
 		res.json(jefesObra)
 	} catch (error) {
 		console.error('Error al obtener jefes de obra:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al obtener jefes de obra',
 			details: error.message
@@ -242,6 +271,7 @@ app.get('/api/obras/:obraId/firmantes-autorizados', async (req, res) => {
 			return res.status(404).json({ error: 'Obra no encontrada' })
 		}
 		console.error('Error al obtener firmantes autorizados:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al obtener firmantes autorizados',
 			details: error.message
@@ -259,6 +289,7 @@ app.get('/api/empleados', async (req, res) => {
 		res.json(empleados)
 	} catch (error) {
 		console.error('Error al obtener empleados:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al obtener empleados',
 			details: error.message
@@ -321,6 +352,7 @@ app.get('/api/empleados/buscar', async (req, res) => {
 		res.json(resultados)
 	} catch (error) {
 		console.error('Error al buscar empleados:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al buscar empleados',
 			details: error.message
@@ -345,6 +377,7 @@ app.get('/api/vehiculos/buscar', async (req, res) => {
 		res.json(resultados)
 	} catch (error) {
 		console.error('Error al buscar vehículos:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({ error: 'Error al buscar vehículos', details: error.message })
 	}
 })
@@ -413,6 +446,7 @@ app.get('/api/empleados/estado-opciones', async (req, res) => {
 		res.json(resultado)
 	} catch (error) {
 		console.error('Error al obtener opciones de Estado:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({ error: 'Error al obtener opciones de Estado', details: error.message })
 	}
 })
@@ -447,6 +481,7 @@ app.get('/api/obras/:obraId/empleados', async (req, res) => {
 		res.json(empleadosDetalles)
 	} catch (error) {
 		console.error('Error al obtener empleados de la obra:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al obtener empleados de la obra',
 			details: error.message
@@ -471,6 +506,7 @@ app.get('/api/partes-trabajo', async (req, res) => {
 		res.json(partesTrabajo)
 	} catch (error) {
 		console.error('Error al obtener partes de trabajo:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al obtener partes de trabajo',
 			details: error.message
@@ -537,6 +573,7 @@ app.get('/api/partes-trabajo/:parteId/empleados', async (req, res) => {
 		res.json(empleados)
 	} catch (error) {
 		console.error('Error al obtener detalles de empleados del parte:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al obtener detalles de empleados del parte',
 			details: error.message
@@ -553,6 +590,7 @@ app.get('/api/partes-trabajo/:parteId/detalles', async (req, res) => {
 	} catch (error) {
 		if (error.status === 404) return res.status(404).json({ error: error.message })
 		console.error('Error al obtener detalles completos del parte:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al obtener detalles completos del parte',
 			details: error.message
@@ -569,6 +607,7 @@ app.get('/api/partes-trabajo/:parteId/estado', async (req, res) => {
 	} catch (error) {
 		if (error.status === 404) return res.status(404).json({ error: error.message })
 		console.error('Error al obtener estado del parte:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({ error: 'Error al obtener estado del parte', details: error.message })
 	}
 })
@@ -944,12 +983,16 @@ app.get('/api/datos-completos', async (req, res) => {
 		res.json(payload)
 	} catch (error) {
 		console.error('Error al obtener datos completos:', error.message)
+		if (responderSiRateLimit(res, error)) return
 		res.status(500).json({
 			error: 'Error al obtener datos completos',
 			details: error.message
 		})
 	}
 })
+
+// Estáticos al FINAL (BE-15): así /api/* no paga un stat() de disco por petición.
+app.use(express.static(path.join(__dirname, 'dist')))
 
 // Ruta para servir la aplicación React (solo para rutas que no sean API)
 // Mantener rutas de API por encima y servir SPA para el resto

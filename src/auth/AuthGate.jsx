@@ -69,7 +69,13 @@ function PantallaLogin({ errorInicial }) {
 		setError(null); setAviso(null); setCargando(true)
 		const { error: err } = await supabase.auth.signInWithPassword({ email, password })
 		setCargando(false)
-		if (err) setError('Email o contraseña incorrectos.')
+		if (err) {
+			// UX-47: «email o contraseña incorrectos» sin cobertura hacía que la
+			// gente restableciera su contraseña sin necesidad.
+			if (err.status === 429) setError('Has probado demasiadas veces. Espera un minuto y vuelve a intentarlo.')
+			else if (!navigator.onLine || /fetch|network/i.test(err.message || '')) setError('No hay conexión ahora mismo. Comprueba la cobertura e inténtalo de nuevo.')
+			else setError('Email o contraseña incorrectos.')
+		}
 	}
 
 	const enviarReset = async (e) => {

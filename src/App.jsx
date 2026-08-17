@@ -397,7 +397,6 @@ function App() {
 		empleados: [],
 		partesTrabajo: []
 	})
-	const [desdeCacheLocal] = useState(() => Boolean(leerCacheLocal()))
 	const [revalidando, setRevalidando] = useState(false)
 	const [loading, setLoading] = useState(() => !leerCacheLocal())
 	const [error, setError] = useState(null)
@@ -490,6 +489,7 @@ function App() {
 		const poll = async () => {
 			try {
 				const opts = await getOpcionesEstadoEmpleados()
+				fallosPollRef.current = 0 // UX-53: la red responde
 				const newHash = hashEstadoOptions(opts)
 
 				if (newHash !== lastEstadoHashRef.current) {
@@ -507,7 +507,13 @@ function App() {
 					estadoOptionsPollRef.current = setInterval(poll, newInterval)
 				}
 			} catch (e) {
-				setEstadoOptions({ type: 'status', options: [] })
+				// UX-53: dos fallos seguidos = la conexión no está bien, aunque el
+				// navegador no haya disparado aún el evento offline. Y NO machacar
+				// las opciones ya cargadas por un fallo transitorio.
+				fallosPollRef.current += 1
+				if (fallosPollRef.current >= 2) {
+					setConnectivity({ status: 'error', message: 'Sin conexión — no guardes todavía' })
+				}
 			}
 		}
 
@@ -548,6 +554,26 @@ function App() {
 			document.removeEventListener('visibilitychange', onVis)
 		}
 	}, [])
+
+	// UX-53: la píldora decía «Conectado» durante toda una pérdida de cobertura —
+	// los fallos de los polls se tragaban en silencio y no había escucha del
+	// navegador. Dos señales: online/offline del sistema + 2 polls fallidos.
+	const fallosPollRef = useRef(0)
+	useEffect(() => {
+		const onOffline = () => setConnectivity({ status: 'error', message: 'Sin conexión — no guardes todavía' })
+		const onOnline = () => {
+			fallosPollRef.current = 0
+			setConnectivity({ status: 'ok', message: 'Conectado' })
+			cargarDatos() // revalidar en cuanto vuelve la red
+		}
+		window.addEventListener('offline', onOffline)
+		window.addEventListener('online', onOnline)
+		if (!navigator.onLine) onOffline()
+		return () => {
+			window.removeEventListener('offline', onOffline)
+			window.removeEventListener('online', onOnline)
+		}
+	}, []) // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Exponer versión del build en window para facilitar diagnóstico desde consola.
 	useEffect(() => {
@@ -1438,6 +1464,17 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	// Función para guardar cambios
 	const guardarCambios = async () => {
 		if (!editandoParte) return
+
+		// UX-4b (cinturón): si los detalles llegaron vacíos por un fallo silencioso
+		// (estilo M8) y el original tenía empleados, guardar archivaría sus horas.
+		if ((editandoParte.empleados || []).length === 0) {
+			const original = edicionOriginalRef.current ? JSON.parse(edicionOriginalRef.current) : null
+			const teniaEmpleados = (original?.empleados || []).length > 0
+			const msg = teniaEmpleados
+				? 'Vas a guardar el parte SIN empleados: se eliminarán las horas que tenía registradas. ¿Seguro?'
+				: 'Vas a guardar el parte sin ningún empleado. ¿Seguro?'
+			if (!window.confirm(msg)) return
+		}
 
 		setGuardandoCambios(true)
 

@@ -70,11 +70,33 @@ function createClient({ token, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
 		}
 		if (data) config.data = data
 
+		// BE-7: semáforo global — Notion limita a ~3 req/s por integración y los
+		// bursts (arranque, polling concurrente) producían 429 en cascada.
+		await adquirirTurnoNotion()
 		let response
 		try {
-			response = await axios(config)
-		} catch (error) {
-			throw mapNotionError(error, { method, endpoint })
+			try {
+				response = await axios(config)
+			} catch (error) {
+				// BE-6: un 429 en LECTURA se reintenta UNA vez respetando Retry-After
+				// (+jitter). Las escrituras no se reintentan aquí: la idempotencia y
+				// la reconciliación viven en capas superiores.
+				const esLectura = method === 'GET' || (method === 'POST' && endpoint.includes('/query'))
+				if (error.response?.status === 429 && esLectura) {
+					const retryAfterS = Number(error.response.headers?.['retry-after']) || 1
+					const esperaMs = Math.min(retryAfterS * 1000, 5000) + Math.floor(Math.random() * 250)
+					await new Promise(r => setTimeout(r, esperaMs))
+					try {
+						response = await axios(config)
+					} catch (error2) {
+						throw mapNotionError(error2, { method, endpoint })
+					}
+				} else {
+					throw mapNotionError(error, { method, endpoint })
+				}
+			}
+		} finally {
+			liberarTurnoNotion()
 		}
 
 		if (!response || !response.data) {
@@ -86,6 +108,28 @@ function createClient({ token, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
 	}
 
 	return { request }
+}
+
+// ── Semáforo de concurrencia hacia Notion (BE-7) ──
+// Por instancia de lambda; en Fluid Compute (F7) pasa a cubrir la concurrencia
+// real. 5 en vuelo ≈ el patrón ya validado en resolverPaginas.
+// Trade-off asumido: durante el backoff de un retry 429 el permiso se mantiene
+// ocupado — reduce la concurrencia justo bajo ráfaga, que es deliberado (menos
+// presión sobre Notion cuando ya está cortando).
+const NOTION_CONCURRENCIA_MAX = Number(process.env.NOTION_CONCURRENCIA_MAX || 5)
+let notionEnVuelo = 0
+const notionColaTurnos = []
+function adquirirTurnoNotion() {
+	if (notionEnVuelo < NOTION_CONCURRENCIA_MAX) {
+		notionEnVuelo++
+		return Promise.resolve()
+	}
+	return new Promise(resolve => notionColaTurnos.push(resolve))
+}
+function liberarTurnoNotion() {
+	const siguiente = notionColaTurnos.shift()
+	if (siguiente) siguiente()
+	else notionEnVuelo--
 }
 
 function mapNotionError(error, { method, endpoint }) {
@@ -105,7 +149,10 @@ function mapNotionError(error, { method, endpoint }) {
 	else if (status === 403) mapped = new Error('Sin permisos para acceder a la base de datos')
 	else if (status === 404) mapped = new Error('Base de datos no encontrada')
 	else if (status === 409) mapped = new Error('Conflicto al crear el registro. Puede ser un duplicado o problema de permisos.')
-	else if (status === 429) mapped = new Error('Límite de rate limit excedido')
+	else if (status === 429) {
+		mapped = new Error('Límite de rate limit excedido')
+		mapped.retryAfter = Number(error.response?.headers?.['retry-after']) || 2
+	}
 	else mapped = new Error(`Error de conectividad con Notion: ${error.message}`)
 
 	mapped.status = status
