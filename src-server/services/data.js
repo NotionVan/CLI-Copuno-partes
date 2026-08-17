@@ -239,6 +239,16 @@ const partesTrabajo = {
 	},
 
 	/**
+	 * F6 — freshness-check del cache de partes. En mock devuelve siempre true
+	 * (fuerza la query completa: comportamiento idéntico al histórico).
+	 */
+	async hayCambiosDesde({ desdeIso }) {
+		requireInit()
+		if (state.mode === 'mock') return true
+		return notion.partesTrabajo.hayCambiosDesde({ client: state.notionClient, desdeIso })
+	},
+
+	/**
 	 * Devuelve la página Notion cruda del parte.
 	 * Solo tiene implementación live — el mock path en enviar-datos se maneja en server.js.
 	 */

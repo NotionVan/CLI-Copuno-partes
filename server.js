@@ -261,10 +261,18 @@ app.get('/api/jefes-obra', async (req, res) => {
 })
 
 // F4: Firmantes autorizados para una obra concreta — refactorizado a data.js (ADR-002)
+// I-C (F6): cache corto propio. Los firmantes solo cambian cuando el cliente
+// puebla 'Persona Autorizada' en Notion (no hay escritura desde la app), así
+// que 60 s sin invalidación es seguro.
+const FIRMANTES_TTL_MS = Number(process.env.FIRMANTES_TTL_MS || 60 * 1000)
+const firmantesCache = new Map()
 app.get('/api/obras/:obraId/firmantes-autorizados', async (req, res) => {
 	try {
 		const { obraId } = req.params
+		const en = firmantesCache.get(obraId)
+		if (en && Date.now() - en.ts < FIRMANTES_TTL_MS) return res.json(en.data)
 		const firmantes = await data.obras.firmantesAutorizados(obraId)
+		firmantesCache.set(obraId, { data: firmantes, ts: Date.now() })
 		res.json(firmantes)
 	} catch (error) {
 		if (error.status === 404) {
@@ -491,18 +499,57 @@ app.get('/api/obras/:obraId/empleados', async (req, res) => {
 
 // Obtener todos los partes de trabajo — refactorizado a data.js (ADR-002)
 const FECHA_AAAA_MM_DD = /^\d{4}-\d{2}-\d{2}$/
+// F6 — freshness-check: cuando la foto de partes expira, ANTES de repetir la
+// query completa (~2,5 s) se pregunta a Notion si algo cambió desde la foto
+// (~0,4 s, ver notion.partesTrabajo.hayCambiosDesde). Sin cambios → se
+// extiende la vida de la foto. El TTL duro pone techo al único residuo: un
+// parte ARCHIVADO en Notion no aparece en el check (no hay evento de borrado),
+// así que como muy tarde desaparece del listado en PARTES_TTL_DURO_MS.
+const PARTES_TTL_DURO_MS = Number(process.env.PARTES_TTL_DURO_MS || 5 * 60 * 1000)
+// Cursor de la foto: el last_edited_time más reciente que contiene. Es mejor
+// ancla que el reloj del servidor (inmune a drift; Notion compara contra su
+// propio timestamp). Foto vacía → ahora menos 2 min de margen.
+const cursorDeFoto = (partes) => {
+	let max = ''
+	for (const p of partes || []) {
+		if (p.ultimaEdicion && p.ultimaEdicion > max) max = p.ultimaEdicion
+	}
+	return max || new Date(Date.now() - 2 * 60 * 1000).toISOString()
+}
 app.get('/api/partes-trabajo', async (req, res) => {
 	try {
 		// BE-13a: ventana de fechas opcional (?desde=AAAA-MM-DD&hasta=AAAA-MM-DD).
 		const desde = FECHA_AAAA_MM_DD.test(req.query.desde || '') ? req.query.desde : undefined
 		const hasta = FECHA_AAAA_MM_DD.test(req.query.hasta || '') ? req.query.hasta : undefined
 		const conVentana = Boolean(desde || hasta)
-		if (!conVentana) {
-			const cached = getCache('partes-trabajo')
-			if (cached) return res.json(cached)
+		if (!conVentana && CACHE_TTL_MS > 0) {
+			const foto = cache.get('partes-trabajo')
+			if (foto) {
+				const edad = Date.now() - foto.ts
+				if (edad <= CACHE_TTL_MS) return res.json(foto.data)
+				if (edad <= PARTES_TTL_DURO_MS) {
+					try {
+						const hayCambios = await data.partesTrabajo.hayCambiosDesde({ desdeIso: foto.cursorIso || new Date(foto.ts).toISOString() })
+						if (!hayCambios) {
+							foto.ts = Date.now() // la foto sigue válida: extender TTL
+							return res.json(foto.data)
+						}
+					} catch (err) {
+						// Con Notion saturado (429), una foto algo vieja es mejor
+						// respuesta que un 503 — la query completa también fallaría.
+						if (err?.status === 429) return res.json(foto.data)
+						// Otros fallos del check → caer a la query completa.
+					}
+				} else {
+					cache.delete('partes-trabajo')
+				}
+			}
 		}
 		const partesTrabajo = await data.partesTrabajo.listar({ desde, hasta })
-		if (!conVentana) setCache('partes-trabajo', partesTrabajo)
+		if (!conVentana) {
+			setCache('partes-trabajo', partesTrabajo)
+			cache.get('partes-trabajo').cursorIso = cursorDeFoto(partesTrabajo)
+		}
 		res.json(partesTrabajo)
 	} catch (error) {
 		console.error('Error al obtener partes de trabajo:', error.message)

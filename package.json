@@ -1,6 +1,6 @@
 {
   "name": "copuno-gestion-partes",
-  "version": "1.10.2",
+  "version": "1.11.0",
   "description": "Aplicación web para gestión de partes de trabajo con backend en Notion",
   "main": "index.js",
   "scripts": {

@@ -26,12 +26,14 @@ function EstadoSistema({ conectividad, syncMode, onInfoSync }) {
 
 	// Solo es botón cuando hay conexión: abrir la ayuda de sincronización
 	// desde un estado de error no aporta nada.
+	// UX-46: el title habla de lo que ve el usuario (la lista se actualiza
+	// sola), no de "modos de sincronización".
 	if (status === 'ok') {
 		return (
 			<button
 				type="button" className="cabecera-estado ok" onClick={onInfoSync}
-				title={`Sincronización en modo ${syncMode} — pulsa para más información`}
-				aria-label={`Conectado, sincronización en modo ${syncMode}. Más información`}
+				title="La lista se actualiza sola — pulsa para más información"
+				aria-label="Conectado. La lista se actualiza sola. Más información"
 			>
 				{contenido}
 			</button>

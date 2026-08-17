@@ -403,16 +403,18 @@ const obras = {
 		const relaciones = extractPropertyValue(obraData.properties['Persona Autorizada'])
 		if (!relaciones || relaciones.length === 0) return []
 
-		const firmantes = []
-		for (const ref of relaciones) {
+		// I-C: expansión en paralelo — el semáforo global ya acota la concurrencia
+		// real hacia Notion, así que Promise.all no puede provocar un burst.
+		const firmantes = await Promise.all(relaciones.map(async (ref) => {
 			try {
 				const jefe = await client.request('GET', conProps(`/pages/${ref.id}`, PROPS_CATALOGO.JEFE_OBRAS))
-				firmantes.push(mapFirmanteAutorizado(jefe))
+				return mapFirmanteAutorizado(jefe)
 			} catch (e) {
 				console.error(`Error al leer firmante ${ref.id}:`, e.message)
+				return null
 			}
-		}
-		return firmantes
+		}))
+		return firmantes.filter(Boolean)
 	}
 }
 
@@ -858,6 +860,23 @@ const vehiculos = {
 }
 
 const partesTrabajo = {
+	/**
+	 * F6 — freshness-check: ¿se ha editado ALGÚN parte después de `desdeIso`?
+	 * Query mínima (page_size 1, solo title) con filtro a nivel timestamp —
+	 * inmune a renombres de propiedades (lección I9). Cuesta ~0,3-0,4 s frente
+	 * a los ~2,5 s de la query completa; es lo que abarata el polling de F6.
+	 * OJO: Notion redondea last_edited_time al minuto, así que hay una zona
+	 * ciega de hasta ~60 s alrededor del cursor — la cubren la invalidación
+	 * tras escritura (BE-3) y el TTL duro del cache en server.js.
+	 */
+	async hayCambiosDesde({ client, desdeIso }) {
+		const data = await client.request('POST', conProps(`/databases/${DATABASES.PARTES_TRABAJO}/query`, ['title']), {
+			filter: { timestamp: 'last_edited_time', last_edited_time: { after: desdeIso } },
+			page_size: 1
+		})
+		return data.results.length > 0
+	},
+
 	async listar({ client, desde, hasta }) {
 		// BE-13a: ventana de fechas opcional y aditiva. Sin parámetros, el
 		// comportamiento es idéntico al histórico (100 más recientes).

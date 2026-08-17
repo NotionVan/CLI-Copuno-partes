@@ -408,24 +408,31 @@ function App() {
 	const [mostrarExportar, setMostrarExportar] = useState(false) // Modal de exportación CSV para Chorus
 	const [hayActualizacion, setHayActualizacion] = useState(false)
 
-	// Smart Polling: ajusta frecuencia según actividad
-	const partesPollRef = useRef(null)
+	// F6 (BE-9/P10): polling del listado, muerto desde v1.3 por un ReferenceError
+	// silencioso (editandoParte no existía en este scope y el catch era noop).
+	// Revive con el patrón del poll del modal — el único que funcionaba:
+	// guarda cancelled, setTimeout encadenado (nunca dos ticks solapados),
+	// setDatos funcional que devuelve prev sin cambios, y sin tick inmediato
+	// (cargarDatos ya cubre el montaje). Cadencia 12/20/30 s: más lenta que el
+	// 3/8/15 histórico porque el listado es la query más cara; el
+	// freshness-check del servidor abarata los ticks sin cambios (~0,4 s).
+	const POLL_ENABLED = true // kill-switch: false + deploy apaga el polling
 	const lastParteChangeRef = useRef(Date.now())
-	const currentPollIntervalRef = useRef(3000) // Empezar en modo rápido
 	const lastPartesHashRef = useRef('')
+	const fallosPollRef = useRef(0) // UX-53: 2 fallos seguidos = sin conexión
+	const ultimaSyncRef = useRef(null) // UX-46: cuándo se refrescó el listado
+	// La closure del efecto capturaría estado stale: la edición abierta viaja
+	// por ref (la puebla ConsultaPartes vía onEdicionAbierta).
+	const edicionAbiertaRef = useRef(false)
+	// Espejo de `datos` para componer el cache local sin efectos dentro del updater.
+	const datosRef = useRef(datos)
+	useEffect(() => { datosRef.current = datos }, [datos])
 
-	const getSmartPollInterval = () => {
-		const timeSinceChange = Date.now() - lastParteChangeRef.current
-		if (timeSinceChange < 30000) {
-			setSyncMode('rápido')
-			return 3000 // Modo rápido: cambios recientes (<30s)
-		}
-		if (timeSinceChange < 120000) {
-			setSyncMode('normal')
-			return 8000 // Modo normal: sin cambios <2min
-		}
-		setSyncMode('lento')
-		return 15000 // Modo lento: sin cambios >2min
+	const calcularCadenciaListado = () => {
+		const t = Date.now() - lastParteChangeRef.current
+		if (t < 60000) return { ms: 12000, modo: 'rápido' }
+		if (t < 300000) return { ms: 20000, modo: 'normal' }
+		return { ms: 30000, modo: 'lento' }
 	}
 
 	const hashPartes = (partes) => {
@@ -433,46 +440,48 @@ function App() {
 		return partes.map(p => `${p.id}-${p.estado}-${p.ultimaEdicion}`).join('|')
 	}
 
-	const startPartesPolling = () => {
-		if (partesPollRef.current) return
-
-		const poll = async () => {
-			try {
-				if (editandoParte) return
-
-				const partes = await getPartesTrabajo()
-				const newHash = hashPartes(partes)
-
-				// Detectar cambios
-				if (newHash !== lastPartesHashRef.current) {
-					lastPartesHashRef.current = newHash
-					lastParteChangeRef.current = Date.now()
-					setDatos(prev => ({ ...prev, partesTrabajo: partes }))
-				} else {
-					// Sin cambios, solo actualizar datos
-					setDatos(prev => ({ ...prev, partesTrabajo: partes }))
-				}
-
-				// Ajustar intervalo si cambió
-				const newInterval = getSmartPollInterval()
-				if (newInterval !== currentPollIntervalRef.current) {
-					currentPollIntervalRef.current = newInterval
-					stopPartesPolling()
-					startPartesPolling()
-				}
-			} catch (e) { /* noop */ }
-		}
-
-		poll() // Primera ejecución inmediata
-		partesPollRef.current = setInterval(poll, currentPollIntervalRef.current)
+	// Aplica una foto nueva del listado solo si cambió; devuelve true si hubo cambio.
+	const aplicarPartes = (partes) => {
+		ultimaSyncRef.current = Date.now()
+		const newHash = hashPartes(partes)
+		if (newHash === lastPartesHashRef.current) return false
+		lastPartesHashRef.current = newHash
+		lastParteChangeRef.current = Date.now()
+		setDatos(prev => ({ ...prev, partesTrabajo: partes }))
+		guardarCacheLocal({ ...datosRef.current, partesTrabajo: partes })
+		return true
 	}
 
-	const stopPartesPolling = () => {
-		if (partesPollRef.current) {
-			clearInterval(partesPollRef.current)
-			partesPollRef.current = null
+	useEffect(() => {
+		if (!POLL_ENABLED) return
+		let cancelled = false
+		let timer = null
+		const tick = async () => {
+			if (cancelled) return
+			// En background o con una edición abierta no se toca la red ni el
+			// estado; el timer sigue (barato) y el reconcile de visibilitychange
+			// se encarga del refresco al volver.
+			if (document.visibilityState !== 'hidden' && !edicionAbiertaRef.current) {
+				try {
+					const partes = await getPartesTrabajo()
+					if (cancelled) return
+					fallosPollRef.current = 0
+					aplicarPartes(partes)
+				} catch {
+					fallosPollRef.current += 1
+					if (fallosPollRef.current >= 2) {
+						setConnectivity({ status: 'error', message: 'Sin conexión — no guardes todavía' })
+					}
+				}
+			}
+			if (cancelled) return
+			const { ms, modo } = calcularCadenciaListado()
+			setSyncMode(modo) // mismo valor → React hace bail-out, sin re-render
+			timer = setTimeout(tick, ms)
 		}
-	}
+		timer = setTimeout(tick, calcularCadenciaListado().ms)
+		return () => { cancelled = true; clearTimeout(timer) }
+	}, []) // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Smart Polling para opciones de estado
 	const estadoOptionsPollRef = useRef(null)
@@ -487,6 +496,9 @@ function App() {
 		if (estadoOptionsPollRef.current) return
 
 		const poll = async () => {
+			// F6 (FE-27): en background, cero tráfico — el interval sigue vivo
+			// pero no toca la red; el reconcile de visibilitychange refresca al volver.
+			if (document.visibilityState === 'hidden') return
 			try {
 				const opts = await getOpcionesEstadoEmpleados()
 				fallosPollRef.current = 0 // UX-53: la red responde
@@ -533,23 +545,21 @@ function App() {
 		cargarDatos()
 		cargarOpcionesEstado()
 		startEstadoPolling()
-		startPartesPolling()
 
+		// F6 (FE-27): al volver a la pestaña, reconcile completo — el polling
+		// no hace red en background, así que este es el refresco de reentrada.
+		// Con guarda de hash y cache local (aplicarPartes), a diferencia del
+		// reconcile histórico que seteaba estado incondicionalmente.
 		const onVis = () => {
-			if (document.visibilityState === 'hidden') {
-				stopPartesPolling()
-				stopEstadoPolling()
-			} else {
-				// refresco inmediato al volver y reanudar
-				getPartesTrabajo().then(partes => setDatos(prev => ({ ...prev, partesTrabajo: partes }))).catch(() => { })
-				cargarOpcionesEstado()
-				startPartesPolling()
-				startEstadoPolling()
-			}
+			if (document.visibilityState !== 'visible') return
+			getPartesTrabajo().then(partes => {
+				fallosPollRef.current = 0
+				aplicarPartes(partes)
+			}).catch(() => { })
+			cargarOpcionesEstado()
 		}
 		document.addEventListener('visibilitychange', onVis)
 		return () => {
-			stopPartesPolling()
 			stopEstadoPolling()
 			document.removeEventListener('visibilitychange', onVis)
 		}
@@ -557,8 +567,8 @@ function App() {
 
 	// UX-53: la píldora decía «Conectado» durante toda una pérdida de cobertura —
 	// los fallos de los polls se tragaban en silencio y no había escucha del
-	// navegador. Dos señales: online/offline del sistema + 2 polls fallidos.
-	const fallosPollRef = useRef(0)
+	// navegador. Dos señales: online/offline del sistema + 2 polls fallidos
+	// (fallosPollRef, declarado junto al polling del listado).
 	useEffect(() => {
 		const onOffline = () => setConnectivity({ status: 'error', message: 'Sin conexión — no guardes todavía' })
 		const onOnline = () => {
@@ -588,6 +598,8 @@ function App() {
 		if (!buildVersion) return
 
 		const comprobarVersion = async () => {
+			// F6 (FE-28): sin chequeo de versión con la pestaña oculta
+			if (document.visibilityState === 'hidden') return
 			try {
 				const res = await fetch('/api/health', { cache: 'no-store' })
 				if (!res.ok) return
@@ -637,6 +649,10 @@ function App() {
 			console.log('👨‍💼 Jefes de obra cargados:', datosCompletos.jefesObra.length)
 
 			setDatos(datosCompletos)
+			// F6: sembrar el hash y la marca de sync — el primer tick del poll
+			// no debe re-detectar esta misma foto como "cambio".
+			lastPartesHashRef.current = hashPartes(datosCompletos.partesTrabajo || [])
+			ultimaSyncRef.current = Date.now()
 			setConnectivity({ status: 'ok', message: 'Conectado' })
 		} catch (err) {
 			console.error('Error al cargar datos:', err)
@@ -657,7 +673,8 @@ function App() {
 	const refrescarPartes = async () => {
 		try {
 			const partes = await getPartesTrabajo()
-			setDatos(prev => ({ ...prev, partesTrabajo: partes }))
+			// F6: mismo camino que el poll — hash, cache local y marca de sync
+			aplicarPartes(partes)
 			return partes
 		} catch (error) {
 			console.error('Error al refrescar partes:', error)
@@ -687,6 +704,8 @@ function App() {
 			}, 3, 1000)
 
 			setDatos(datosCompletos)
+			lastPartesHashRef.current = hashPartes(datosCompletos.partesTrabajo || [])
+			ultimaSyncRef.current = Date.now()
 			setConnectivity({ status: 'ok', message: 'Conectado' })
 
 			// También refrescar opciones de estado
@@ -783,7 +802,7 @@ function App() {
 						) : (
 							<>
 								{activeSection === 'consulta' ? (
-									<ConsultaPartes datos={datos} onVolver={() => setActiveSection('main')} estadoOptions={estadoOptions} onRefrescarPartes={refrescarPartes} />
+									<ConsultaPartes datos={datos} onVolver={() => setActiveSection('main')} estadoOptions={estadoOptions} onRefrescarPartes={refrescarPartes} onEdicionAbierta={(abierta) => { edicionAbiertaRef.current = abierta }} />
 								) : activeSection === 'crear' ? (
 									<CrearParte datos={datos} estadoOptions={estadoOptions} onParteCreado={refrescarPartes} onVolver={() => setActiveSection('main')} />
 								) : null}
@@ -795,56 +814,33 @@ function App() {
 
 			{mostrarExportar && <ModalExportarCsv onCerrar={() => setMostrarExportar(false)} />}
 
-			{/* Modal de información de sincronización */}
+			{/* UX-46: información de sincronización en lenguaje de usuario — la
+			    versión anterior explicaba ingeniería (modos, segundos) y además
+			    describía un polling que llevaba meses sin ejecutarse. */}
 			{mostrarInfoSync && (
 				<div className="modal-overlay" onClick={() => setMostrarInfoSync(false)}>
 					<div className="modal-content sync-info-modal" onClick={(e) => e.stopPropagation()}>
 						<div className="modal-header">
-							<h2>Sincronización Automática Inteligente</h2>
+							<h2>Actualización automática</h2>
 							<button className="btn-close-modal" onClick={() => setMostrarInfoSync(false)}>
 								×
 							</button>
 						</div>
 						<div className="modal-body">
 							<p className="modal-intro">
-								El sistema ajusta automáticamente la frecuencia de sincronización según la actividad detectada:
+								La lista de partes se actualiza sola cada pocos segundos: si un
+								compañero crea o firma un parte, aparecerá aquí sin que tengas
+								que hacer nada.
 							</p>
-
-							<div className="sync-modes-info">
-								<div className="sync-mode-card rapido">
-									<div className="sync-mode-header">
-										<Clock size={20} />
-										<h3>Modo RÁPIDO</h3>
-										<span className="sync-badge rapido">Cada 3 segundos</span>
-									</div>
-									<p>Se activa cuando hay cambios recientes (últimos 30 segundos). Ideal para detectar actualizaciones rápidamente cuando hay actividad.</p>
-								</div>
-
-								<div className="sync-mode-card normal">
-									<div className="sync-mode-header">
-										<Clock size={20} />
-										<h3>Modo NORMAL</h3>
-										<span className="sync-badge normal">Cada 8 segundos</span>
-									</div>
-									<p>Se activa cuando no hay cambios entre 30 segundos y 2 minutos. Velocidad moderada para mantener datos actualizados.</p>
-								</div>
-
-								<div className="sync-mode-card lento">
-									<div className="sync-mode-header">
-										<Clock size={20} />
-										<h3>Modo LENTO</h3>
-										<span className="sync-badge lento">Cada 15 segundos</span>
-									</div>
-									<p>Se activa cuando no hay cambios por más de 2 minutos. Ahorra recursos cuando no hay actividad reciente.</p>
-								</div>
-							</div>
-
 							<div className="sync-info-footer">
 								<p>
-									<strong>Modo actual:</strong> <span className={`current-mode ${syncMode}`}>{syncMode.toUpperCase()}</span>
+									<strong>Última actualización:</strong>{' '}
+									{ultimaSyncRef.current
+										? new Date(ultimaSyncRef.current).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+										: 'todavía no'}
 								</p>
 								<p className="sync-tip">
-									💡 Usa el botón "Refrescar" para actualizar manualmente en cualquier momento
+									💡 Si necesitas la foto más reciente ahora mismo, usa el botón «Refrescar» de la cabecera.
 								</p>
 							</div>
 						</div>
@@ -896,7 +892,7 @@ function PantallaPrincipal({ onNavigate }) {
 }
 
 // Componente para consultar partes existentes
-function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
+function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onEdicionAbierta }) {
 	const [filtroObra, setFiltroObra] = useState('')
 	const [filtroFecha, setFiltroFecha] = useState('')
 	const [filtroEstado, setFiltroEstado] = useState('')
@@ -907,6 +903,12 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	const [detallesEmpleados, setDetallesEmpleados] = useState([])
 	const [loadingDetalles, setLoadingDetalles] = useState(false)
 	const [editandoParte, setEditandoParte] = useState(null)
+	// F6: avisa a App (por ref) de que hay una edición abierta — el polling del
+	// listado se pausa para no pisar el formulario. El cleanup cubre el desmontaje.
+	useEffect(() => {
+		onEdicionAbierta?.(Boolean(editandoParte))
+		return () => onEdicionAbierta?.(false)
+	}, [editandoParte]) // eslint-disable-line react-hooks/exhaustive-deps
 	const [empleadosObra, setEmpleadosObra] = useState([])
 	const [errorEmpleadosObra, setErrorEmpleadosObra] = useState(false)
 	const [loadingEmpleados, setLoadingEmpleados] = useState(false)
@@ -1715,10 +1717,12 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	const estadoPollLastChangeRef = useRef(Date.now())
 
 	const getEstadoPollInterval = () => {
+		// F6: suelo 8 s (antes 3 s) — con el polling del listado revivido, el
+		// GET más frecuente de la app deja de competir con él.
 		const elapsed = Date.now() - estadoPollLastChangeRef.current
-		if (elapsed < 30000) return 3000   // rápido: cambios recientes
-		if (elapsed < 120000) return 8000  // normal
-		return 15000                        // lento
+		if (elapsed < 30000) return 8000   // rápido: cambios recientes
+		if (elapsed < 120000) return 12000 // normal
+		return 20000                        // lento
 	}
 
 	useEffect(() => {
@@ -1734,6 +1738,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 		const poll = async () => {
 			if (cancelled) return
+			// F6 (FE-27): con la pestaña oculta, cero tráfico
+			if (document.visibilityState === 'hidden') return
 			try {
 				const data = await getParteEstado(parteSeleccionado.id)
 				if (!data || cancelled) return

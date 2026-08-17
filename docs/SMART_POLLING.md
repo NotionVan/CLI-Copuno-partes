@@ -1,306 +1,139 @@
-# Smart Polling - Sistema de Sincronización Inteligente
+# Smart Polling — Sincronización del listado y del modal de detalles
 
-## 📊 Resumen
+**Versión**: 3.0 (v1.11.0, F6) · **Última edición**: 2026-08-17
 
-Se ha implementado un sistema de **Smart Polling adaptativo** que ajusta automáticamente la frecuencia de sincronización según la actividad detectada en Notion, optimizando el balance entre **latencia baja** y **consumo de API**.
-
----
-
-## 🎯 Objetivos Conseguidos
-
-✅ Reducir latencia de sincronización a 2-3 segundos cuando hay actividad
-✅ Mantener consumo de API por debajo de 3 req/s (límite de Notion)
-✅ Ajustar automáticamente la frecuencia según actividad
-✅ Indicadores visuales del modo de sincronización actual
-✅ Soportar hasta **10+ usuarios concurrentes** sin superar límites
+> Historia rápida: la v1 usaba SSE (eliminado en v1.3.0 por incompatible con
+> Vercel serverless). La v2 documentaba un polling client-side de 3/8/15 s que
+> en realidad **llevaba muerto desde v1.3** por un ReferenceError silencioso
+> (hallazgo C1 de la auditoría de julio; catalogado en DEUDA_TECNICA). La v3
+> (F6, v1.11.0) lo revive con otro diseño: cadencias más lentas en el cliente
+> y un **freshness-check en el servidor** que abarata los ticks sin cambios.
 
 ---
 
-## 🔄 Modos de Sincronización
+## Diseño en una frase
 
-### 1. **Modo Rápido** ⚡ (3 segundos)
-- **Cuándo**: Cambios detectados hace menos de 30 segundos
-- **Indicador**: Badge azul pulsante con "RÁPIDO"
-- **Uso**: Proporciona actualizaciones casi en tiempo real
-
-### 2. **Modo Normal** 🔵 (8 segundos)
-- **Cuándo**: Sin cambios durante 30s - 2 minutos
-- **Indicador**: Badge morado con "NORMAL"
-- **Uso**: Balance entre actualización y consumo de API
-
-### 3. **Modo Lento** ⚪ (15 segundos)
-- **Cuándo**: Sin cambios durante más de 2 minutos
-- **Indicador**: Badge gris con "LENTO"
-- **Uso**: Conserva recursos cuando no hay actividad
-
----
-
-## 📈 Comparativa de Rendimiento
-
-### Antes (Polling Fijo)
-
-| Componente | Intervalo | Peticiones/min |
-|-----------|-----------|----------------|
-| Lista de partes | 30s | 2 req/min |
-| Opciones estado | 60s | 1 req/min |
-| SSE detalles | 5s | 12 req/min |
-| **Total promedio** | - | **~15 req/min** |
-
-### Después (Smart Polling)
-
-| Componente | Intervalo Dinámico | Peticiones/min (promedio) |
-|-----------|-------------------|--------------------------|
-| Lista de partes | 3s → 8s → 15s | 4-20 req/min |
-| Opciones estado | 10s → 30s | 2-6 req/min |
-| SSE detalles | 3s → 8s → 15s | 4-20 req/min |
-| **Total promedio** | - | **~10-46 req/min** |
-
-**Consumo estimado con 5 usuarios:**
-- Sin actividad: ~50 req/min (0.83 req/s) ✅
-- Con actividad alta: ~230 req/min (3.8 req/s) ⚠️ *Solo en picos*
-- Promedio real: ~100 req/min (1.66 req/s) ✅ **Seguro**
-
----
-
-## 🛠️ Implementación Técnica
-
-### Frontend ([App.jsx](../src/App.jsx))
-
-#### 1. Smart Polling para Lista de Partes
-
-```javascript
-// Detecta cambios mediante hash de IDs + estados + última edición
-const hashPartes = (partes) => {
-    return partes.map(p => `${p.id}-${p.estado}-${p.ultimaEdicion}`).join('|')
-}
-
-// Ajusta intervalo según tiempo desde último cambio
-const getSmartPollInterval = () => {
-    const timeSinceChange = Date.now() - lastParteChangeRef.current
-    if (timeSinceChange < 30000) return 3000  // Rápido
-    if (timeSinceChange < 120000) return 8000 // Normal
-    return 15000 // Lento
-}
-```
-
-#### 2. Smart Polling para Opciones de Estado
-
-```javascript
-// Similar al de partes, pero con umbrales diferentes
-const hashEstadoOptions = (opts) => {
-    return JSON.stringify(opts?.options?.map(o => o.name) || [])
-}
-
-// Ajuste menos agresivo (cambia menos frecuentemente)
-let newInterval = timeSinceChange < 60000 ? 10000 : 30000
-```
-
-### Backend ([server.js](../server.js))
-
-#### Server-Sent Events con Smart Polling
-
-```javascript
-// Variables de control
-let lastChangeTime = Date.now()
-let currentInterval = 3000
-let intervalId = null
-
-const getSmartInterval = () => {
-    const timeSinceChange = Date.now() - lastChangeTime
-    if (timeSinceChange < 30000) return 3000   // Rápido
-    if (timeSinceChange < 120000) return 8000  // Normal
-    return 15000 // Lento
-}
-
-// Polling adaptativo que se reinicia cuando detecta cambios
-const poll = async () => {
-    // ... obtener datos de Notion ...
-
-    if (estado !== lastEstado || ultimaEdicion !== lastEdit) {
-        lastChangeTime = Date.now() // Reset timer
-
-        // Reiniciar con intervalo rápido
-        const newInterval = getSmartInterval()
-        if (newInterval !== currentInterval) {
-            currentInterval = newInterval
-            clearInterval(intervalId)
-            intervalId = setInterval(pollLoop, currentInterval)
-        }
-    }
-}
-```
-
----
-
-## 🎨 Indicadores Visuales
-
-### Badge de Modo de Sincronización
-
-El indicador aparece en el header junto al estado de conectividad:
+El cliente pregunta "¿hay algo nuevo?" cada 12-30 s; el servidor, antes de
+repetir la query cara a Notion (~1,5-2,5 s), pregunta a Notion "¿se ha editado
+algo desde mi foto?" con una query mínima (~0,4 s) y, si no, sirve la foto que
+ya tenía.
 
 ```
-[Conectado] [RÁPIDO] ← Ambos badges visibles
+Tablet (App.jsx)                    Express (server.js)              Notion
+   │ GET /api/partes-trabajo            │                              │
+   │──────────────────────────────────▶│ foto fresca (≤30 s)          │
+   │◀───── foto de cache ──────────────│                              │
+   │                                    │ foto expirada (30 s-5 min)   │
+   │                                    │── hayCambiosDesde (0,4 s) ──▶│
+   │                                    │◀─ "nada nuevo" ──────────────│
+   │◀───── misma foto, TTL extendido ──│                              │
+   │                                    │◀─ "sí hay cambios" ──────────│
+   │                                    │── query completa (~2 s) ────▶│
+   │◀───── foto nueva ─────────────────│                              │
 ```
 
-**Estilos CSS:**
+## Cliente ([src/App.jsx](../src/App.jsx))
 
-- **Rápido**: Fondo azul (`#dbeafe`), texto azul oscuro, animación pulsante
-- **Normal**: Fondo índigo (`#e0e7ff`), texto índigo oscuro
-- **Lento**: Fondo gris (`#f3f4f6`), texto gris oscuro
+### Polling del listado (F6)
 
-La animación `pulse-fast` en modo rápido indica visualmente que hay sincronización activa.
+- **Cadencia adaptativa**: 12 s con cambios recientes (<1 min), 20 s en
+  reposo corto (<5 min), 30 s en reposo largo. Es deliberadamente más lenta
+  que la histórica (3/8/15): el listado es la query más cara y el
+  freshness-check del servidor hace que la latencia percibida no dependa del
+  tick del cliente.
+- **Patrón**: guarda `cancelled` + `setTimeout` encadenado (nunca dos ticks
+  solapados) — el mismo patrón del poll del modal, el único que funcionaba.
+- **Hash-guard**: `id-estado-ultimaEdicion` por parte; si la foto no cambió,
+  no hay `setState` ni re-render (los `useMemo` de ConsultaPartes sobreviven).
+- **Pausas** (cero tráfico, el timer sigue vivo):
+  - pestaña en background (`document.visibilityState === 'hidden'`);
+  - **edición abierta** — ConsultaPartes lo notifica por la prop
+    `onEdicionAbierta`, que App guarda en `edicionAbiertaRef` (ref, no
+    estado: la closure del efecto capturaría estado stale).
+- **Al volver a la pestaña**: reconcile inmediato (listado + opciones de
+  estado) con hash-guard y `guardarCacheLocal`.
+- **Tras cambios reales**: `guardarCacheLocal` actualiza la foto de
+  localStorage (P5/F4) — la próxima apertura de la app pinta datos frescos.
+- **Kill-switch**: constante `POLL_ENABLED` en App.jsx. Ponerla a `false` y
+  desplegar apaga el polling del listado sin tocar nada más.
+- **Errores**: 2 fallos seguidos → píldora «Sin conexión — no guardes
+  todavía» (UX-53, `fallosPollRef` compartido con el poll de estado-opciones).
 
----
+### Poll del modal de detalles
 
-## 📊 Análisis de Consumo de API
+- Cadencia 8/12/20 s (antes 3/8/15 — con el listado revivido, el GET más
+  frecuente de la app deja de competir con él). Pausado en background.
+- Sigue llamando a `GET /api/partes-trabajo/:id/estado` (endpoint ligero).
 
-### Escenario: 5 Usuarios Concurrentes
+### Otros ticks
 
-#### Caso 1: Todos sin ver detalles (navegando listas)
-```
-5 usuarios × (4 req/min partes + 2 req/min estado) = 30 req/min
-= 0.5 req/s ✅ MUY SEGURO
-```
+- **Opciones de estado**: 10/30 s, pausado en background.
+- **Chequeo de versión** (banner de actualización): 60 s, pausado en background.
 
-#### Caso 2: 2 usuarios viendo detalles + 3 navegando
-```
-2 × 20 req/min (SSE) + 3 × 6 req/min = 58 req/min
-= 0.96 req/s ✅ SEGURO
-```
+## Servidor ([server.js](../server.js) + [src-server/services/notion.js](../src-server/services/notion.js))
 
-#### Caso 3: Todos viendo detalles CON actividad alta (pico)
-```
-5 × (20 partes + 6 estado + 20 SSE) = 230 req/min
-= 3.8 req/s ⚠️ PICO MOMENTÁNEO
-```
+### Freshness-check (F6)
 
-**Nota**: El Caso 3 solo ocurre durante ráfagas de cambios (primeros 30s). Después el sistema se autorregula a modo Normal/Lento.
+Cuando la foto de `partes-trabajo` en el cache en memoria supera
+`CACHE_TTL_MS` (30 s), antes de relanzar la query completa:
 
-#### Caso 4: Promedio Real Sostenido
-```
-5 usuarios × (8 partes + 3 estado + 8 SSE) = 95 req/min
-= 1.58 req/s ✅ ÓPTIMO
-```
+1. `partesTrabajo.hayCambiosDesde({ desdeIso })` — query a Notion con filtro
+   `{ timestamp: 'last_edited_time', last_edited_time: { after: cursor } }`,
+   `page_size: 1` y `filter_properties` mínimos. Filtro **a nivel timestamp**,
+   inmune a renombres de propiedades (lección I9). ~0,4 s medidos.
+2. Sin cambios → se extiende el TTL de la foto y se sirve tal cual.
+3. Con cambios → query completa y foto nueva.
 
----
+- **Cursor**: el `last_edited_time` más reciente contenido en la foto — mejor
+  ancla que el reloj del servidor (inmune a drift; Notion compara contra su
+  propio timestamp).
+- **TTL duro** (`PARTES_TTL_DURO_MS`, 5 min): techo de vida de una foto. Cubre
+  el único residuo del diseño: un parte **archivado** en Notion no aparece en
+  el check (no hay evento de borrado), así que como muy tarde desaparece del
+  listado en 5 min. También cubre la zona ciega del redondeo: Notion redondea
+  `last_edited_time` al minuto.
+- **Escrituras desde la app**: `invalidarPartes()` (BE-3) borra la foto entera
+  (cursor incluido) → el siguiente GET es query completa. El freshness-check
+  nunca puede ocultar un cambio hecho por la propia app en la misma instancia.
+- **429 durante el check**: se sirve la foto algo vieja en vez de un 503 — la
+  query completa también habría fallado.
 
-## 🔧 Configuración y Ajustes
+### Cache de firmantes (I-C)
 
-### Variables Configurables
+`GET /api/obras/:id/firmantes-autorizados` expande la relación en paralelo
+(`Promise.all`, acotado por el semáforo global de 5) y cachea 60 s por obra
+(`FIRMANTES_TTL_MS`). Sin invalidación: los firmantes solo cambian editando
+`Persona Autorizada` en Notion, nunca desde la app.
 
-#### Frontend (App.jsx)
+## Presupuesto de peticiones (20 usuarios)
 
-```javascript
-// Umbrales de tiempo para modo rápido/normal/lento
-const THRESHOLD_FAST = 30000    // 30 segundos
-const THRESHOLD_NORMAL = 120000 // 2 minutos
+| Tick | Cadencia | Coste típico |
+|---|---|---|
+| Listado, cache fresco | 12-30 s | 0 llamadas a Notion (foto compartida) + posible 304 al navegador |
+| Listado, foto expirada sin cambios | — | 1 query mínima (~0,4 s) |
+| Listado, con cambios | — | 1 query mínima + 1 completa (~2 s) |
+| Modal de detalles | 8-20 s | 1 GET de página con `filter_properties` |
 
-// Intervalos de polling
-const INTERVAL_FAST = 3000   // 3 segundos
-const INTERVAL_NORMAL = 8000 // 8 segundos
-const INTERVAL_SLOW = 15000  // 15 segundos
-```
+La mayoría de los ticks de 20 usuarios golpean la foto compartida del
+servidor; el semáforo de 5 concurrentes y el retry de 429 (F5) absorben los
+picos. Compatible con el límite de ~3 req/s de Notion.
 
-#### Backend (server.js)
+## Verificación (17-08-2026)
 
-```javascript
-// Cache TTL (ya configurable por variable de entorno)
-CACHE_TTL_MS = 5000 // 5 segundos (default)
+- Contra Notion real: query completa 1,51 s → cache 4 ms → check sin cambios
+  **0,43 s** (foto extendida) → edición en Notion detectada → query completa
+  1,71 s → siguiente check 0,36 s.
+- E2E en navegador (mock): ticks a 9,7/21,7 s; un parte creado por «otro
+  usuario» **aparece solo** en el listado; 0 ticks con la edición abierta;
+  reanudación al cerrar; consola limpia.
 
-// Intervalos SSE (en el código)
-const INTERVAL_FAST = 3000
-const INTERVAL_NORMAL = 8000
-const INTERVAL_SLOW = 15000
-```
+## Resolución de problemas
 
-### Variables de Entorno Recomendadas
-
-```bash
-# Para máxima velocidad (más consumo de API)
-CACHE_TTL_MS=2000
-
-# Para balance óptimo (recomendado)
-CACHE_TTL_MS=5000
-
-# Para conservar API (más lento)
-CACHE_TTL_MS=10000
-```
-
----
-
-## 📝 Beneficios del Smart Polling
-
-### ✅ Ventajas
-
-1. **Latencia baja cuando importa**: 3s de actualización durante actividad
-2. **Conserva recursos**: Se ralentiza automáticamente sin actividad
-3. **Escalable**: Soporta más usuarios sin superar límites
-4. **Transparente**: El usuario ve el modo actual en todo momento
-5. **Sin configuración**: Funciona automáticamente out-of-the-box
-
-### 🎯 Casos de Uso Ideales
-
-- **Jefes de obra** creando/editando partes: Modo rápido activo
-- **Operarios** consultando partes antiguos: Modo lento automático
-- **Cambios de estado** en tiempo real: Respuesta en 3 segundos
-- **Horas valle**: Sistema se ralentiza solo, ahorrando API
-
----
-
-## 🐛 Resolución de Problemas
-
-### El modo no cambia de "rápido"
-
-**Causa**: Hay cambios continuos en Notion.
-**Solución**: Esperar 30s sin cambios para que pase a modo normal.
-
-### Indicador no aparece en el header
-
-**Causa**: La aplicación está cargando o hay error de conectividad.
-**Solución**: El indicador solo aparece cuando `connectivity.status === 'ok'`.
-
-### Consumo de API alto
-
-**Causa**: Múltiples usuarios viendo detalles simultáneamente en modo rápido.
-**Solución**: Aumentar `THRESHOLD_FAST` a 60000 (1 minuto) para transicionar más rápido.
-
-### Actualizaciones muy lentas
-
-**Causa**: Sistema en modo lento (15s).
-**Solución**: Hacer un cambio en Notion o usar el botón de refrescar manual.
-
----
-
-## 🚀 Próximas Mejoras (Opcional)
-
-### Nivel 1: Mejoras Simples
-- [ ] Botón para forzar modo rápido temporalmente
-- [ ] Estadísticas de peticiones en el dashboard
-- [ ] Notificación visual cuando se detectan cambios
-
-### Nivel 2: Optimizaciones Avanzadas
-- [ ] WebSockets en lugar de SSE para menor latencia
-- [ ] Caché compartido entre usuarios (Redis)
-- [ ] Predicción de cambios basada en patrones
-
-### Nivel 3: Features Empresariales
-- [ ] Modo offline con sincronización diferida
-- [ ] Compresión de payloads
-- [ ] CDN para assets estáticos
-
----
-
-## 📞 Soporte
-
-Para preguntas o problemas con el Smart Polling:
-
-1. Revisar logs del navegador (F12 > Console)
-2. Verificar indicador de modo en el header
-3. Consultar este documento
-4. Ajustar umbrales según necesidad
-
----
-
-**Versión**: 1.0
-**Fecha**: 2025-01-17
-**Autor**: Claude Code Assistant
+- **«La lista no se actualiza»**: comprobar la píldora de la cabecera (si dice
+  «Sin conexión», es la red); un parte archivado en Notion puede tardar hasta
+  5 min en desaparecer (TTL duro); el botón Refrescar fuerza la foto más
+  reciente.
+- **Apagar el polling en emergencia**: `POLL_ENABLED = false` en App.jsx +
+  deploy (bump patch). El resto de la app no cambia.
+- **Ajustes por entorno**: `CACHE_TTL_MS` (30 s), `PARTES_TTL_DURO_MS`
+  (5 min), `FIRMANTES_TTL_MS` (60 s).
