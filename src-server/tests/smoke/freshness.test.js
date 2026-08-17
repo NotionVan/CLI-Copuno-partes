@@ -15,8 +15,8 @@
 
 process.env.USE_MOCK_DATA = 'true'
 process.env.NOTION_TOKEN = 'mock'
-process.env.CACHE_TTL_MS = '200'        // foto fresca: 200 ms
-process.env.PARTES_TTL_DURO_MS = '1500' // techo de vida de la foto: 1,5 s
+process.env.CACHE_TTL_MS = '1000'       // foto fresca: 1 s (margen anti-flaky: un hipo de GC entre dos GET "inmediatos" no puede expirarla)
+process.env.PARTES_TTL_DURO_MS = '4000' // techo de vida de la foto: 4 s
 process.env.SUPABASE_URL = ''           // sin auth (se prueba en auth.test.js)
 
 const test = require('node:test')
@@ -52,7 +52,7 @@ test('F6: freshness-check del listado de partes', async (t) => {
 	assert.deepEqual(r2.body.map(p => p.id), r1.body.map(p => p.id))
 
 	// ── Foto expirada + sin cambios: check barato, foto extendida ──
-	await espera(300)
+	await espera(1400)
 	checkImpl = async () => false
 	const r3 = await request(app).get('/api/partes-trabajo')
 	assert.equal(r3.status, 200)
@@ -65,7 +65,7 @@ test('F6: freshness-check del listado de partes', async (t) => {
 	assert.equal(llamadasCheck, 1, 'TTL extendido: sin check en el GET inmediato')
 
 	// ── Foto expirada + con cambios: query completa y foto nueva ──
-	await espera(300)
+	await espera(1400)
 	checkImpl = async () => true
 	const r5 = await request(app).get('/api/partes-trabajo')
 	assert.equal(r5.status, 200)
@@ -73,7 +73,7 @@ test('F6: freshness-check del listado de partes', async (t) => {
 	assert.equal(llamadasListar, 2, 'con cambios debe relanzarse la query completa')
 
 	// ── Check con 429: se sirve la foto stale en vez de fallar ──
-	await espera(300)
+	await espera(1400)
 	checkImpl = async () => { const e = new Error('rate limited'); e.status = 429; throw e }
 	const r6 = await request(app).get('/api/partes-trabajo')
 	assert.equal(r6.status, 200, 'un 429 en el check no puede convertirse en error')
@@ -83,7 +83,7 @@ test('F6: freshness-check del listado de partes', async (t) => {
 
 	// ── TTL duro: pasada la vida máxima, query completa SIN check ──
 	// (cubre el residuo de los partes archivados, invisibles para el check)
-	await espera(1600)
+	await espera(4200)
 	checkImpl = async () => { throw new Error('el check no debería llamarse pasado el TTL duro') }
 	const r7 = await request(app).get('/api/partes-trabajo')
 	assert.equal(r7.status, 200)
