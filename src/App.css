@@ -1212,7 +1212,9 @@
 
 .message.warning {
 	background-color: #fef3c7;
-	color: var(--warning-color);
+	/* UX-25: --warning-color sobre ámbar daba 2,9:1 — el aviso más importante
+	   («vuelve a Borrador, reenvía») era invisible a pleno sol. Este da ~6,4:1. */
+	color: #7a4a00;
 	border: 1px solid #fde68a;
 }
 
@@ -1728,9 +1730,10 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 36px;
-	height: 36px;
-	min-width: 36px;
+	/* UX-24: 44px mínimo — con guantes, 36px era un objetivo fallido cada dos toques */
+	width: 44px;
+	height: 44px;
+	min-width: 44px;
 	border: 1px solid var(--border-color);
 	background-color: var(--surface-color);
 	color: var(--text-primary);
@@ -2394,8 +2397,9 @@ input[type="checkbox"] {
 	color: var(--text-secondary);
 	cursor: pointer;
 	padding: 0;
-	width: 32px;
-	height: 32px;
+	/* UX-24: objetivo táctil de 44px */
+	width: 44px;
+	height: 44px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -2745,3 +2749,81 @@ input[type="checkbox"] {
 		gap: var(--spacing-sm);
 	}
 }
+
+
+/* ── Toast flotante (F4/UX-16) — el aviso siempre a la vista ── */
+.toast {
+	position: fixed;
+	bottom: max(20px, env(safe-area-inset-bottom));
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 1200; /* por encima de modales (overlay 1000) */
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	max-width: min(92vw, 560px);
+	padding: 14px 16px;
+	border-radius: var(--border-radius);
+	border: 1px solid;
+	box-shadow: 0 8px 30px rgba(1, 20, 109, 0.18);
+	font-size: var(--font-size-medium);
+	font-weight: 500;
+	animation: toast-entrar 0.22s ease-out;
+}
+@keyframes toast-entrar {
+	from { opacity: 0; transform: translate(-50%, 12px); }
+	to { opacity: 1; transform: translate(-50%, 0); }
+}
+.toast--success { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+.toast--warning { background: #fef3c7; border-color: #fcd34d; color: #7a4a00; }
+.toast--error { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+.toast-icono { flex: none; }
+.toast-texto { min-width: 0; }
+.toast-cerrar {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 44px;
+	min-height: 44px;
+	margin: -8px -8px -8px 0;
+	background: none;
+	border: none;
+	border-radius: var(--border-radius-sm);
+	color: inherit;
+	cursor: pointer;
+}
+.toast-cerrar:hover { background: rgba(0, 0, 0, 0.06); }
+@media (prefers-reduced-motion: reduce) {
+	.toast { animation: none; }
+}
+
+
+/* ── F4: error de carga ≠ vacío real (UX-10) ── */
+.empleados-error { color: #991b1b; background: #fee2e2; border-radius: var(--border-radius-sm); padding: 8px 12px; }
+.btn-enlace {
+	background: none; border: none; padding: 4px 6px; margin: -4px 0;
+	color: var(--primary-color); font-weight: 600; text-decoration: underline; cursor: pointer;
+	min-height: 44px;
+}
+
+/* ── F4 (P7): skeletons con la geometría real de la tarjeta de parte ── */
+.skeleton-lista { display: flex; flex-direction: column; gap: var(--spacing-md); }
+.skeleton-card {
+	border-radius: var(--border-radius);
+	border: 1px solid var(--border-color);
+	background: var(--surface-color);
+	padding: var(--spacing-lg);
+	display: flex; flex-direction: column; gap: 12px;
+}
+.skeleton-linea {
+	height: 16px; border-radius: 6px;
+	background: linear-gradient(90deg, #eef0fb 25%, #f7f8ff 50%, #eef0fb 75%);
+	background-size: 200% 100%;
+	animation: skeleton-brillo 1.4s ease-in-out infinite;
+}
+.skeleton-linea--titulo { height: 22px; width: 55%; }
+.skeleton-linea--media { width: 80%; }
+.skeleton-linea--corta { width: 35%; }
+@keyframes skeleton-brillo { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton-linea { animation: none; } }

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { LogOut, KeyRound, UserCircle } from 'lucide-react'
+import { limpiarCacheLocal } from '../lib/cacheLocal'
 import { supabase } from '../lib/supabase'
 import './auth.css'
 
@@ -58,7 +59,7 @@ export default function MenuCuenta() {
 					</button>
 					<button
 						type="button" className="cuenta-item" role="menuitem"
-						onClick={() => supabase.auth.signOut().then(() => window.location.reload())}
+						onClick={() => { limpiarCacheLocal(); supabase.auth.signOut().then(() => window.location.reload()) }}
 					>
 						<LogOut size={16} aria-hidden="true" /> Cerrar sesión
 					</button>

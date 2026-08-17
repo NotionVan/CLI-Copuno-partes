@@ -8,7 +8,8 @@ const API_BASE_URL = ''
 // Configuración de axios con interceptores
 const apiClient = axios.create({
 	baseURL: API_BASE_URL,
-	timeout: 60000,
+	// P9: 60 s era una condena en red de obra; 20 s cubre el peor caso real
+	timeout: 20000,
 	headers: {
 		'Content-Type': 'application/json'
 	}
@@ -492,6 +493,10 @@ export const retryOperation = async (operation, maxRetries = 3, delay = 1000) =>
 		try {
 			return await operation()
 		} catch (error) {
+			// P9: un 4xx (validación, auth, rate limit propio) no se arregla
+			// reintentando — repetir el lote solo amplifica la congestión.
+			const status = error?.status || error?.response?.status
+			if (status >= 400 && status < 500) throw error
 			if (attempt === maxRetries) {
 				throw error
 			}

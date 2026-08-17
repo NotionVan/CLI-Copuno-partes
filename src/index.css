@@ -12,7 +12,7 @@
 	--border-color: #cfd5ff;
 	--text-primary: #050716;
 	--text-secondary: #3b4263;
-	--text-tertiary: #7c83a5;
+	--text-tertiary: #5c6484; /* UX-25: el #7c83a5 daba 3,7:1 sobre blanco — invisible al sol; este da ~6:1 */
 	--primary-soft: #e3e6ff;
 	--primary-soft-strong: #ccd2ff;
 	--primary-ring: rgba(1, 20, 109, 0.18);

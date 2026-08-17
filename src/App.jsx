@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RotateCcw, X, Truck, Download, AlertTriangle } from 'lucide-react'
+import Toast from './components/Toast'
+import { leerCacheLocal, guardarCacheLocal } from './lib/cacheLocal'
 import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId, buscarVehiculos, exportarChorus, componerCsvChorus } from './services/notionService'
 
 // F4: helpers para agrupar firmantes por rol en el selector
@@ -45,6 +47,9 @@ function CampoVehiculos({ value, onChange }) {
 	const [sugerencias, setSugerencias] = useState([])
 	const [buscando, setBuscando] = useState(false)
 	const timerRef = useRef(null)
+	// P9: el debounce cancela el TEMPORIZADOR, no la petición en vuelo — sin esta
+	// guarda, la respuesta lenta de "707" podía pisar a la rápida de "7072KLC".
+	const seqBusquedaRef = useRef(0)
 
 	useEffect(() => {
 		if (termino.trim().length < 2) {
@@ -53,17 +58,20 @@ function CampoVehiculos({ value, onChange }) {
 		}
 		if (timerRef.current) clearTimeout(timerRef.current)
 		timerRef.current = setTimeout(async () => {
+			const miTurno = ++seqBusquedaRef.current
 			try {
 				setBuscando(true)
 				const resultados = await buscarVehiculos(termino.trim(), 10)
+				if (miTurno !== seqBusquedaRef.current) return // llegó tarde: descartar
 				// No sugerir vehículos ya seleccionados
 				const yaIds = new Set(seleccionados.map(s => s.id))
 				setSugerencias((resultados || []).filter(v => v.matricula && !yaIds.has(v.id)))
 			} catch (e) {
+				if (miTurno !== seqBusquedaRef.current) return
 				console.error('Error buscando vehículos:', e)
 				setSugerencias([])
 			} finally {
-				setBuscando(false)
+				if (miTurno === seqBusquedaRef.current) setBuscando(false)
 			}
 		}, 300)
 		return () => timerRef.current && clearTimeout(timerRef.current)
@@ -90,7 +98,7 @@ function CampoVehiculos({ value, onChange }) {
 							<button
 								type="button"
 								onClick={() => quitar(s.id)}
-								style={{ marginLeft: '6px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+								style={{ marginLeft: '2px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: '-10px -8px -10px 2px' }}
 								aria-label={`Quitar ${s.matricula}`}
 							>
 								×
@@ -381,13 +389,17 @@ function ModalExportarCsv({ onCerrar }) {
 
 function App() {
 	const [activeSection, setActiveSection] = useState('main') // Forzar pantalla principal
-	const [datos, setDatos] = useState({
+	// F4 (P5): rehidratar la última foto local (stale-while-revalidate). Si hay
+	// foto, no hay spinner: se pinta al instante y la revalidación corre detrás.
+	const [datos, setDatos] = useState(() => leerCacheLocal() || {
 		obras: [],
 		jefesObra: [],
 		empleados: [],
 		partesTrabajo: []
 	})
-	const [loading, setLoading] = useState(true)
+	const [desdeCacheLocal] = useState(() => Boolean(leerCacheLocal()))
+	const [revalidando, setRevalidando] = useState(false)
+	const [loading, setLoading] = useState(() => !leerCacheLocal())
 	const [error, setError] = useState(null)
 	const [connectivity, setConnectivity] = useState({ status: 'checking', message: '' })
 	const [estadoOptions, setEstadoOptions] = useState({ type: 'status', options: [] })
@@ -578,7 +590,11 @@ function App() {
 
 	const cargarDatos = async () => {
 		try {
-			setLoading(true)
+			// F4 (P5): si ya hay datos en pantalla (cache local), la recarga es una
+			// revalidación silenciosa — indicador discreto, nunca spinner bloqueante.
+			const hayDatosPintados = datos.partesTrabajo.length > 0 || datos.obras.length > 0
+			if (hayDatosPintados) setRevalidando(true)
+			else setLoading(true)
 			setError(null)
 			// F3: sin health previo bloqueante — la conectividad se deriva del propio
 			// resultado de la carga (un round-trip menos en el camino crítico).
@@ -587,6 +603,7 @@ function App() {
 			const datosCompletos = await retryOperation(async () => {
 				return await getDatosCompletos()
 			}, 2, 1000)
+			guardarCacheLocal(datosCompletos)
 
 			console.log('📊 Datos cargados:', datosCompletos)
 			console.log('🏗️ Obras cargadas:', datosCompletos.obras.length)
@@ -597,10 +614,17 @@ function App() {
 			setConnectivity({ status: 'ok', message: 'Conectado' })
 		} catch (err) {
 			console.error('Error al cargar datos:', err)
-			setError(err.message)
-			setConnectivity({ status: 'error', message: err.message })
+			// F4: con datos ya pintados, un fallo de revalidación no rompe la vista —
+			// se sigue enseñando la foto local y el indicador de conexión avisa.
+			if (datos.partesTrabajo.length > 0 || datos.obras.length > 0) {
+				setConnectivity({ status: 'error', message: err.message })
+			} else {
+				setError(err.message)
+				setConnectivity({ status: 'error', message: err.message })
+			}
 		} finally {
 			setLoading(false)
+			setRevalidando(false)
 		}
 	}
 
@@ -663,7 +687,7 @@ function App() {
 				syncMode={syncMode}
 				cargando={loading}
 				error={error}
-				refrescando={refrescando}
+				refrescando={refrescando || revalidando}
 				onInicio={volverInicio}
 				onRefrescar={refrescarTodosDatos}
 				onExportar={() => setMostrarExportar(true)}
@@ -702,9 +726,16 @@ function App() {
 						{activeSection === 'main' ? (
 							<PantallaPrincipal onNavigate={setActiveSection} />
 						) : loading ? (
-							<div className="loading-container">
-								<Loader2 size={48} className="loading-spinner" />
-								<p className="loading-text">Cargando partes y obras...</p>
+							/* P7: tarjetas fantasma con la geometría real — la espera se percibe
+							   más corta y no hay salto de layout al llegar los datos. */
+							<div className="skeleton-lista" aria-hidden="true">
+								{[0, 1, 2].map(i => (
+									<div key={i} className="skeleton-card">
+										<div className="skeleton-linea skeleton-linea--titulo" />
+										<div className="skeleton-linea skeleton-linea--media" />
+										<div className="skeleton-linea skeleton-linea--corta" />
+									</div>
+								))}
 							</div>
 						) : error ? (
 							<div className="error-container">
@@ -728,7 +759,7 @@ function App() {
 								{activeSection === 'consulta' ? (
 									<ConsultaPartes datos={datos} onVolver={() => setActiveSection('main')} estadoOptions={estadoOptions} onRefrescarPartes={refrescarPartes} />
 								) : activeSection === 'crear' ? (
-									<CrearParte datos={datos} estadoOptions={estadoOptions} onParteCreado={cargarDatos} onVolver={() => setActiveSection('main')} />
+									<CrearParte datos={datos} estadoOptions={estadoOptions} onParteCreado={refrescarPartes} onVolver={() => setActiveSection('main')} />
 								) : null}
 							</>
 						)}
@@ -851,15 +882,19 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	const [loadingDetalles, setLoadingDetalles] = useState(false)
 	const [editandoParte, setEditandoParte] = useState(null)
 	const [empleadosObra, setEmpleadosObra] = useState([])
+	const [errorEmpleadosObra, setErrorEmpleadosObra] = useState(false)
 	const [loadingEmpleados, setLoadingEmpleados] = useState(false)
 	const [mostrarEmpleadosObra, setMostrarEmpleadosObra] = useState(false)
 	const [loadingEmpleadosParte, setLoadingEmpleadosParte] = useState(false)
 	// F4: firmantes autorizados de la obra del parte en edición + toggle búsqueda libre
 	const [firmantesObra, setFirmantesObra] = useState([])
+	const [errorFirmantesObra, setErrorFirmantesObra] = useState(false)
 	const [loadingFirmantes, setLoadingFirmantes] = useState(false)
+	const [errorDetalles, setErrorDetalles] = useState(false)
 	const [busquedaLibreJefesEdicion, setBusquedaLibreJefesEdicion] = useState(false)
 	// F5: toggle búsqueda libre de empleados en edición
 	const [busquedaLibreEmpleadosEdicion, setBusquedaLibreEmpleadosEdicion] = useState(false)
+	const seqBusquedaEdicionRef = useRef(0) // P9: guarda de secuencia del buscador
 	// Añadir empleado por ID Copuno o nombre directamente en edición (sugerencias, igual que en creación)
 	const [busquedaIdEdicion, setBusquedaIdEdicion] = useState('')
 	const [buscandoIdEdicion, setBuscandoIdEdicion] = useState(false)
@@ -1121,12 +1156,16 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		}
 
 		setLoadingEmpleados(true)
+		setErrorEmpleadosObra(false)
 		try {
 			const empleados = await getEmpleadosObra(obraId)
 			setEmpleadosObra(empleados)
 		} catch (error) {
+			// UX-10: un fallo de red NO es «la obra no tiene empleados» — se marca
+			// como error para que la UI lo distinga y ofrezca reintentar.
 			console.error('Error al cargar empleados de la obra:', error)
 			setEmpleadosObra([])
+			setErrorEmpleadosObra(true)
 		} finally {
 			setLoadingEmpleados(false)
 		}
@@ -1139,12 +1178,14 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			return
 		}
 		setLoadingFirmantes(true)
+		setErrorFirmantesObra(false)
 		try {
 			const firmantes = await getFirmantesAutorizados(obraId)
 			setFirmantesObra(firmantes || [])
 		} catch (e) {
 			console.error('Error al cargar firmantes de la obra:', e)
 			setFirmantesObra([])
+			setErrorFirmantesObra(true)
 		} finally {
 			setLoadingFirmantes(false)
 		}
@@ -1219,7 +1260,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				personaAutorizadaId: personaAutorizadaId
 			})
 
-			setEditandoParte({
+			const parteParaEditar = {
 				id: parte.id,
 				nombre: parte.nombre,
 				fecha: parte.fecha ? new Date(parte.fecha).toISOString().slice(0, 16) : getCurrentDateTime(),
@@ -1231,34 +1272,20 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				vehiculosSel: vehiculosDelParte(detallesCompletos.parte),
 				empleados: empleadosActuales,
 				empleadosHoras: horasActuales
-			})
+			}
+			edicionOriginalRef.current = JSON.stringify(parteParaEditar) // UX-2a
+			setEditandoParte(parteParaEditar)
 
 			// Cargar empleados y firmantes de la obra (F4)
 			if (obraId) {
 				await Promise.all([cargarEmpleadosObra(obraId), cargarFirmantesObra(obraId)])
 			}
 		} catch (error) {
+			// UX-4: NUNCA abrir la edición sin los detalles cargados. El formulario
+			// abría con empleados:[] y guardar ARCHIVABA los detalles reales del
+			// parte (el PUT es wipe-and-recreate) — pérdida de horas registradas.
 			console.error('Error al cargar detalles completos del parte:', error)
-
-			// Fallback: usar datos básicos del parte
-			setEditandoParte({
-				id: parte.id,
-				nombre: parte.nombre,
-				fecha: parte.fecha ? new Date(parte.fecha).toISOString().slice(0, 16) : getCurrentDateTime(),
-				provinciaSeleccionada: obraEncontrada?.provincia || '',
-				obraId: obraId,
-				obra: parte.obra,
-				personaAutorizadaId: '',
-				notas: parte.notas || '',
-				vehiculosSel: vehiculosDelParte(parte),
-				empleados: [],
-				empleadosHoras: {}
-			})
-
-			// Cargar empleados y firmantes de la obra (F4)
-			if (obraId) {
-				await Promise.all([cargarEmpleadosObra(obraId), cargarFirmantesObra(obraId)])
-			}
+			setMensajeUI({ tipo: 'error', texto: 'No se pudieron cargar los datos del parte. Revisa la cobertura y vuelve a pulsar Editar.' })
 		} finally {
 			setLoadingEmpleadosParte(false)
 		}
@@ -1336,7 +1363,14 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	}
 
 	// Función para cancelar edición
-	const cancelarEdicion = () => {
+	// UX-2a: snapshot del parte al abrir la edición para detectar cambios sin guardar
+	const edicionOriginalRef = useRef(null)
+	const cancelarEdicion = (forzar = false) => {
+		if (!forzar && editandoParte && edicionOriginalRef.current) {
+			const hayCambios = JSON.stringify(editandoParte) !== edicionOriginalRef.current
+			if (hayCambios && !window.confirm('Hay cambios sin guardar. ¿Descartarlos?')) return
+		}
+		edicionOriginalRef.current = null
 		setEditandoParte(null)
 		setEmpleadosObra([])
 		setMostrarEmpleadosObra(false)
@@ -1359,6 +1393,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 		}
 		setBuscandoIdEdicion(true)
 		const t = setTimeout(async () => {
+			const miTurno = ++seqBusquedaEdicionRef.current
 			try {
 				const texto = busquedaIdEdicion.trim()
 				const esIdCopuno = /^\d{3,6}$/.test(texto)
@@ -1371,14 +1406,16 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 				} else {
 					resultados = await buscarEmpleados(texto, 20)
 				}
+				if (miTurno !== seqBusquedaEdicionRef.current) return // P9: respuesta tardía
 				setResultadosBusquedaEdicion(resultados || [])
 				setErrorBusquedaIdEdicion((resultados || []).length === 0 ? `Sin resultados para "${texto}"` : '')
 			} catch (error) {
+				if (miTurno !== seqBusquedaEdicionRef.current) return
 				console.error('Error al buscar empleado:', error)
 				setResultadosBusquedaEdicion([])
 				setErrorBusquedaIdEdicion('Error al buscar el empleado. Inténtalo de nuevo.')
 			} finally {
-				setBuscandoIdEdicion(false)
+				if (miTurno === seqBusquedaEdicionRef.current) setBuscandoIdEdicion(false)
 			}
 		}, 300)
 		return () => clearTimeout(t)
@@ -1446,21 +1483,21 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 			}
 			setMensajeUI({ tipo: resultado.estadoCambiado ? 'warning' : 'success', texto: mensajeExito })
 
-			// El mensaje queda visible en el banner del listado tras cerrar (mismo estado)
+			// El mensaje queda visible en el toast tras cerrar (mismo estado)
 			// Refrescar listado de partes sin recargar la página completa
 			if (onRefrescarPartes) {
 				await onRefrescarPartes()
 			}
 
-			// Cerrar modal de edición
-			cancelarEdicion()
+			// Cerrar modal de edición (forzar: los cambios acaban de guardarse)
+			cancelarEdicion(true)
 
 		} catch (error) {
 			console.error('Error al actualizar parte:', error)
 			if (error.status === 409) {
 				setMensajeUI({ tipo: 'error', texto: error.message })
-				// Cerrar edición y refrescar ya: el mensaje persiste en el banner del listado
-				cancelarEdicion()
+				// Cerrar edición y refrescar ya: el mensaje persiste en el toast
+				cancelarEdicion(true)
 				if (onRefrescarPartes) onRefrescarPartes()
 			} else {
 				setMensajeUI({ tipo: 'error', texto: `No se pudo actualizar el parte: ${error.message}` })
@@ -1575,38 +1612,39 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 	// partes antiguos sin campo Vehículos quedan excluidos solo si se filtra.
 	const normalizarMatricula = (texto) => String(texto || '').toUpperCase().replace(/[\s-]/g, '')
 
-	// Filtrar partes según los criterios
-	const partesFiltrados = datos.partesTrabajo.filter(parte => {
+	// P8: memoizados — antes se recalculaban ENTEROS en cada render (cada tecla
+	// de cada filtro). fechasUnicas se eliminó: era cómputo 100 % muerto (su
+	// único consumidor llevaba meses comentado) y el más caro (un Date por parte).
+	const partesFiltrados = useMemo(() => datos.partesTrabajo.filter(parte => {
 		const cumpleObra = !filtroObra || parte.obra === filtroObra
 		const cumpleFecha = !filtroFecha || normalizarFecha(parte.fecha) === filtroFecha
 		const cumpleEstado = !filtroEstado || (parte.estado || 'Pendiente') === filtroEstado
 		const cumplePersonaAutorizada = !filtroPersonaAutorizada || parte.personaAutorizada === filtroPersonaAutorizada
 		const cumpleVehiculo = !filtroVehiculo.trim() || normalizarMatricula(parte.vehiculos).includes(normalizarMatricula(filtroVehiculo))
 		return cumpleObra && cumpleFecha && cumpleEstado && cumplePersonaAutorizada && cumpleVehiculo
-	})
+	}), [datos.partesTrabajo, filtroObra, filtroFecha, filtroEstado, filtroPersonaAutorizada, filtroVehiculo])
 
-	// Obtener obras únicas para el filtro - usar todas las obras disponibles
-	const obrasUnicas = datos.obras.map(obra => obra.nombre).filter(obra => obra)
+	const obrasUnicas = useMemo(() => datos.obras.map(obra => obra.nombre).filter(obra => obra), [datos.obras])
 
-	// Obtener estados únicos para el filtro
-	const estadosUnicos = [...new Set(datos.partesTrabajo.map(parte => parte.estado || 'Pendiente'))].filter(estado => estado).sort()
+	const estadosUnicos = useMemo(() => [...new Set(datos.partesTrabajo.map(parte => parte.estado || 'Pendiente'))].filter(estado => estado).sort(), [datos.partesTrabajo])
 
-	// Obtener personas autorizadas únicas para el filtro
-	const personasAutorizadasUnicas = [...new Set(datos.partesTrabajo.map(parte => parte.personaAutorizada).filter(persona => persona))].sort()
+	const personasAutorizadasUnicas = useMemo(() => [...new Set(datos.partesTrabajo.map(parte => parte.personaAutorizada).filter(persona => persona))].sort(), [datos.partesTrabajo])
 
-	// Obtener fechas únicas para debug
-	const fechasUnicas = [...new Set(datos.partesTrabajo.map(parte => normalizarFecha(parte.fecha)))].filter(fecha => fecha)
+	// P8: índice de rectificativos — el find() dentro del map() del listado era O(n²)
+	const partesPorId = useMemo(() => new Map(datos.partesTrabajo.map(p => [p.id, p])), [datos.partesTrabajo])
 
 	const verDetalles = async (parte) => {
 		setParteSeleccionado(parte)
 		setLoadingDetalles(true)
 		setDetallesEmpleados([])
 
+		setErrorDetalles(false)
 		try {
 			const detalles = await getDetallesEmpleados(parte.id)
 			setDetallesEmpleados(detalles)
 		} catch (error) {
 			console.error('Error al cargar detalles de empleados:', error)
+			setErrorDetalles(true)
 		} finally {
 			setLoadingDetalles(false)
 		}
@@ -1713,11 +1751,6 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 							<h2 className="edicion-title">Editar Parte: {editandoParte.nombre}</h2>
 						</div>
 
-						{mensajeUI.texto && (
-							<div className={`message ${mensajeUI.tipo}`} style={{ marginBottom: 12 }}>
-								{mensajeUI.texto}
-							</div>
-						)}
 						<div className="edicion-form">
 							<div className="form-group">
 								<label className="form-label">Provincia:</label>
@@ -1783,9 +1816,16 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 								) : (
 									<>
 										{!busquedaLibreJefesEdicion && firmantesObra.length === 0 && (
-											<div className="empleados-empty" style={{ marginBottom: 6 }}>
-												Esta obra no tiene firmantes asignados. Activa búsqueda libre para elegir uno de la base completa.
-											</div>
+											errorFirmantesObra ? (
+												<div className="empleados-empty empleados-error" style={{ marginBottom: 6 }}>
+													No se pudieron cargar los firmantes (fallo de conexión).{' '}
+													<button type="button" className="btn-enlace" onClick={() => cargarFirmantesObra(editandoParte.obraId)}>Reintentar</button>
+												</div>
+											) : (
+												<div className="empleados-empty" style={{ marginBottom: 6 }}>
+													Esta obra no tiene firmantes asignados. Activa búsqueda libre para elegir uno de la base completa.
+												</div>
+											)
 										)}
 										<select
 											className="form-select"
@@ -2205,6 +2245,11 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 											)
 										})}
 									</div>
+								) : errorDetalles ? (
+									<div className="no-empleados">
+										<p>No se pudo cargar el desglose (fallo de conexión).</p>
+										<button type="button" className="btn btn-secondary" onClick={() => verDetalles(parteSeleccionado)}>Reintentar</button>
+									</div>
 								) : (
 									<div className="no-empleados">
 										<p>No hay empleados asignados a este parte</p>
@@ -2307,11 +2352,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 						</div>
 					)}
 
-					{mensajeUI.texto && (
-						<div className={`message ${mensajeUI.tipo}`} style={{ marginBottom: 12 }}>
-							{mensajeUI.texto}
-						</div>
-					)}
+					<Toast tipo={mensajeUI.tipo} texto={mensajeUI.texto} onCerrar={() => setMensajeUI({ tipo: '', texto: '' })} />
 
 					<div className="card">
 						<div className="card-header">
@@ -2427,7 +2468,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 								<strong>Debug Filtros:</strong> Obras disponibles: {obrasUnicas.length} |
 								Partes totales: {datos.partesTrabajo.length} |
 								Partes filtrados: {partesFiltrados.length} |
-								Fechas disponibles: {fechasUnicas.length}
+								(bloque de debug retirado)
 								{filtroFecha && (
 									<span> | Fecha filtro: {filtroFecha}</span>
 								)}
@@ -2472,7 +2513,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 													{parte.estado || 'Pendiente'}
 												</span>
 												{parte.esRectificativo && (() => {
-													const original = datos.partesTrabajo.find((p) => p.id === parte.rectificaAId)
+													const original = partesPorId.get(parte.rectificaAId)
 													return (
 														<span className="estado-badge rectificativo" title={original ? `Rectifica a ${original.nombre}` : 'Parte rectificativo'}>
 															Rectificativo
@@ -2554,9 +2595,9 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes }) {
 
 												{/* Botones de edición solo si el parte es editable */}
 												{puedeEditarParte(parte.estado) && (
-													<button className="btn btn-success" onClick={() => iniciarEdicion(parte)}>
-														<FileText size={20} />
-														Editar
+													<button className="btn btn-success" onClick={() => iniciarEdicion(parte)} disabled={loadingEmpleadosParte}>
+														{loadingEmpleadosParte ? <Loader2 size={20} className="loading-spinner" /> : <FileText size={20} />}
+														{loadingEmpleadosParte ? 'Abriendo…' : 'Editar'}
 													</button>
 												)}
 
@@ -2616,6 +2657,15 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		notas: '',
 		vehiculosSel: [] // Vehículos seleccionados de la flota [{id, matricula}]
 	})
+	// UX-2a: un toque accidental en Cancelar/Volver tiraba un parte a medias
+	// (15 empleados con horas = 10 minutos de trabajo). Confirmar solo si hay algo.
+	const formularioTocado = () =>
+		Boolean(formData.obraId || formData.empleados.length > 0 || formData.notas.trim() || formData.vehiculosSel.length > 0)
+	const salirConConfirmacion = () => {
+		if (showOpciones || !formularioTocado() || window.confirm('Hay un parte a medias sin crear. ¿Descartarlo?')) {
+			onVolver()
+		}
+	}
 	const [loading, setLoading] = useState(false)
 	const [message, setMessage] = useState('')
 	const [empleadosObra, setEmpleadosObra] = useState([])
@@ -2633,6 +2683,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	const [busquedaLibreEmpleados, setBusquedaLibreEmpleados] = useState(false)
 	const [resultadosBusquedaLibre, setResultadosBusquedaLibre] = useState([])
 	const [buscandoLibre, setBuscandoLibre] = useState(false)
+	const seqBusquedaLibreRef = useRef(0) // P9: guarda de secuencia del buscador
 	// EDGE CASE 4: caché de detalles de empleados añadidos al parte (sobrevive a cambio de toggle)
 	const [empleadosAñadidosDetalle, setEmpleadosAñadidosDetalle] = useState({})
 
@@ -2683,6 +2734,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		}
 		setBuscandoLibre(true)
 		const t = setTimeout(async () => {
+			const miTurno = ++seqBusquedaLibreRef.current
 			try {
 				const texto = busquedaEmpleado.trim()
 				const esIdCopuno = /^\d{3,6}$/.test(texto)
@@ -2696,11 +2748,13 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 				} else {
 					resultados = await buscarEmpleados(texto, 20)
 				}
+				if (miTurno !== seqBusquedaLibreRef.current) return // P9: respuesta tardía
 				setResultadosBusquedaLibre(resultados || [])
 			} catch (e) {
+				if (miTurno !== seqBusquedaLibreRef.current) return
 				setResultadosBusquedaLibre([])
 			} finally {
-				setBuscandoLibre(false)
+				if (miTurno === seqBusquedaLibreRef.current) setBuscandoLibre(false)
 			}
 		}, 300)
 		return () => clearTimeout(t)
@@ -2949,7 +3003,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	return (
 		<div className="crear-section">
 			<div className="section-header">
-				<button className="btn-back" onClick={onVolver}>
+				<button className="btn-back" onClick={salirConConfirmacion}>
 					<ArrowLeft size={20} />
 					Volver al Inicio
 				</button>
@@ -3003,16 +3057,11 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 					</div>
 				) : (
 					<form onSubmit={handleSubmit} className="formulario-parte">
-						{mensajeUI.texto && (
-							<div className={`message ${mensajeUI.tipo}`}>
-								{mensajeUI.texto}
-							</div>
-						)}
-						{message && !mensajeUI.texto && (
-							<div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
-								{message}
-							</div>
-						)}
+						<Toast
+							tipo={mensajeUI.texto ? mensajeUI.tipo : (message.includes('Error') ? 'error' : 'success')}
+							texto={mensajeUI.texto || message}
+							onCerrar={() => { setMensajeUI({ tipo: '', texto: '' }); setMessage('') }}
+						/>
 
 						<div className="form-group">
 							<label className="form-label">Seleccionar Provincia:</label>
@@ -3325,7 +3374,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 									</>
 								)}
 							</button>
-							<button type="button" className="btn btn-secondary" disabled={loading} onClick={onVolver}>
+							<button type="button" className="btn btn-secondary" disabled={loading} onClick={salirConConfirmacion}>
 								Cancelar
 							</button>
 						</div>
