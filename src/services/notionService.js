@@ -6,6 +6,11 @@ import { supabase } from '../lib/supabase'
 const API_BASE_URL = ''
 
 // Configuración de axios con interceptores
+// F7 (R17/R18): las escrituras de partes pueden tardar más que una lectura
+// (lotes contra Notion); si el cliente aborta antes que el servidor, el
+// reintento del usuario se intercala con la escritura original aún viva.
+const TIMEOUT_ESCRITURA_MS = 45000
+
 const apiClient = axios.create({
 	baseURL: API_BASE_URL,
 	// P9: 60 s era una condena en red de obra; 20 s cubre el peor caso real
@@ -170,6 +175,9 @@ const handleApiError = (error, operation) => {
 	}
 	const err = new Error(msg)
 	err.status = status
+	// F7: el 409 por estado no-Borrador adjunta el estado REAL del parte — la
+	// UI lo usa para corregir la tarjeta en vez de dejarla en «Procesando».
+	err.estadoServidor = error.response?.data?.estado
 	throw err
 }
 
@@ -321,7 +329,8 @@ export const getDetallesCompletosParte = async (parteId) => {
 // Enviar datos de un parte al webhook y actualizar su estado
 export const enviarDatosParte = async (parteId) => {
   try {
-    const response = await apiClient.post(`/api/partes-trabajo/${parteId}/enviar-datos`)
+    // F7: timeout propio — abortar con la lambda viva invita al doble envío
+    const response = await apiClient.post(`/api/partes-trabajo/${parteId}/enviar-datos`, undefined, { timeout: TIMEOUT_ESCRITURA_MS })
     return response.data
   } catch (error) {
     handleApiError(error, 'enviar datos del parte')
@@ -331,7 +340,7 @@ export const enviarDatosParte = async (parteId) => {
 // Crear un parte rectificativo a partir de uno firmado
 export const rectificarParte = async (parteId) => {
   try {
-    const response = await apiClient.post(`/api/partes-trabajo/${parteId}/rectificar`)
+    const response = await apiClient.post(`/api/partes-trabajo/${parteId}/rectificar`, undefined, { timeout: TIMEOUT_ESCRITURA_MS })
     return response.data
   } catch (error) {
     handleApiError(error, 'rectificar parte de trabajo')
@@ -356,7 +365,7 @@ export const crearParteTrabajo = async (datos) => {
 			empleadosHoras: datos.empleadosHoras || {}
 		}
 
-		const response = await apiClient.post('/api/partes-trabajo', datosEnvio)
+		const response = await apiClient.post('/api/partes-trabajo', datosEnvio, { timeout: TIMEOUT_ESCRITURA_MS })
 		return response.data
 	} catch (error) {
 		handleApiError(error, 'crear parte de trabajo')
@@ -381,7 +390,7 @@ export const actualizarParteTrabajo = async (parteId, datos) => {
 			empleadosHoras: datos.empleadosHoras || {}
 		}
 
-		const response = await apiClient.put(`/api/partes-trabajo/${parteId}`, datosEnvio)
+		const response = await apiClient.put(`/api/partes-trabajo/${parteId}`, datosEnvio, { timeout: TIMEOUT_ESCRITURA_MS })
 		return response.data
 	} catch (error) {
 		handleApiError(error, 'actualizar parte de trabajo')

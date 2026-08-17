@@ -440,9 +440,52 @@ function App() {
 		return partes.map(p => `${p.id}-${p.estado}-${p.ultimaEdicion}`).join('|')
 	}
 
+	// F7 (P11/I8) — parche de estado confirmado por el servidor que la UI aplica
+	// al instante (parteId → {estado, ts}). Vive en el PADRE y se re-aplica
+	// dentro de aplicarPartes: una foto stale (el poll puede golpear otra
+	// instancia lambda cuyo cache aún no vio la escritura) no puede devolver la
+	// tarjeta a «Borrador» y reactivar el botón. El parche se disuelve solo
+	// cuando el servidor confirma ese mismo estado, o al expirar el TTL
+	// (> cache de 30 s + un tick del poll — la verdad del server siempre acaba
+	// mandando).
+	const parcheEstadoRef = useRef(new Map())
+	const PARCHE_TTL_MS = 60000
+
+	const conParches = (partes) => {
+		if (parcheEstadoRef.current.size === 0) return partes
+		const ahora = Date.now()
+		return partes.map(p => {
+			const parche = parcheEstadoRef.current.get(p.id)
+			if (!parche) return p
+			if (p.estado === parche.estado || ahora - parche.ts > PARCHE_TTL_MS) {
+				parcheEstadoRef.current.delete(p.id)
+				return p
+			}
+			return { ...p, estado: parche.estado }
+		})
+	}
+
+	const marcarEstadoParteLocal = (parteId, estado) => {
+		if (estado === null) {
+			parcheEstadoRef.current.delete(parteId)
+			return
+		}
+		parcheEstadoRef.current.set(parteId, { estado, ts: Date.now() })
+		lastParteChangeRef.current = Date.now() // acelera la cadencia del poll
+		// Sobre prev, no sobre datosRef (que va un render por detrás): un tick
+		// del poll recién aplicado no puede ser pisado por el parche.
+		// El cache local NO se toca aquí: los estados optimistas no se persisten.
+		setDatos(prev => {
+			const partes = conParches(prev.partesTrabajo || [])
+			lastPartesHashRef.current = hashPartes(partes)
+			return { ...prev, partesTrabajo: partes }
+		})
+	}
+
 	// Aplica una foto nueva del listado solo si cambió; devuelve true si hubo cambio.
-	const aplicarPartes = (partes) => {
+	const aplicarPartes = (fotoEntrante) => {
 		ultimaSyncRef.current = Date.now()
+		const partes = conParches(fotoEntrante) // el parche gana a fotos stale
 		const newHash = hashPartes(partes)
 		if (newHash === lastPartesHashRef.current) return false
 		lastPartesHashRef.current = newHash
@@ -630,7 +673,10 @@ function App() {
 		try {
 			// F4 (P5): si ya hay datos en pantalla (cache local), la recarga es una
 			// revalidación silenciosa — indicador discreto, nunca spinner bloqueante.
-			const hayDatosPintados = datos.partesTrabajo.length > 0 || datos.obras.length > 0
+			// F7: sobre el ref, no sobre el estado — el listener de `online` captura
+			// la closure del primer render (datos vacíos) y al reconectar mostraba
+			// un flash de skeleton sobre un listado perfectamente pintado.
+			const hayDatosPintados = datosRef.current.partesTrabajo.length > 0 || datosRef.current.obras.length > 0
 			if (hayDatosPintados) setRevalidando(true)
 			else setLoading(true)
 			setError(null)
@@ -648,17 +694,22 @@ function App() {
 			console.log('👥 Empleados cargados:', datosCompletos.empleados.length)
 			console.log('👨‍💼 Jefes de obra cargados:', datosCompletos.jefesObra.length)
 
-			setDatos(datosCompletos)
+			// F7: pasar por conParches — sin esto, la reconexión (evento online)
+			// pisaba el parche optimista de un envío en vuelo (hallazgo del
+			// regression-checker de v1.12.1).
+			const partesParcheadas = conParches(datosCompletos.partesTrabajo || [])
+			setDatos({ ...datosCompletos, partesTrabajo: partesParcheadas })
 			// F6: sembrar el hash y la marca de sync — el primer tick del poll
 			// no debe re-detectar esta misma foto como "cambio".
-			lastPartesHashRef.current = hashPartes(datosCompletos.partesTrabajo || [])
+			lastPartesHashRef.current = hashPartes(partesParcheadas)
 			ultimaSyncRef.current = Date.now()
 			setConnectivity({ status: 'ok', message: 'Conectado' })
 		} catch (err) {
 			console.error('Error al cargar datos:', err)
 			// F4: con datos ya pintados, un fallo de revalidación no rompe la vista —
 			// se sigue enseñando la foto local y el indicador de conexión avisa.
-			if (datos.partesTrabajo.length > 0 || datos.obras.length > 0) {
+			// (F7: sobre el ref por la misma stale closure del listener `online`.)
+			if (datosRef.current.partesTrabajo.length > 0 || datosRef.current.obras.length > 0) {
 				setConnectivity({ status: 'error', message: err.message })
 			} else {
 				setError(err.message)
@@ -703,8 +754,10 @@ function App() {
 				return await getDatosCompletos()
 			}, 3, 1000)
 
-			setDatos(datosCompletos)
-			lastPartesHashRef.current = hashPartes(datosCompletos.partesTrabajo || [])
+			// F7: el botón Refrescar tampoco puede pisar un parche en vuelo
+			const partesParcheadas = conParches(datosCompletos.partesTrabajo || [])
+			setDatos({ ...datosCompletos, partesTrabajo: partesParcheadas })
+			lastPartesHashRef.current = hashPartes(partesParcheadas)
 			ultimaSyncRef.current = Date.now()
 			setConnectivity({ status: 'ok', message: 'Conectado' })
 
@@ -802,7 +855,7 @@ function App() {
 						) : (
 							<>
 								{activeSection === 'consulta' ? (
-									<ConsultaPartes datos={datos} onVolver={() => setActiveSection('main')} estadoOptions={estadoOptions} onRefrescarPartes={refrescarPartes} onEdicionAbierta={(abierta) => { edicionAbiertaRef.current = abierta }} />
+									<ConsultaPartes datos={datos} onVolver={() => setActiveSection('main')} estadoOptions={estadoOptions} onRefrescarPartes={refrescarPartes} onEdicionAbierta={(abierta) => { edicionAbiertaRef.current = abierta }} onEstadoParteLocal={marcarEstadoParteLocal} />
 								) : activeSection === 'crear' ? (
 									<CrearParte datos={datos} estadoOptions={estadoOptions} onParteCreado={refrescarPartes} onVolver={() => setActiveSection('main')} />
 								) : null}
@@ -892,7 +945,7 @@ function PantallaPrincipal({ onNavigate }) {
 }
 
 // Componente para consultar partes existentes
-function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onEdicionAbierta }) {
+function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onEdicionAbierta, onEstadoParteLocal }) {
 	const [filtroObra, setFiltroObra] = useState('')
 	const [filtroFecha, setFiltroFecha] = useState('')
 	const [filtroEstado, setFiltroEstado] = useState('')
@@ -1089,36 +1142,56 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onE
 		return { categorias, total }
 	}
 
+	const enviandoRef = useRef(false) // guard síncrono: dos clicks en el mismo frame leen el mismo estado
 	const handleEnviarDatos = async (parte) => {
-		if (!parte || enviandoParteId) return
+		if (!parte || enviandoParteId || enviandoRef.current) return
+		enviandoRef.current = true
 		setEnviandoParteId(parte.id)
+		// F7 (P11): reflejo inmediato con la VERDAD del servidor — el endpoint
+		// marca «Procesando» antes de nada (C2). Nunca pintar «Datos Enviados»
+		// antes del 200: si el webhook falla, el server revierte a Borrador y
+		// un capataz se iría de la obra creyendo enviado un parte que no lo está.
+		onEstadoParteLocal?.(parte.id, 'Procesando')
 		try {
 			const resultado = await enviarDatosParte(parte.id)
-			setMensajeUI({ tipo: 'success', texto: 'Enviado. En un par de minutos el parte pasará a "Datos Enviados" y quedará esperando la firma.' })
+			const nuevoEstado = resultado?.nuevoEstado || 'Datos Enviados'
+			// Confirmado por el server: la tarjeta ya no depende del refresh (I8)
+			onEstadoParteLocal?.(parte.id, nuevoEstado)
+			setMensajeUI({ tipo: 'success', texto: 'Enviado. En un par de minutos el parte quedará esperando la firma.' })
 
-			let partesActualizados = null
+			// El refresh pasa a background: con el parche aplicado, un fallo aquí
+			// ya no puede devolver la tarjeta a «Borrador» con el botón activo.
 			if (typeof onRefrescarPartes === 'function') {
-				try {
-					partesActualizados = await onRefrescarPartes()
-				} catch (refreshError) {
-					console.error('Error al refrescar partes tras enviar datos:', refreshError)
-				}
+				onRefrescarPartes().catch(err => console.error('Error al refrescar partes tras enviar datos:', err))
 			}
 
-			const nuevoEstado = resultado?.nuevoEstado || 'Datos Enviados'
 			setParteSeleccionado((prev) => {
 				if (!prev || prev.id !== parte.id) return prev
-				const actualizado = partesActualizados?.find((p) => p.id === parte.id)
-				return {
-					...prev,
-					estado: nuevoEstado,
-					ultimaEdicion: actualizado?.ultimaEdicion || prev.ultimaEdicion
-				}
+				return { ...prev, estado: nuevoEstado }
 			})
 		} catch (error) {
 			console.error('Error al enviar datos del parte:', error)
-			setMensajeUI({ tipo: 'error', texto: error.message || 'No se pudo enviar los datos del parte.' })
+			if (error.status === 409 && error.estadoServidor) {
+				// El parte ya no está en Borrador (otro usuario u otra pestaña lo
+				// movió): corregir la tarjeta con el estado REAL, no dejarla en
+				// «Procesando» con un mensaje de espera que nunca se cumple.
+				onEstadoParteLocal?.(parte.id, error.estadoServidor)
+				setParteSeleccionado((prev) => (prev && prev.id === parte.id) ? { ...prev, estado: error.estadoServidor } : prev)
+				setMensajeUI({ tipo: 'warning', texto: error.message })
+				onRefrescarPartes?.().catch(() => { })
+			} else if (error.status === 409) {
+				// Idempotencia: ya hay un envío en curso (doble toque). El parche
+				// se queda en «Procesando» y el poll traerá la verdad.
+				setMensajeUI({ tipo: 'warning', texto: 'Este parte ya se está enviando. En unos segundos se actualizará su estado.' })
+			} else {
+				// Fallo real: quitar el parche (vuelve la verdad del server) y
+				// reconciliar en background.
+				onEstadoParteLocal?.(parte.id, null)
+				onRefrescarPartes?.().catch(() => { })
+				setMensajeUI({ tipo: 'error', texto: error.message || 'No se pudo enviar los datos del parte.' })
+			}
 		} finally {
+			enviandoRef.current = false
 			setEnviandoParteId(null)
 		}
 	}
@@ -1516,16 +1589,24 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onE
 			console.log('Parte actualizado:', resultado)
 
 			// Mostrar mensaje de éxito con advertencia si el estado cambió
-			let mensajeExito = `Parte actualizado. ${resultado.detallesCreados} empleados asignados.`
-			if (resultado.estadoCambiado) {
+			// F7: si el PUT devolvió erroresDetalles, el mensaje del server ya lo
+			// dice — usarlo tal cual en vez del texto genérico.
+			let mensajeExito = resultado.erroresDetalles > 0 && resultado.mensaje
+				? resultado.mensaje
+				: `Parte actualizado. ${resultado.detallesCreados} empleados asignados.`
+			if (resultado.estadoCambiado && !(resultado.erroresDetalles > 0)) {
 				mensajeExito = `⚠️ Parte actualizado. El estado ha cambiado de "${resultado.estadoAnterior}" a "Borrador". Deberás enviar los datos nuevamente para que el parte esté listo para firmar.`
 			}
-			setMensajeUI({ tipo: resultado.estadoCambiado ? 'warning' : 'success', texto: mensajeExito })
+			setMensajeUI({ tipo: resultado.estadoCambiado || resultado.erroresDetalles > 0 ? 'warning' : 'success', texto: mensajeExito })
 
-			// El mensaje queda visible en el toast tras cerrar (mismo estado)
-			// Refrescar listado de partes sin recargar la página completa
+			// F7 (variante de I8): el PUT ya está confirmado — cerrar YA y
+			// refrescar en background. Antes, un fallo del refresh caía al catch
+			// y fingía que el guardado había fallado (con el modal abierto).
+			if (resultado.estadoCambiado) {
+				onEstadoParteLocal?.(editandoParte.id, 'Borrador')
+			}
 			if (onRefrescarPartes) {
-				await onRefrescarPartes()
+				onRefrescarPartes().catch(err => console.error('Error al refrescar tras guardar (el guardado SÍ se hizo):', err))
 			}
 
 			// Cerrar modal de edición (forzar: los cambios acaban de guardarse)
