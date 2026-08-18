@@ -4,6 +4,15 @@ import Toast from './components/Toast'
 import { leerCacheLocal, guardarCacheLocal } from './lib/cacheLocal'
 import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId, getCatalogoEmpleados, buscarVehiculos, exportarChorus, componerCsvChorus } from './services/notionService'
 
+// v1.13.5: orden del ciclo de vida del parte, para que el parche de estado
+// optimista ceda ante un AVANCE real del servidor y solo bloquee retrocesos.
+// OJO: es el orden FUNCIONAL, no el de definición en Notion (que sitúa «Listo
+// para firmar» antes que «Datos Enviados»). El real: enviar-datos marca «Datos
+// Enviados», Make pone «Listo para firmar» al generar el PDF y «Firmado» al
+// recibir la firma.
+const CICLO_ESTADOS = ['borrador', 'procesando', 'datos enviados', 'listo para firmar', 'firmado']
+const rangoEstado = (estado) => CICLO_ESTADOS.indexOf(String(estado || '').trim().toLowerCase())
+
 // v1.13.1: filtrado de empleados insensible a acentos y mayúsculas
 // («jose» encuentra «José»). Se usa en los filtros locales del catálogo
 // (creación + edición) y en el filtro por obra.
@@ -471,7 +480,16 @@ function App() {
 		return partes.map(p => {
 			const parche = parcheEstadoRef.current.get(p.id)
 			if (!parche) return p
-			if (p.estado === parche.estado || ahora - parche.ts > PARCHE_TTL_MS) {
+			// El parche protege de que una foto stale RETROCEDA el estado (I8).
+			// No debe bloquear un AVANCE legítimo: al firmar en la web externa, el
+			// servidor pasa de «Datos Enviados» a «Listo para firmar»/«Firmado», y
+			// comparar solo por igualdad dejaba el parche pisando el estado real
+			// hasta agotar el TTL — el «baile» reportado tras firmar.
+			const rParche = rangoEstado(parche.estado)
+			const rReal = rangoEstado(p.estado)
+			const avanzaOIguala = rReal >= 0 && rParche >= 0 && rReal >= rParche
+			const desconocido = rReal < 0 // estado que no está en el ciclo: manda el servidor
+			if (avanzaOIguala || desconocido || ahora - parche.ts > PARCHE_TTL_MS) {
 				parcheEstadoRef.current.delete(p.id)
 				return p
 			}
@@ -2858,6 +2876,8 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	// F5: toggle búsqueda libre de empleados + resultados de búsqueda incremental
 	const [busquedaLibreEmpleados, setBusquedaLibreEmpleados] = useState(false)
 	const [resultadosBusquedaLibre, setResultadosBusquedaLibre] = useState([])
+	// v1.13.5: lista filtrada COMPLETA (el corte visible lo hace visiblesLibre)
+	const [filtradosLibre, setFiltradosLibre] = useState([])
 	const [buscandoLibre, setBuscandoLibre] = useState(false)
 	const seqBusquedaLibreRef = useRef(0) // P9: guarda de secuencia del buscador
 	// v1.13.0: catálogo completo (~1.500 empleados) cargado en background al
@@ -2867,7 +2887,13 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	const [catalogoEmpleados, setCatalogoEmpleados] = useState(null)
 	const [catalogoFallo, setCatalogoFallo] = useState(false)
 	const [totalFiltradoLibre, setTotalFiltradoLibre] = useState(0)
-	const CAP_LISTA_LIBRE = 300
+	// v1.13.5: la lista crece por tandas al llegar al final (scroll infinito).
+	// Antes era un tope fijo de 300 con el aviso «escribe para filtrar»; ahora
+	// se puede recorrer la plantilla entera desplazándose.
+	const TANDA_LISTA_LIBRE = 300
+	const [visiblesLibre, setVisiblesLibre] = useState(TANDA_LISTA_LIBRE)
+	const centinelaLibreRef = useRef(null)
+	const listaLibreRef = useRef(null)   // contenedor con scroll propio: es el root del observer
 	// EDGE CASE 4: caché de detalles de empleados añadidos al parte (sobrevive a cambio de toggle)
 	const [empleadosAñadidosDetalle, setEmpleadosAñadidosDetalle] = useState({})
 
@@ -2906,8 +2932,14 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	)
 
 	// Empleados disponibles a mostrar en el selector (excluye ya añadidos)
-	const candidatosVisibles = (busquedaLibreEmpleados ? resultadosBusquedaLibre : empleadosFiltrados)
-		.filter(e => !formData.empleados.includes(e.id))
+	// En modo catálogo la fuente es la lista filtrada completa, cortada por la
+	// tanda visible; en modo server-side (fallback) sigue siendo el resultado
+	// de la búsqueda. Se excluyen los ya añadidos al parte.
+	const fuenteCandidatos = busquedaLibreEmpleados
+		? (catalogoEmpleados ? filtradosLibre.slice(0, visiblesLibre) : resultadosBusquedaLibre)
+		: empleadosFiltrados
+	const candidatosVisibles = fuenteCandidatos.filter(e => !formData.empleados.includes(e.id))
+	const quedanPorMostrar = Boolean(catalogoEmpleados) && busquedaLibreEmpleados && visiblesLibre < totalFiltradoLibre
 
 	// v1.13.0: al activar la búsqueda libre, cargar el catálogo completo en
 	// background (memoizado a nivel de módulo — una descarga por sesión).
@@ -2928,7 +2960,9 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	useEffect(() => {
 		if (!busquedaLibreEmpleados) {
 			setResultadosBusquedaLibre([])
+			setFiltradosLibre([])
 			setTotalFiltradoLibre(0)
+			setVisiblesLibre(TANDA_LISTA_LIBRE)
 			return
 		}
 		if (catalogoEmpleados) {
@@ -2938,12 +2972,14 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 				? catalogoEmpleados.filter(e => coincideEmpleado(e, texto))
 				: catalogoEmpleados
 			setTotalFiltradoLibre(filtrados.length)
-			setResultadosBusquedaLibre(filtrados.slice(0, CAP_LISTA_LIBRE))
+			setFiltradosLibre(filtrados)          // lista completa filtrada
+			setVisiblesLibre(TANDA_LISTA_LIBRE)   // al cambiar el filtro, volver a la 1ª tanda
 			setBuscandoLibre(false)
 			return
 		}
 		if (busquedaEmpleado.length < 3) {
 			setResultadosBusquedaLibre([])
+			setFiltradosLibre([])
 			setTotalFiltradoLibre(0)
 			return
 		}
@@ -2974,6 +3010,20 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		}, 300)
 		return () => clearTimeout(t)
 	}, [busquedaEmpleado, busquedaLibreEmpleados, catalogoEmpleados])
+
+	// v1.13.5: scroll infinito de la lista libre. Se detecta el scroll DEL
+	// CONTENEDOR (la lista tiene scroll propio, ~500 px visibles con cientos de
+	// filas). Se descartó IntersectionObserver: el contenedor suele estar fuera
+	// del viewport cuando el usuario llega a él, y con el root fuera de pantalla
+	// el observer no dispara — verificado en navegador.
+	const alScrollLista = (e) => {
+		if (!quedanPorMostrar) return
+		const el = e.currentTarget
+		const cercaDelFinal = el.scrollTop + el.clientHeight >= el.scrollHeight - 300
+		if (cercaDelFinal) {
+			setVisiblesLibre(v => (v >= totalFiltradoLibre ? v : Math.min(v + TANDA_LISTA_LIBRE, totalFiltradoLibre)))
+		}
+	}
 
 	// Helpers tolerantes para horas: limitar 0-24 y redondear a 0.5
 	const clampRoundHoras = (val) => {
@@ -3522,9 +3572,10 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 										<div className="empleados-empty"><p>No se pudo cargar la lista completa. Usa el buscador: escribe un nombre o un ID Copuno.</p></div>
 									)}
 									{/* v1.13.0: la lista completa está capada en pantalla */}
-									{busquedaLibreEmpleados && catalogoEmpleados && totalFiltradoLibre > CAP_LISTA_LIBRE && (
+									{busquedaLibreEmpleados && catalogoEmpleados && totalFiltradoLibre > TANDA_LISTA_LIBRE && (
 										<div className="empleados-empty" style={{ marginBottom: 6 }}>
-											Mostrando {CAP_LISTA_LIBRE} de {totalFiltradoLibre} empleados — escribe para filtrar.
+											Mostrando {Math.min(visiblesLibre, totalFiltradoLibre)} de {totalFiltradoLibre} empleados
+											{quedanPorMostrar ? ' — baja para ver más, o escribe para filtrar.' : ' — no hay más.'}
 										</div>
 									)}
 									{/* F2: aviso de IDs duplicados en Notion — solo coincidencias EXACTAS
@@ -3544,7 +3595,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 											</div>
 										)
 									) : (
-										<div className="empleados-lista empleados-lista-compacta">
+										<div className="empleados-lista empleados-lista-compacta" ref={listaLibreRef} onScroll={alScrollLista}>
 											{candidatosVisibles.map(empleado => (
 												<div key={empleado.id} className="empleado-item">
 													<span className="empleado-info">
@@ -3570,6 +3621,12 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 													</button>
 												</div>
 											))}
+											{/* v1.13.5: centinela del scroll infinito — al entrar en pantalla amplía la tanda */}
+											{quedanPorMostrar && (
+												<div ref={centinelaLibreRef} className="empleados-empty" style={{ padding: 8 }}>
+													<Loader2 size={14} className="loading-spinner" /> Cargando más empleados…
+												</div>
+											)}
 										</div>
 									)}
 								</>

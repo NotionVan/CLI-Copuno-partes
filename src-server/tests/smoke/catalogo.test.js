@@ -111,3 +111,38 @@ test('listarTodos propaga un 429 que persiste tras el reintento', async () => {
 	await assert.rejects(() => notion.empleados.listarTodos({ client }), (e) => e.status === 429)
 })
 
+
+// v1.13.5 — orden del ciclo de vida del parte (lógica del parche optimista)
+// Réplica exacta de rangoEstado/conParches de App.jsx: si el estado real AVANZA
+// respecto al parche, el parche debe soltarse; si RETROCEDE, debe mantenerse.
+const CICLO = ['borrador', 'procesando', 'datos enviados', 'listo para firmar', 'firmado']
+const rango = (e) => CICLO.indexOf(String(e || '').trim().toLowerCase())
+const sueltaParche = (estadoParche, estadoReal) => {
+	const rp = rango(estadoParche), rr = rango(estadoReal)
+	return (rr >= 0 && rp >= 0 && rr >= rp) || rr < 0
+}
+
+test('el parche cede cuando el servidor AVANZA de estado (el bug del baile tras firmar)', () => {
+	assert.strictEqual(sueltaParche('Datos Enviados', 'Firmado'), true)
+	assert.strictEqual(sueltaParche('Datos Enviados', 'Listo para firmar'), true)
+	assert.strictEqual(sueltaParche('Procesando', 'Datos Enviados'), true)
+	assert.strictEqual(sueltaParche('Borrador', 'Procesando'), true)
+})
+
+test('el parche se MANTIENE si el servidor retrocede (I8 sigue cerrado)', () => {
+	assert.strictEqual(sueltaParche('Datos Enviados', 'Borrador'), false)
+	assert.strictEqual(sueltaParche('Procesando', 'Borrador'), false)
+	assert.strictEqual(sueltaParche('Firmado', 'Datos Enviados'), false)
+})
+
+test('el parche cede si los estados coinciden o si el real es desconocido', () => {
+	assert.strictEqual(sueltaParche('Datos Enviados', 'Datos Enviados'), true)
+	assert.strictEqual(sueltaParche('Datos Enviados', 'Rectificado'), true)
+	assert.strictEqual(sueltaParche('Datos Enviados', ''), true)
+})
+
+test('rangoEstado es insensible a mayúsculas y espacios', () => {
+	assert.strictEqual(rango('  FIRMADO  '), 4)
+	assert.strictEqual(rango('datos enviados'), 2)
+	assert.strictEqual(rango('inventado'), -1)
+})
