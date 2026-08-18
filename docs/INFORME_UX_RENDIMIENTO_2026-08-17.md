@@ -1,5 +1,19 @@
 # Informe de auditoría — Experiencia de usuario y rendimiento
 
+> ### ✅ Plan ejecutado — este documento es la foto del *antes*
+>
+> Las fases F0-F7 de la sección 5 **se ejecutaron por completo entre el 17 y el 18 de
+> agosto de 2026** (v1.9.1 → v1.12.2, más v1.12.3 y v1.13.x posteriores). Este informe
+> se conserva **sin modificar** como registro del diagnóstico y de la línea base: sus
+> tablas describen el estado **anterior** a la intervención, no el actual.
+>
+> **Para el resultado —qué se hizo y cómo quedó, con las mediciones del después—
+> ver [RESULTADOS_RENDIMIENTO_2026-08.md](RESULTADOS_RENDIMIENTO_2026-08.md).**
+>
+> Lo diferido conscientemente (bloque UX menor, escalón de infraestructura, migración
+> de versión de la API) está listado en la sección 6 de ese informe.
+
+
 **Fecha:** 2026-08-17 · **Base auditada:** `master` @ `3df09f6` (v1.9.0, auth fusionada y en producción) · **Método:** 6 pasadas — verificación de la auditoría del 31-07 contra el código actual, deep-dive de rendimiento frontend, deep-dive backend/datos, análisis adversarial con trazas de latencia, auditoría UX estática del código completo (`App.jsx` y `App.css` enteros) y recorrido en vivo instrumentado sobre el mock (puppeteer: targets, contrastes, atributos, flujos).
 **Contexto de negocio:** demo fallida ante la central (~22-jul, error visible; Circleback 12-08), compromiso «funcional en septiembre» con Óscar/Paola/Andrés arrancando la operativa real y más obras en octubre. Usuario real: jefe de obra con tablet, sol, prisa y mala cobertura.
 

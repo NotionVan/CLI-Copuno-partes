@@ -1,6 +1,6 @@
 # Arquitectura — Copuno Gestión de Partes
 
-**Última edición:** 2026-05-27
+**Última edición:** 2026-08-18 (sección 3.1 nueva — mecanismos de rendimiento de agosto)
 **Versión app:** ver [package.json](../package.json) → `version`
 **Estado:** Documento vivo. Actualizar cuando se tomen nuevas decisiones (vía ADR).
 
@@ -78,6 +78,52 @@ Hosting: Vercel — **la función corre en `iad1` (Washington)**, no en `cdg1` c
 6. **Mock** — `mock/mockData.js`: store en memoria para desarrollo sin token Notion.
 
 La separación en archivos es **explícita desde 2026-05-27** (ver ADR-002).
+
+### 3.1 Mecanismos de rendimiento y sincronización (agosto 2026)
+
+> Añadidos en la intervención v1.9.1 → v1.13.2. **Leer antes de tocar lectura,
+> escritura o caché**: varios son invisibles en el flujo normal y fáciles de romper
+> sin darse cuenta. Resultados medidos en
+> [RESULTADOS_RENDIMIENTO_2026-08.md](RESULTADOS_RENDIMIENTO_2026-08.md).
+
+**Lectura**
+
+| Mecanismo | Dónde | Qué hace / qué romper evitar |
+|---|---|---|
+| `filter_properties` (`PROPS_CATALOGO`, `conProps()`) | `notion.js` | Cada query pide solo los campos que lee su mapper (−62/−74 % de payload). **Si añades un campo a un mapper, añade su ID a la lista o llegará `undefined` en silencio.** |
+| `titleDe(page)` | `notion.js` | Localiza la propiedad título **por tipo**, no por nombre. Es la mitigación estructural del incidente I9 (renombrado manual en Notion → nombres vacíos). No sustituir por acceso literal. |
+| Caché en memoria con TTL por clave | `server.js` (`setCache/getCache`) | 3er parámetro opcional de TTL; sin él, `CACHE_TTL_MS` (30 s). El catálogo de empleados usa 10 min. **Es por instancia lambda** — ver riesgo abajo. |
+| `invalidateCache()` / `invalidarPartes()` / `invalidarEmpleados()` | `server.js` | Se llaman en **las 5 rutas de escritura**. Sin esto, un GET tras escribir puede servir datos viejos 30 s (hallazgo BE-3). **Toda ruta de escritura nueva debe invalidar.** |
+| Freshness-check (`hayCambiosDesde`) | `notion.js` + GET partes | Al expirar la foto, query mínima `last_edited_time after cursor` (~0,43 s) antes de repetir la completa (~1,5-2,5 s). Filtro **a nivel timestamp**: inmune a renombres. TTL duro `PARTES_TTL_DURO_MS` (5 min) para cubrir archivados, que el check no ve. |
+| Caché de firmantes | `notion.js` | `Promise.all` acotado + 60 s por obra (`FIRMANTES_TTL_MS`). |
+| `listarTodos` + guard de petición en vuelo | `notion.js` + `server.js` | Catálogo completo de empleados (~16 páginas). Cada página reintenta ante 429; `catalogoEmpleadosEnVuelo` hace que peticiones concurrentes compartan UNA descarga. |
+| Semáforo global hacia Notion | `notion.js` | Máx. 5 peticiones en vuelo. Respeta el límite de 3 req/s **compartido con Make** a nivel de workspace. |
+
+**Escritura**
+
+| Mecanismo | Dónde | Qué hace / qué romper evitar |
+|---|---|---|
+| `enLotes(items, 3, fn)` | `notion.js` | Detalles de horas en tandas de 3 con barrera, sin pausas. Concurrencia 3 deja 2 huecos del semáforo para lecturas. |
+| `conReintento429(fn)` | `notion.js` | Reintento único honrando `Retry-After` en escrituras de detalles y en el paginado del catálogo. |
+| `archivarDetallesConRollback` | `notion.js` | **Semántica transaccional**: corta al primer fallo y desarchiva lo ya archivado. Sin esto, una edición fallida a medias deja horas ocultas o duplicadas (llegarían al PDF y al CSV de facturación). |
+| Espejo de vehículos | `notion.js` (`sincronizarEspejoVehiculos`) | Se re-deriva de la relación **justo antes** del PDF. **No moverlo fuera del camino de `enviar-datos`**: reabriría el incidente M8 (PDF sin matrículas). |
+
+**Cliente**
+
+| Mecanismo | Dónde | Qué hace / qué romper evitar |
+|---|---|---|
+| Caché local con revalidación | `src/lib/cacheLocal.js` | Clave versionada `copuno:datos:v<versión>` — cada deploy purga (interruptor gratis). **Sin empleados (DNI/teléfono) ni datos económicos en disco.** Se limpia al cerrar sesión. |
+| Polling del listado | `App.jsx` | 12/20/30 s, patrón `cancelled` + `setTimeout` encadenado, hash-guard. Pausado con **edición abierta** (`edicionAbiertaRef`, ref y no estado: una closure capturaría valor stale — causa raíz del C1 original) y en segundo plano. Kill-switch `POLL_ENABLED`. |
+| Parche de estado optimista | `App.jsx` (`parcheEstadoRef` + `conParches`) | Se re-aplica sobre **toda** foto entrante (poll, refresh, reconexión, montaje), TTL 60 s. Si se omite en una ruta nueva de datos, reaparece I8: la tarjeta vuelve a «Borrador» tras enviar. |
+| Catálogo de empleados memoizado | `notionService.js` (`getCatalogoEmpleados`) | Una descarga por sesión, ordenada alfabéticamente; se olvida en fallo para reintentar. Los filtros locales normalizan acentos (`normalizarTexto`). |
+| Rate limiting en dos capas | `server.js` | Grueso por IP **delante** de auth, fino por `req.usuario.id` **detrás**. El orden importa: invertirlo expone la verificación JWT o vuelve al cupo por IP compartido tras el NAT de la central. |
+
+**Riesgo estructural conocido:** toda la caché, la idempotencia y el rate limiting viven
+**en memoria por instancia lambda**. Con varias instancias conviven copias
+independientes. Instrumentado desde v1.12.3 (`INSTANCE_ID` en `/api/health` y en los
+logs); el diseño del store compartido está en
+[CACHE_NOTION_INDUSTRIA_2026-08.md](CACHE_NOTION_INDUSTRIA_2026-08.md), pendiente de
+decidir con los datos de telemetría.
 
 ---
 
@@ -248,6 +294,14 @@ Si en algún momento alguno de estos cambia de estado, **se documenta vía nuevo
 ---
 
 ## Historial de cambios
+
+### 2026-08-18
+- Nueva **sección 3.1** con los mecanismos de rendimiento y sincronización añadidos en
+  la intervención de agosto (v1.9.1 → v1.13.2): dieta de payload, invalidación de
+  caché, freshness-check, escrituras en lotes con reversión, caché local, polling
+  revivido, parche de estado optimista y rate limiting en dos capas. El documento
+  describía una arquitectura anterior a todos ellos.
+- Anotado el riesgo estructural de estado en memoria por instancia y su instrumentación.
 
 | Fecha | Cambio | Autor |
 |---|---|---|

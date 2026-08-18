@@ -264,6 +264,15 @@ Plantilla completa en [env.example](env.example). Mínimas para arrancar:
 
 ---
 
+## Documentación técnica de referencia
+
+| Documento | Cuándo consultarlo |
+|---|---|
+| [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | **Antes de tocar lectura, escritura o caché.** La sección 3.1 lista los mecanismos de rendimiento vigentes (freshness-check, invalidación, lotes con rollback, parche optimista, caché local) y qué se rompe al alterarlos |
+| [docs/RESULTADOS_RENDIMIENTO_2026-08.md](docs/RESULTADOS_RENDIMIENTO_2026-08.md) | Qué se hizo en agosto y qué se consiguió, con antes/después medido. Es el documento que se enseña (QBR, cliente, terceros) |
+| [docs/INFORME_UX_RENDIMIENTO_2026-08-17.md](docs/INFORME_UX_RENDIMIENTO_2026-08-17.md) | Diagnóstico y línea base del 17-08. **Foto del ANTES** — no describe el estado actual |
+| [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) | Antes de proponer cualquier mejora: probablemente ya está catalogada con severidad y coste |
+
 ## Decisiones de arquitectura (ADR)
 
 Viven en [docs/adr/](docs/adr/). Antes de proponer un cambio estructural, **leer el ADR que le
