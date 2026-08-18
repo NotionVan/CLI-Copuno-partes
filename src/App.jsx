@@ -4,6 +4,20 @@ import Toast from './components/Toast'
 import { leerCacheLocal, guardarCacheLocal } from './lib/cacheLocal'
 import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId, getCatalogoEmpleados, buscarVehiculos, exportarChorus, componerCsvChorus } from './services/notionService'
 
+// v1.13.1: filtrado de empleados insensible a acentos y mayúsculas
+// («jose» encuentra «José»). Se usa en los filtros locales del catálogo
+// (creación + edición) y en el filtro por obra.
+const normalizarTexto = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+// Coincidencia de un empleado con un texto ya normalizado: nombre (contiene)
+// o ID Copuno (prefijo, o valor numérico exacto — cubre ceros a la izquierda).
+const coincideEmpleado = (e, textoNorm) => {
+	if (normalizarTexto(e.nombre).includes(textoNorm)) return true
+	const id = String(e.idCopuno ?? '')
+	if (id && id.startsWith(textoNorm)) return true
+	return /^\d+$/.test(textoNorm) && e.idCopuno === Number(textoNorm)
+}
+
 // F4: helpers para agrupar firmantes por rol en el selector
 const ROLES_ORDEN = ['Encargado', 'Jefe de Obra', 'Jefe de Producción', 'Otros']
 
@@ -983,6 +997,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onE
 	const [resultadosBusquedaEdicion, setResultadosBusquedaEdicion] = useState([])
 	// v1.13.0: catálogo completo para filtrar en local (se carga al primer tecleo)
 	const [catalogoEmpleadosEdicion, setCatalogoEmpleadosEdicion] = useState(null)
+	const [totalFiltradoEdicion, setTotalFiltradoEdicion] = useState(0)
 	const [empleadosAñadidosDetalleEdicion, setEmpleadosAñadidosDetalleEdicion] = useState({})
 	const [guardandoCambios, setGuardandoCambios] = useState(false)
 	const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
@@ -1483,6 +1498,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onE
 		setBusquedaIdEdicion('')
 		setErrorBusquedaIdEdicion('')
 		setResultadosBusquedaEdicion([])
+		setTotalFiltradoEdicion(0)
 		setEmpleadosAñadidosDetalleEdicion({})
 	}
 
@@ -1503,23 +1519,25 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onE
 	useEffect(() => {
 		if (!editandoParte || busquedaIdEdicion.trim().length < 1) {
 			setResultadosBusquedaEdicion([])
+			setTotalFiltradoEdicion(0)
 			return
 		}
 		if (catalogoEmpleadosEdicion) {
 			seqBusquedaEdicionRef.current++ // invalida respuestas server tardías
-			const texto = busquedaIdEdicion.trim().toLowerCase()
-			const filtrados = catalogoEmpleadosEdicion.filter(e =>
-				(e.nombre || '').toLowerCase().includes(texto)
-				|| String(e.idCopuno ?? '').startsWith(texto))
+			const texto = normalizarTexto(busquedaIdEdicion.trim())
+			const filtrados = catalogoEmpleadosEdicion.filter(e => coincideEmpleado(e, texto))
 			setResultadosBusquedaEdicion(filtrados.slice(0, 50))
+			setTotalFiltradoEdicion(filtrados.length)
 			setErrorBusquedaIdEdicion(filtrados.length === 0 ? `Sin resultados para "${busquedaIdEdicion.trim()}"` : '')
 			setBuscandoIdEdicion(false)
 			return
 		}
 		if (busquedaIdEdicion.trim().length < 3) {
 			setResultadosBusquedaEdicion([])
+			setTotalFiltradoEdicion(0)
 			return
 		}
+		setTotalFiltradoEdicion(0) // el aviso de cap solo aplica al modo catálogo
 		setBuscandoIdEdicion(true)
 		const t = setTimeout(async () => {
 			const miTurno = ++seqBusquedaEdicionRef.current
@@ -2082,6 +2100,12 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onE
 								</div>
 								{errorBusquedaIdEdicion && (
 									<div className="message error">{errorBusquedaIdEdicion}</div>
+								)}
+								{/* v1.13.1: aviso de cap (el filtrado local muestra máx. 50) */}
+								{totalFiltradoEdicion > 50 && (
+									<div className="empleados-empty" style={{ marginBottom: 6 }}>
+										Mostrando 50 de {totalFiltradoEdicion} — escribe más letras para afinar.
+									</div>
 								)}
 								{getCandidatosBusquedaEdicion().length > 0 && (
 									<div className="empleados-lista empleados-lista-compacta">
@@ -2841,6 +2865,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	// (sin mínimo de 3 letras ni tope de 20); si falla, el buscador server-side
 	// de F5 sigue funcionando como siempre.
 	const [catalogoEmpleados, setCatalogoEmpleados] = useState(null)
+	const [catalogoFallo, setCatalogoFallo] = useState(false)
 	const [totalFiltradoLibre, setTotalFiltradoLibre] = useState(0)
 	const CAP_LISTA_LIBRE = 300
 	// EDGE CASE 4: caché de detalles de empleados añadidos al parte (sobrevive a cambio de toggle)
@@ -2875,8 +2900,9 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	}
 
 	// Filtrar empleados por nombre de búsqueda (modo filtrado por obra)
+	// v1.13.1: insensible a acentos («jose» encuentra «José»)
 	const empleadosFiltrados = empleadosObra.filter(empleado =>
-		empleado.nombre.toLowerCase().includes(busquedaEmpleado.toLowerCase())
+		normalizarTexto(empleado.nombre).includes(normalizarTexto(busquedaEmpleado))
 	)
 
 	// Empleados disponibles a mostrar en el selector (excluye ya añadidos)
@@ -2888,9 +2914,10 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	useEffect(() => {
 		if (!busquedaLibreEmpleados || catalogoEmpleados) return
 		let cancelado = false
+		setCatalogoFallo(false)
 		getCatalogoEmpleados()
 			.then(lista => { if (!cancelado) setCatalogoEmpleados(lista) })
-			.catch(() => { /* fallback: sigue el buscador server-side */ })
+			.catch(() => { if (!cancelado) setCatalogoFallo(true) /* fallback: buscador server-side */ })
 		return () => { cancelado = true }
 	}, [busquedaLibreEmpleados, catalogoEmpleados])
 
@@ -2906,11 +2933,9 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 		}
 		if (catalogoEmpleados) {
 			seqBusquedaLibreRef.current++ // invalida respuestas server tardías
-			const texto = busquedaEmpleado.trim().toLowerCase()
+			const texto = normalizarTexto(busquedaEmpleado.trim())
 			const filtrados = texto
-				? catalogoEmpleados.filter(e =>
-					(e.nombre || '').toLowerCase().includes(texto)
-					|| String(e.idCopuno ?? '').startsWith(texto))
+				? catalogoEmpleados.filter(e => coincideEmpleado(e, texto))
 				: catalogoEmpleados
 			setTotalFiltradoLibre(filtrados.length)
 			setResultadosBusquedaLibre(filtrados.slice(0, CAP_LISTA_LIBRE))
@@ -3488,16 +3513,27 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 									{busquedaLibreEmpleados && buscandoLibre && (
 										<div className="empleados-loading"><Loader2 size={16} className="loading-spinner" /> Buscando…</div>
 									)}
+									{/* v1.13.1: mientras baja el catálogo completo (~5-10 s en frío),
+									    decir que viene de camino — sin esto la lista parece rota */}
+									{busquedaLibreEmpleados && !catalogoEmpleados && !catalogoFallo && !busquedaEmpleado && (
+										<div className="empleados-loading"><Loader2 size={16} className="loading-spinner" /> Cargando la lista completa de empleados… puedes buscar mientras tanto.</div>
+									)}
+									{busquedaLibreEmpleados && catalogoFallo && !busquedaEmpleado && (
+										<div className="empleados-empty"><p>No se pudo cargar la lista completa. Usa el buscador: escribe un nombre o un ID Copuno.</p></div>
+									)}
 									{/* v1.13.0: la lista completa está capada en pantalla */}
 									{busquedaLibreEmpleados && catalogoEmpleados && totalFiltradoLibre > CAP_LISTA_LIBRE && (
 										<div className="empleados-empty" style={{ marginBottom: 6 }}>
 											Mostrando {CAP_LISTA_LIBRE} de {totalFiltradoLibre} empleados — escribe para filtrar.
 										</div>
 									)}
-									{/* F2: aviso de IDs duplicados en Notion */}
-									{busquedaLibreEmpleados && !buscandoLibre && /^\d{3,6}$/.test(busquedaEmpleado.trim()) && resultadosBusquedaLibre.length > 1 && (
+									{/* F2: aviso de IDs duplicados en Notion — solo coincidencias EXACTAS
+									    (v1.13.1: en modo catálogo el filtro es por prefijo y contarlo
+									    todo daría falsos «duplicados») */}
+									{busquedaLibreEmpleados && !buscandoLibre && /^\d{3,6}$/.test(busquedaEmpleado.trim())
+										&& resultadosBusquedaLibre.filter(e => e.idCopuno === Number(busquedaEmpleado.trim())).length > 1 && (
 										<div className="empleados-empty" style={{ marginBottom: 6, color: '#92400e' }}>
-											⚠️ Hay {resultadosBusquedaLibre.length} empleados con ID Copuno {busquedaEmpleado.trim()}. Elige el correcto.
+											⚠️ Hay {resultadosBusquedaLibre.filter(e => e.idCopuno === Number(busquedaEmpleado.trim())).length} empleados con ID Copuno {busquedaEmpleado.trim()}. Elige el correcto.
 										</div>
 									)}
 

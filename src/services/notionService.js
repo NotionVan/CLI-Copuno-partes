@@ -237,7 +237,9 @@ export const getCatalogoEmpleados = () => {
 		catalogoEmpleadosTs = Date.now()
 		catalogoEmpleadosPromise = getEmpleados().then(lista => {
 			if (!Array.isArray(lista)) throw new Error('Catálogo de empleados no disponible')
-			return lista
+			// v1.13.1: orden alfabético estable — la API de Notion devuelve orden
+			// interno y una lista de cientos sin ordenar no se puede escanear.
+			return [...lista].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))
 		}).catch(err => {
 			catalogoEmpleadosPromise = null
 			throw err

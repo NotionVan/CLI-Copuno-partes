@@ -306,7 +306,8 @@ app.get('/api/empleados', async (req, res) => {
 		const empleados = await data.empleados.listarTodos()
 		// TTL largo: el catálogo cuesta ~16 llamadas a Notion y cambia poco.
 		// invalidarEmpleados() lo purga igualmente tras cualquier escritura.
-		setCache('empleados', empleados, 10 * 60 * 1000)
+		// Con CACHE_TTL_MS=0 (tests) el TTL largo también se anula.
+		setCache('empleados', empleados, CACHE_TTL_MS === 0 ? 0 : 10 * 60 * 1000)
 		res.json(empleados)
 	} catch (error) {
 		console.error('Error al obtener empleados:', error.message)
