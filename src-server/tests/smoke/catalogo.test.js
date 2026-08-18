@@ -66,3 +66,47 @@ test('listarTodos con BD vacía devuelve []', async () => {
 	const res = await notion.empleados.listarTodos({ client })
 	assert.deepStrictEqual(res, [])
 })
+
+// P4 — retry de 429 dentro del paginado
+test('listarTodos reintenta una página que devuelve 429 y completa el catálogo', async () => {
+	const paginas = [
+		Array.from({ length: 100 }, (_, i) => pagina(i)),
+		Array.from({ length: 40 }, (_, i) => pagina(100 + i))
+	]
+	let fallosPendientes = 1
+	const llamadas = []
+	const client = {
+		async request(method, endpoint, body) {
+			llamadas.push(body?.start_cursor)
+			const idx = body?.start_cursor ? Number(body.start_cursor) : 0
+			if (idx === 1 && fallosPendientes > 0) {
+				fallosPendientes--
+				const err = new Error('rate limited')
+				err.status = 429
+				err.retryAfter = 0.001
+				throw err
+			}
+			return {
+				results: paginas[idx],
+				has_more: idx < paginas.length - 1,
+				next_cursor: idx < paginas.length - 1 ? String(idx + 1) : null
+			}
+		}
+	}
+	const res = await notion.empleados.listarTodos({ client })
+	assert.strictEqual(res.length, 140)
+	// 3 llamadas: página 0, página 1 (429), página 1 (reintento)
+	assert.deepStrictEqual(llamadas, [undefined, '1', '1'])
+})
+
+test('listarTodos propaga un 429 que persiste tras el reintento', async () => {
+	const client = {
+		async request() {
+			const err = new Error('rate limited')
+			err.status = 429
+			err.retryAfter = 0.001
+			throw err
+		}
+	}
+	await assert.rejects(() => notion.empleados.listarTodos({ client }), (e) => e.status === 429)
+})

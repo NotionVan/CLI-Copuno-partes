@@ -452,7 +452,9 @@ const empleados = {
 		do {
 			const body = { page_size: 100 }
 			if (cursor) body.start_cursor = cursor
-			const data = await client.request('POST', conProps(`/databases/${DATABASES.EMPLEADOS}/query`, PROPS_CATALOGO.EMPLEADOS), body)
+			// P4: ~16 llamadas seguidas — un 429 a mitad no debe tirar el catálogo
+			// entero; reintento único honrando Retry-After (mismo helper que F7).
+			const data = await conReintento429(() => client.request('POST', conProps(`/databases/${DATABASES.EMPLEADOS}/query`, PROPS_CATALOGO.EMPLEADOS), body))
 			resultados.push(...data.results.map(mapEmpleado))
 			cursor = data.has_more ? data.next_cursor : null
 		} while (cursor)

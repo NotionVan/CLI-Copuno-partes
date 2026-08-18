@@ -299,11 +299,18 @@ app.get('/api/obras/:obraId/firmantes-autorizados', async (req, res) => {
 
 // Obtener todos los empleados — v1.13.0: catálogo COMPLETO (paginado hasta el
 // final, ~16 llamadas a Notion en frío). Cacheado; datos-completos NO lo usa.
+// P4: guard de petición en vuelo — dos GET concurrentes con caché fría
+// comparten UNA descarga en vez de duplicar las 16 llamadas.
+let catalogoEmpleadosEnVuelo = null
 app.get('/api/empleados', async (req, res) => {
 	try {
 		const cached = getCache('empleados')
 		if (cached) return res.json(cached)
-		const empleados = await data.empleados.listarTodos()
+		if (!catalogoEmpleadosEnVuelo) {
+			catalogoEmpleadosEnVuelo = data.empleados.listarTodos()
+				.finally(() => { catalogoEmpleadosEnVuelo = null })
+		}
+		const empleados = await catalogoEmpleadosEnVuelo
 		// TTL largo: el catálogo cuesta ~16 llamadas a Notion y cambia poco.
 		// invalidarEmpleados() lo purga igualmente tras cualquier escritura.
 		// Con CACHE_TTL_MS=0 (tests) el TTL largo también se anula.
