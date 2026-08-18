@@ -159,6 +159,13 @@ Errores: `400` (parámetro inválido o tipo de propiedad no soportado), `404` (e
 |--------|------|
 | GET | `/api/partes-trabajo` |
 
+**v1.13.3 (P5) — guard de petición en vuelo.** El listado **sin ventana de fechas**
+reutiliza la promesa en curso (`partesEnVuelo`, limpiada en `finally`): N peticiones
+concurrentes con caché fría comparten UNA consulta a Notion en lugar de disparar N.
+Medido antes del guard: 10 concurrentes = 10 consultas completas, escalonadas por el
+semáforo. Con `?desde`/`?hasta` **no aplica** — cada consulta es distinta y compartirla
+daría datos incorrectos. Telemetría: camino `coalescido` en los eventos `partes_cache`.
+
 Respuesta `200` (array, ordenado por fecha descendente):
 ```json
 [{
