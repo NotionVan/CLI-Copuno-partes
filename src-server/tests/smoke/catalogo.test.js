@@ -110,3 +110,4 @@ test('listarTodos propaga un 429 que persiste tras el reintento', async () => {
 	}
 	await assert.rejects(() => notion.empleados.listarTodos({ client }), (e) => e.status === 429)
 })
+

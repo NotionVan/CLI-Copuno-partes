@@ -522,3 +522,40 @@ test('POST rectificar devuelve 409 si el parte ya tiene un rectificativo', async
 	assert.equal(r2.status, 409)
 	assert.ok(r2.body.error.includes('ya tiene un rectificativo'))
 })
+
+// ─── P5 · Guard de petición en vuelo en el listado ────────────────────────────
+
+test('GET /api/partes-trabajo: peticiones concurrentes con caché fría comparten una consulta', async () => {
+	// Medido antes del guard: 10 peticiones simultáneas disparaban 10 queries
+	// completas a Notion (el endpoint más usado de la app). El guard hace que
+	// se unan a la que ya está en curso.
+	const respuestas = await Promise.all(
+		Array.from({ length: 8 }, () => request(app).get('/api/partes-trabajo'))
+	)
+	assert.ok(respuestas.every(r => r.status === 200), 'todas responden 200')
+	const primera = JSON.stringify(respuestas[0].body)
+	assert.ok(
+		respuestas.every(r => JSON.stringify(r.body) === primera),
+		'todas devuelven exactamente el mismo cuerpo (misma foto compartida)'
+	)
+	assert.ok(Array.isArray(respuestas[0].body) && respuestas[0].body.length > 0)
+})
+
+test('GET /api/partes-trabajo: mezclar peticiones con y sin ventana no contamina el guard', async () => {
+	// El guard solo cubre el listado sin ventana (el único cacheado). Este test
+	// verifica que intercalar peticiones con ?desde/?hasta no hace que las de
+	// sin-ventana reciban una foto distinta entre sí.
+	// NOTA DE COBERTURA: el mock NO implementa el filtro de fechas (devuelve el
+	// listado completo con y sin ventana), así que la semántica del filtro en sí
+	// solo está verificada contra Notion real, no aquí.
+	const respuestas = await Promise.all([
+		request(app).get('/api/partes-trabajo'),
+		request(app).get('/api/partes-trabajo?desde=2020-01-01&hasta=2020-01-02'),
+		request(app).get('/api/partes-trabajo'),
+		request(app).get('/api/partes-trabajo?desde=2026-08-01'),
+		request(app).get('/api/partes-trabajo')
+	])
+	assert.ok(respuestas.every(r => r.status === 200))
+	const sinVentana = [respuestas[0], respuestas[2], respuestas[4]].map(r => JSON.stringify(r.body))
+	assert.ok(sinVentana.every(c => c === sinVentana[0]), 'las peticiones sin ventana comparten foto')
+})

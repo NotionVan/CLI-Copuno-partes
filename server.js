@@ -530,6 +530,8 @@ const PARTES_TTL_DURO_MS = Number(process.env.PARTES_TTL_DURO_MS || 5 * 60 * 100
 // Cursor de la foto: el last_edited_time más reciente que contiene. Es mejor
 // ancla que el reloj del servidor (inmune a drift; Notion compara contra su
 // propio timestamp). Foto vacía → ahora menos 2 min de margen.
+// P5: promesa en vuelo del listado sin ventana (ver GET /api/partes-trabajo).
+let partesEnVuelo = null
 const cursorDeFoto = (partes) => {
 	let max = ''
 	for (const p of partes || []) {
@@ -581,8 +583,22 @@ app.get('/api/partes-trabajo', async (req, res) => {
 				logCamino('frio')
 			}
 		}
-		const partesTrabajo = await data.partesTrabajo.listar({ desde, hasta })
-		if (!conVentana) {
+		// P5: guard de petición en vuelo. Sin esto, N peticiones concurrentes con
+		// caché fría (deploy reciente, o TTL vencido con varios usuarios abriendo
+		// el listado a la vez) disparan N queries completas a Notion — medido:
+		// 10 concurrentes = 10 queries. Solo aplica al listado sin ventana, que
+		// es el único cacheado; con ?desde/?hasta cada consulta es distinta.
+		let partesTrabajo
+		if (conVentana) {
+			partesTrabajo = await data.partesTrabajo.listar({ desde, hasta })
+		} else {
+			if (!partesEnVuelo) {
+				partesEnVuelo = data.partesTrabajo.listar({ desde, hasta })
+					.finally(() => { partesEnVuelo = null })
+			} else {
+				logCamino('coalescido') // se une a una query ya en curso
+			}
+			partesTrabajo = await partesEnVuelo
 			setCache('partes-trabajo', partesTrabajo)
 			cache.get('partes-trabajo').cursorIso = cursorDeFoto(partesTrabajo)
 		}
