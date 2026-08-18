@@ -442,6 +442,24 @@ const empleados = {
 	},
 
 	/**
+	 * Catálogo completo: pagina la BD entera (~1.500 empleados ≈ 16 llamadas).
+	 * Solo lo usa GET /api/empleados (cacheado) — datos-completos sigue con
+	 * listar() para no engordar el arranque.
+	 */
+	async listarTodos({ client }) {
+		const resultados = []
+		let cursor = null
+		do {
+			const body = { page_size: 100 }
+			if (cursor) body.start_cursor = cursor
+			const data = await client.request('POST', conProps(`/databases/${DATABASES.EMPLEADOS}/query`, PROPS_CATALOGO.EMPLEADOS), body)
+			resultados.push(...data.results.map(mapEmpleado))
+			cursor = data.has_more ? data.next_cursor : null
+		} while (cursor)
+		return resultados
+	},
+
+	/**
 	 * Busca por ID COPUNO (number.equals).
 	 * Devuelve { resultados, duplicado } — el endpoint decide qué hacer con duplicados.
 	 */

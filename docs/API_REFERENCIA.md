@@ -73,6 +73,11 @@ Errores:
 |--------|------|
 | GET | `/api/empleados` |
 
+**v1.13.0:** devuelve el catálogo **completo** (pagina la BD entera, ~1.500
+empleados, ~370 KB / 81 KB gzip). Cacheado en servidor con TTL de 10 min
+(invalidado tras cualquier escritura de empleados). Hasta v1.12.x devolvía
+solo los primeros 100.
+
 Respuesta `200` (array):
 ```json
 [{

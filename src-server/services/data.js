@@ -119,6 +119,13 @@ const empleados = {
 		return notion.empleados.listar({ client: state.notionClient })
 	},
 
+	/** Catálogo completo (paginado hasta el final). El mock no pagina: devuelve todo. */
+	async listarTodos() {
+		requireInit()
+		if (state.mode === 'mock') return state.mockStore.getEmpleados()
+		return notion.empleados.listarTodos({ client: state.notionClient })
+	},
+
 	/**
 	 * Busca por ID Copuno.
 	 * Devuelve { resultados: Empleado[], duplicado: boolean }.

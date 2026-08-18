@@ -222,6 +222,30 @@ export const getEmpleados = async () => {
 	}
 }
 
+// v1.13.0: catálogo completo de empleados, memoizado a nivel de módulo.
+// El servidor pagina la BD entera (~1.500) y lo cachea; aquí evitamos repetir
+// la descarga cada vez que se activa la búsqueda libre. Si la petición falla,
+// se olvida la promesa para que el siguiente intento vuelva a pedirla.
+let catalogoEmpleadosPromise = null
+let catalogoEmpleadosTs = 0
+const CATALOGO_EMPLEADOS_TTL_MS = 10 * 60 * 1000 // igual que el TTL del server
+export const getCatalogoEmpleados = () => {
+	if (catalogoEmpleadosPromise && Date.now() - catalogoEmpleadosTs > CATALOGO_EMPLEADOS_TTL_MS) {
+		catalogoEmpleadosPromise = null // caducado: la próxima pantalla lo re-pide
+	}
+	if (!catalogoEmpleadosPromise) {
+		catalogoEmpleadosTs = Date.now()
+		catalogoEmpleadosPromise = getEmpleados().then(lista => {
+			if (!Array.isArray(lista)) throw new Error('Catálogo de empleados no disponible')
+			return lista
+		}).catch(err => {
+			catalogoEmpleadosPromise = null
+			throw err
+		})
+	}
+	return catalogoEmpleadosPromise
+}
+
 // F5: búsqueda incremental de empleados por nombre (server-side)
 export const buscarVehiculos = async (q, limite = 20) => {
 	try {

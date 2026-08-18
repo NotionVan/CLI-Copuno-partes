@@ -138,11 +138,11 @@ const INSTANCE_ID = require('crypto').randomBytes(4).toString('hex')
 // Cache simple en memoria para catálogos (TTL configurable)
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30 * 1000) // 30 segundos para reducir requests innecesarios a Notion
 const cache = new Map()
-const setCache = (key, data) => cache.set(key, { data, ts: Date.now() })
+const setCache = (key, data, ttlMs) => cache.set(key, { data, ts: Date.now(), ttlMs })
 const getCache = (key) => {
 	const e = cache.get(key)
 	if (!e) return null
-	if (Date.now() - e.ts > CACHE_TTL_MS) {
+	if (Date.now() - e.ts > (e.ttlMs ?? CACHE_TTL_MS)) {
 		cache.delete(key)
 		return null
 	}
@@ -297,13 +297,16 @@ app.get('/api/obras/:obraId/firmantes-autorizados', async (req, res) => {
 	}
 })
 
-// Obtener todos los empleados — refactorizado a data.js (ADR-002)
+// Obtener todos los empleados — v1.13.0: catálogo COMPLETO (paginado hasta el
+// final, ~16 llamadas a Notion en frío). Cacheado; datos-completos NO lo usa.
 app.get('/api/empleados', async (req, res) => {
 	try {
 		const cached = getCache('empleados')
 		if (cached) return res.json(cached)
-		const empleados = await data.empleados.listar()
-		setCache('empleados', empleados)
+		const empleados = await data.empleados.listarTodos()
+		// TTL largo: el catálogo cuesta ~16 llamadas a Notion y cambia poco.
+		// invalidarEmpleados() lo purga igualmente tras cualquier escritura.
+		setCache('empleados', empleados, 10 * 60 * 1000)
 		res.json(empleados)
 	} catch (error) {
 		console.error('Error al obtener empleados:', error.message)

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, Plus, FileText, Calendar, Users, Building, Loader2, Wifi, WifiOff, Home, ArrowLeft, Clock, User, Send, PenSquare, RotateCcw, X, Truck, Download, AlertTriangle } from 'lucide-react'
 import Toast from './components/Toast'
 import { leerCacheLocal, guardarCacheLocal } from './lib/cacheLocal'
-import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId, buscarVehiculos, exportarChorus, componerCsvChorus } from './services/notionService'
+import { getDatosCompletos, crearParteTrabajo, actualizarParteTrabajo, checkConnectivity, retryOperation, getDetallesEmpleados, getEmpleadosObra, getDetallesCompletosParte, actualizarEstadoEmpleado, getOpcionesEstadoEmpleados, getPartesTrabajo, getParteEstado, enviarDatosParte, rectificarParte, getFirmantesAutorizados, buscarEmpleados, buscarEmpleadoPorId, getCatalogoEmpleados, buscarVehiculos, exportarChorus, componerCsvChorus } from './services/notionService'
 
 // F4: helpers para agrupar firmantes por rol en el selector
 const ROLES_ORDEN = ['Encargado', 'Jefe de Obra', 'Jefe de Producción', 'Otros']
@@ -981,6 +981,8 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onE
 	const [buscandoIdEdicion, setBuscandoIdEdicion] = useState(false)
 	const [errorBusquedaIdEdicion, setErrorBusquedaIdEdicion] = useState('')
 	const [resultadosBusquedaEdicion, setResultadosBusquedaEdicion] = useState([])
+	// v1.13.0: catálogo completo para filtrar en local (se carga al primer tecleo)
+	const [catalogoEmpleadosEdicion, setCatalogoEmpleadosEdicion] = useState(null)
 	const [empleadosAñadidosDetalleEdicion, setEmpleadosAñadidosDetalleEdicion] = useState({})
 	const [guardandoCambios, setGuardandoCambios] = useState(false)
 	const [mensajeUI, setMensajeUI] = useState({ tipo: '', texto: '' })
@@ -1484,11 +1486,37 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onE
 		setEmpleadosAñadidosDetalleEdicion({})
 	}
 
-	// Búsqueda incremental con debounce para añadir empleados en edición (mismo patrón que en creación):
-	// - Si el texto son 3-6 dígitos: intenta primero ID Copuno; si no hay resultados, cae a búsqueda por nombre.
-	// - Si no es numérico: búsqueda directa por nombre/apellidos.
+	// v1.13.0: cargar el catálogo completo al primer tecleo del buscador de
+	// edición (memoizado a nivel de módulo — compartido con CrearParte).
 	useEffect(() => {
-		if (!editandoParte || busquedaIdEdicion.trim().length < 3) {
+		if (!editandoParte || !busquedaIdEdicion || catalogoEmpleadosEdicion) return
+		let cancelado = false
+		getCatalogoEmpleados()
+			.then(lista => { if (!cancelado) setCatalogoEmpleadosEdicion(lista) })
+			.catch(() => { /* fallback: buscador server-side */ })
+		return () => { cancelado = true }
+	}, [editandoParte, busquedaIdEdicion, catalogoEmpleadosEdicion])
+
+	// Búsqueda incremental con debounce para añadir empleados en edición (mismo patrón que en creación):
+	// - Con catálogo (v1.13.0): filtrado local instantáneo sobre la BD entera.
+	// - Sin catálogo: si el texto son 3-6 dígitos intenta ID Copuno y cae a nombre; si no, nombre.
+	useEffect(() => {
+		if (!editandoParte || busquedaIdEdicion.trim().length < 1) {
+			setResultadosBusquedaEdicion([])
+			return
+		}
+		if (catalogoEmpleadosEdicion) {
+			seqBusquedaEdicionRef.current++ // invalida respuestas server tardías
+			const texto = busquedaIdEdicion.trim().toLowerCase()
+			const filtrados = catalogoEmpleadosEdicion.filter(e =>
+				(e.nombre || '').toLowerCase().includes(texto)
+				|| String(e.idCopuno ?? '').startsWith(texto))
+			setResultadosBusquedaEdicion(filtrados.slice(0, 50))
+			setErrorBusquedaIdEdicion(filtrados.length === 0 ? `Sin resultados para "${busquedaIdEdicion.trim()}"` : '')
+			setBuscandoIdEdicion(false)
+			return
+		}
+		if (busquedaIdEdicion.trim().length < 3) {
 			setResultadosBusquedaEdicion([])
 			return
 		}
@@ -1520,7 +1548,7 @@ function ConsultaPartes({ datos, onVolver, estadoOptions, onRefrescarPartes, onE
 			}
 		}, 300)
 		return () => clearTimeout(t)
-	}, [busquedaIdEdicion, editandoParte])
+	}, [busquedaIdEdicion, editandoParte, catalogoEmpleadosEdicion])
 
 	// Candidatos de la búsqueda que aún no están asignados al parte
 	const getCandidatosBusquedaEdicion = () => {
@@ -2808,6 +2836,13 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	const [resultadosBusquedaLibre, setResultadosBusquedaLibre] = useState([])
 	const [buscandoLibre, setBuscandoLibre] = useState(false)
 	const seqBusquedaLibreRef = useRef(0) // P9: guarda de secuencia del buscador
+	// v1.13.0: catálogo completo (~1.500 empleados) cargado en background al
+	// activar la búsqueda libre. Con él, el filtrado es local e instantáneo
+	// (sin mínimo de 3 letras ni tope de 20); si falla, el buscador server-side
+	// de F5 sigue funcionando como siempre.
+	const [catalogoEmpleados, setCatalogoEmpleados] = useState(null)
+	const [totalFiltradoLibre, setTotalFiltradoLibre] = useState(0)
+	const CAP_LISTA_LIBRE = 300
 	// EDGE CASE 4: caché de detalles de empleados añadidos al parte (sobrevive a cambio de toggle)
 	const [empleadosAñadidosDetalle, setEmpleadosAñadidosDetalle] = useState({})
 
@@ -2848,12 +2883,43 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 	const candidatosVisibles = (busquedaLibreEmpleados ? resultadosBusquedaLibre : empleadosFiltrados)
 		.filter(e => !formData.empleados.includes(e.id))
 
-	// F2+F5: búsqueda incremental con debounce.
-	// - Si el texto es 4-5 dígitos: intenta primero ID Copuno; si 404, cae a búsqueda por nombre.
-	// - Si el texto no es numérico: búsqueda directa por nombre.
+	// v1.13.0: al activar la búsqueda libre, cargar el catálogo completo en
+	// background (memoizado a nivel de módulo — una descarga por sesión).
 	useEffect(() => {
-		if (!busquedaLibreEmpleados || busquedaEmpleado.length < 3) {
+		if (!busquedaLibreEmpleados || catalogoEmpleados) return
+		let cancelado = false
+		getCatalogoEmpleados()
+			.then(lista => { if (!cancelado) setCatalogoEmpleados(lista) })
+			.catch(() => { /* fallback: sigue el buscador server-side */ })
+		return () => { cancelado = true }
+	}, [busquedaLibreEmpleados, catalogoEmpleados])
+
+	// F2+F5: búsqueda incremental con debounce.
+	// - Con catálogo cargado (v1.13.0): filtrado LOCAL instantáneo sobre la BD
+	//   entera, sin mínimo de letras, capado a CAP_LISTA_LIBRE en pantalla.
+	// - Sin catálogo (aún cargando o fallo): buscador server-side de F5.
+	useEffect(() => {
+		if (!busquedaLibreEmpleados) {
 			setResultadosBusquedaLibre([])
+			setTotalFiltradoLibre(0)
+			return
+		}
+		if (catalogoEmpleados) {
+			seqBusquedaLibreRef.current++ // invalida respuestas server tardías
+			const texto = busquedaEmpleado.trim().toLowerCase()
+			const filtrados = texto
+				? catalogoEmpleados.filter(e =>
+					(e.nombre || '').toLowerCase().includes(texto)
+					|| String(e.idCopuno ?? '').startsWith(texto))
+				: catalogoEmpleados
+			setTotalFiltradoLibre(filtrados.length)
+			setResultadosBusquedaLibre(filtrados.slice(0, CAP_LISTA_LIBRE))
+			setBuscandoLibre(false)
+			return
+		}
+		if (busquedaEmpleado.length < 3) {
+			setResultadosBusquedaLibre([])
+			setTotalFiltradoLibre(0)
 			return
 		}
 		setBuscandoLibre(true)
@@ -2882,7 +2948,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 			}
 		}, 300)
 		return () => clearTimeout(t)
-	}, [busquedaEmpleado, busquedaLibreEmpleados])
+	}, [busquedaEmpleado, busquedaLibreEmpleados, catalogoEmpleados])
 
 	// Helpers tolerantes para horas: limitar 0-24 y redondear a 0.5
 	const clampRoundHoras = (val) => {
@@ -3402,7 +3468,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 										<Search size={18} />
 										<input
 											type="text"
-											placeholder={busquedaLibreEmpleados ? "Buscar por ID Copuno (4-5 dígitos) o nombre (3+ letras)..." : "Buscar empleado por nombre..."}
+											placeholder={busquedaLibreEmpleados ? (catalogoEmpleados ? "Filtrar por nombre o ID Copuno..." : "Buscar por ID Copuno (4-5 dígitos) o nombre (3+ letras)...") : "Buscar empleado por nombre..."}
 											value={busquedaEmpleado}
 											onChange={(e) => setBusquedaEmpleado(e.target.value)}
 											onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
@@ -3416,11 +3482,17 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 										)}
 									</div>
 
-									{busquedaLibreEmpleados && busquedaEmpleado.length > 0 && busquedaEmpleado.length < 3 && (
+									{busquedaLibreEmpleados && !catalogoEmpleados && busquedaEmpleado.length > 0 && busquedaEmpleado.length < 3 && (
 										<div className="empleados-empty"><p>Escribe al menos 3 letras para buscar.</p></div>
 									)}
 									{busquedaLibreEmpleados && buscandoLibre && (
 										<div className="empleados-loading"><Loader2 size={16} className="loading-spinner" /> Buscando…</div>
+									)}
+									{/* v1.13.0: la lista completa está capada en pantalla */}
+									{busquedaLibreEmpleados && catalogoEmpleados && totalFiltradoLibre > CAP_LISTA_LIBRE && (
+										<div className="empleados-empty" style={{ marginBottom: 6 }}>
+											Mostrando {CAP_LISTA_LIBRE} de {totalFiltradoLibre} empleados — escribe para filtrar.
+										</div>
 									)}
 									{/* F2: aviso de IDs duplicados en Notion */}
 									{busquedaLibreEmpleados && !buscandoLibre && /^\d{3,6}$/.test(busquedaEmpleado.trim()) && resultadosBusquedaLibre.length > 1 && (
@@ -3430,7 +3502,7 @@ function CrearParte({ datos, estadoOptions, onParteCreado, onVolver }) {
 									)}
 
 									{candidatosVisibles.length === 0 ? (
-										(busquedaLibreEmpleados ? (busquedaEmpleado.length >= 3 && !buscandoLibre) : true) && (
+										(busquedaLibreEmpleados ? (catalogoEmpleados ? !buscandoLibre : (busquedaEmpleado.length >= 3 && !buscandoLibre)) : true) && (
 											<div className="empleados-empty">
 												<p>{busquedaEmpleado ? `No se encontraron empleados con "${busquedaEmpleado}"` : 'No hay candidatos disponibles para añadir.'}</p>
 											</div>
