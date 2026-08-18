@@ -78,6 +78,12 @@ empleados, ~370 KB / 81 KB gzip). Cacheado en servidor con TTL de 10 min
 (invalidado tras cualquier escritura de empleados). Hasta v1.12.x devolvía
 solo los primeros 100.
 
+**v1.13.2 (P4):** cada página del paginado reintenta una vez ante 429 honrando
+`Retry-After` (`conReintento429`), y el endpoint reutiliza la **promesa en vuelo**:
+dos peticiones concurrentes con caché fría comparten una sola descarga en vez de
+duplicar las ~16 llamadas a Notion. Un 429 que persista tras el reintento se
+propaga como `503` + `Retry-After` (el frontend cae al buscador de `/buscar`).
+
 Respuesta `200` (array):
 ```json
 [{
