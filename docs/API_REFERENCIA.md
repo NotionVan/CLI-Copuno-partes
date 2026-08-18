@@ -6,6 +6,9 @@
 
 > **Nota de seguridad:** Todas las respuestas de `/api/*` (excepto `/api/health`) aplican un saneado automático que elimina o redacta datos económicos (precios, importes, tarifas, euros). Este comportamiento es deliberado y no debe modificarse.
 
+> **v1.12.3:** `/api/health` incluye `inst` — id aleatorio de la instancia lambda que respondió (telemetría multi-instancia; muestrear en ráfaga revela cuántas instancias conviven).
+
+
 > **Autenticación (v1.9.0, ADR-006 — en rama `feature/auth-supabase`, activa cuando `SUPABASE_URL` está configurada):** todo `/api/*` salvo `/api/health` exige cabecera `Authorization: Bearer <JWT de Supabase Auth>`. Token ausente/inválido/caducado → `401 {"error": "No autenticado" | "Sesión inválida o caducada"}`. La verificación es local (JWKS cacheado, ES256), en [src-server/middleware/auth.js](../src-server/middleware/auth.js); el frontend inyecta el token vía interceptor axios. Sin `SUPABASE_URL` (desarrollo/mock y producción pre-corte) el middleware no exige nada.
 
 ---
