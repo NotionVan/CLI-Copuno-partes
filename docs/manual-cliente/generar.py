@@ -40,8 +40,8 @@ import sys
 
 AQUI = pathlib.Path(__file__).resolve().parent
 ORIGEN = AQUI.parent / "manual" / "index.html"
-FECHA_DOC = "17 de agosto de 2026"
-VERSION = "1.12.2"
+FECHA_DOC = "18 de agosto de 2026"
+VERSION = "1.12.3"
 
 # Las 10 capturas del manual de usuario, en el ORDEN DE APARICIÓN en el HTML
 # (el zip con imgs[2:] depende de este orden — v1.12.2 añadió las tres últimas
