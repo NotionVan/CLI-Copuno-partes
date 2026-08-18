@@ -1169,13 +1169,58 @@ El recurso más lento del arranque es el **logotipo, 35 KB y 174 ms** — mayor 
 paquete de componentes de interfaz. Convertirlo a un formato moderno es una mejora
 pendiente ya anotada.
 
-**Lo que sigue sin medirse, y es el hueco principal de este informe:** no hay datos de
-usuarios reales. La telemetría de plataforma está activa desde el 17 de agosto, pero
-su consulta requiere acceso al panel del cliente, del que este análisis no dispone.
-Faltan por tanto las métricas que de verdad importan —las percibidas por un jefe de
-obra con una tablet y cobertura irregular— y no hay sustituto de laboratorio para
-ellas. **Obtenerlas es cuestión de dos minutos para quien tenga acceso al panel**, y
-debería hacerse antes de la demostración.
+### Métricas de usuarios reales (consultadas el 18-08)
+
+Extraídas del panel de telemetría de la plataforma. **Percentil 75, entorno de
+producción, escritorio:**
+
+| Métrica | Valor real | Umbral «bueno» | Margen |
+|---|---|---|---|
+| Tiempo hasta el primer byte | **50 ms** | < 800 ms | 16× |
+| Primer pintado con contenido | **370 ms** | < 1.800 ms | 4,9× |
+| Mayor pintado con contenido | **850 ms** | < 2.500 ms | 2,9× |
+| Interacción hasta el siguiente pintado | **88 ms** | < 200 ms | 2,3× |
+| Retardo de la primera entrada | 3 ms | < 100 ms | 33× |
+| Desplazamiento acumulado de diseño | sin valor | < 0,1 | — |
+
+**Todas las métricas en verde, con holgura.** El mayor pintado está a un tercio de su
+umbral.
+
+**Contraste con las mediciones externas de este informe:** el tiempo hasta el primer
+byte real (50 ms) es **entre dos y cuatro veces mejor** que el medido desde una
+conexión doméstica española (130-186 ms). Confirma la dirección del sesgo declarado en
+§3.5: las cifras de laboratorio de este informe son conservadoras, no optimistas.
+
+### Las limitaciones de estos datos, que importan más que los datos
+
+**1. La muestra es mínima.** El panel declara literalmente «No data points collected»
+para el desglose: hay volumen suficiente para las métricas agregadas, pero no para la
+puntuación global, ni el desglose por ruta, ni por país. Los valores son idénticos
+consultando siete o treinta días, lo que es coherente —toda la muestra está en los dos
+días transcurridos desde la activación— pero confirma que **no hay serie temporal**.
+
+**2. Cero visitas desde móvil o tablet.** El desglose de dispositivo móvil está
+**completamente vacío**. En dos días de telemetría no se ha registrado ni un solo
+acceso desde teléfono o tablet.
+
+Esto es lo más relevante de toda la consulta: **todas las cifras en verde de arriba son
+de escritorio**. Son de oficina, no de obra. Los jefes de obra van a usar la aplicación
+desde tablet, con cobertura irregular, guantes y sol directo, y de ese escenario —el
+que motivó buena parte de la intervención— **seguimos sin tener una sola medición
+real**.
+
+**Acción recomendada antes de la demostración:** que alguien abra la aplicación desde
+la tablet real y navegue unos minutos por los flujos habituales. Con eso, en 48 horas
+habría datos del dispositivo que de verdad importa. Es la medición pendiente más
+barata y más informativa que queda.
+
+**3. Aviso de versión del paquete de telemetría.** El panel muestra «Make sure you are
+using the latest @vercel/speed-insights package»: el proyecto usa la versión 1.2.0 y
+existe la 2.0.0. Verificado que la recogida **funciona igualmente** —el script se sirve
+correctamente en producción y el componente está incluido en el paquete cliente—, así
+que el aviso no invalida los datos. Actualizar queda como tarea menor **posterior a la
+demostración**: es una dependencia, y no se tocan dependencias en periodo de
+congelación por una mejora de telemetría.
 
 ## 10.1.c Desglose: dónde se va el tiempo al crear un parte
 
@@ -1349,7 +1394,7 @@ evidencia suficiente, corregido aquí:
 | «105 hallazgos» | Numeración declarada; 48 desarrollados individualmente (ver §5) |
 | Latencias de endpoint de la primera versión | Eran mediciones puntuales que resultaron ser las mejores marcas del rango. Rehechas con muestra en §10.1 |
 | Desglose del tiempo de escritura | Explica el 46 %; el resto queda como incógnita declarada (ver §10.1.c) |
-| Métricas de usuarios reales | **No existen.** La telemetría está activa pero sus datos no se han consultado (ver §10.1.b) |
+| Métricas de usuarios reales | ✅ **Consultadas el 18-08** (ver §10.1.b): todas en verde con holgura. Pero con muestra mínima y **sin un solo acceso desde móvil o tablet**, que es el dispositivo objetivo |
 
 ---
 
