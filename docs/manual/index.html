@@ -142,7 +142,7 @@ kbd{background:var(--surface);border:1px solid var(--border);border-bottom-width
 	<p class="subtitulo">Manual de usuario y documentación técnica del sistema</p>
 	<dl class="meta">
 		<dt>Cliente</dt><dd>Copuno, S.L. — sector construcción</dd>
-		<dt>Versión de la app</dt><dd>1.13.2 — en producción (capturas de la v1.12.2, vigentes: la v1.13.2 no cambia la interfaz)</dd>
+		<dt>Versión de la app</dt><dd>1.13.4 — en producción (capturas de la v1.12.2, vigentes: ni la v1.13.3 ni la v1.13.4 cambian la interfaz)</dd>
 		<dt>Fecha del documento</dt><dd>31 de julio de 2026</dd>
 		<dt>Elaborado por</dt><dd>NotionVan · Javi Collado</dd>
 		<dt>Producción</dt><dd>app.copuno.com <em>(activo desde el 03/08/2026; la app se sirve en la raíz)</em></dd>
@@ -582,7 +582,7 @@ npm run dev          # Vite dev server (solo frontend)
 npm run server       # Express en :3001 (sirve /api/* y /dist)
 npm run dev:full     # build + server (producción local)
 npm run build        # vite build → /dist
-npm run test:smoke   # 45 casos contra el mock — SIEMPRE antes de mergear</code></pre>
+npm run test:smoke   # 66 casos contra el mock — SIEMPRE antes de mergear</code></pre>
 <p><strong>Modo mock:</strong> <code>USE_MOCK_DATA=true</code> o <code>NOTION_TOKEN=mock</code> → sin llamadas a Notion, datos de <code>mock/mockData.js</code>.</p>
 <h3>Variables de entorno</h3>
 <div class="tabla-scroll"><table>
@@ -609,7 +609,23 @@ npm run test:smoke   # 45 casos contra el mock — SIEMPRE antes de mergear</cod
 <h2>21 · Historial de versiones</h2>
 <div class="tabla-scroll"><table>
 <tr><th>Versión</th><th>Fecha</th><th>Cambios principales</th></tr>
-<tr><td>1.9.0</td><td>29-07-2026</td><td><strong>Autenticación de plataforma</strong> (ADR-006, resuelve H1): Supabase Auth, login email+contraseña, middleware JWT local, migraciones <code>perfiles</code> + <code>accesos_modulo</code> + RLS, menú de cuenta, cabecera rediseñada con el logo oficial. En rama, sin fusionar</td></tr>
+<tr><td>1.13.4</td><td>18-08-2026</td><td><strong>S1 · Cabeceras de seguridad en el HTML</strong>: <code>helmet</code> solo cubre <code>/api/*</code> (los estáticos los sirve Vercel sin pasar por Express) → el documento que ejecuta la app no tenía anti-clickjacking. Añadidas <code>X-Frame-Options</code>, <code>X-Content-Type-Options</code>, <code>Referrer-Policy</code> y <code>Permissions-Policy</code> a todas las rutas</td></tr>
+<tr><td>1.13.3</td><td>18-08-2026</td><td><strong>P5 · Guard de petición en vuelo en el listado</strong>: 10 peticiones concurrentes con caché fría disparaban 10 queries completas a Notion en el endpoint más usado. Hallazgo de la <em>primera prueba de carga del proyecto</em>; el defecto llevaba activo desde siempre. Verificado: las 10 pasan a terminar en el mismo instante</td></tr>
+<tr><td>1.13.2</td><td>18-08-2026</td><td><strong>P4</strong>: retry de 429 por página en <code>listarTodos</code> + guard de petición en vuelo en <code>/api/empleados</code></td></tr>
+<tr><td>1.13.1</td><td>18-08-2026</td><td><strong>6 edge cases del catálogo</strong>: falso aviso de IDs duplicados por filtro de prefijo, indicador de carga ausente (reproducía la percepción de «lista rota»), acentos, orden alfabético, TTL en tests, ceros a la izquierda</td></tr>
+<tr><td>1.13.0</td><td>18-08-2026</td><td><strong>Catálogo completo de empleados</strong> en búsqueda libre: de 20 resultados con mínimo de 3 letras a los <strong>1.533</strong> filtrando en local desde la primera letra. A raíz del aviso de Efrén. Verificado que las listas por obra ya estaban completas</td></tr>
+<tr><td>1.12.3</td><td>18-08-2026</td><td><strong>Telemetría multi-instancia</strong>: <code>INSTANCE_ID</code> en health y logs, eventos <code>partes_cache</code> y <code>enviar_datos_entrada</code>, <code>rate_limit_reason</code> (P2). Medición previa al escalón KV</td></tr>
+<tr><td>1.12.2</td><td>17-08-2026</td><td><strong>F7c · Infraestructura de despliegue</strong>: <code>vercel.json</code> de <code>builds</code> a <code>functions</code>, <code>maxDuration: 60</code> (H2 mitigado), catch-all SPA y cabeceras de caché</td></tr>
+<tr><td>1.12.1</td><td>17-08-2026</td><td><strong>F7b · «Enviar datos» instantáneo</strong>: parche de estado optimista en el padre (I8 cerrado de raíz), 409 que salta al estado real, timeouts de escritura a 45 s</td></tr>
+<tr><td>1.12.0</td><td>17-08-2026</td><td><strong>F7a · Escrituras en lotes</strong>: detalles de 3 en 3 sin sleeps, <strong>archivado transaccional con rollback</strong>. Crear 8,5→4,8 s; editar 17,2→13,1 s</td></tr>
+<tr><td>1.11.0</td><td>17-08-2026</td><td><strong>F6 · La lista se actualiza sola</strong>: polling revivido (muerto desde v1.3, causa de «hay que refrescar a mano») + freshness-check server-side de 0,43 s. I-C cerrado</td></tr>
+<tr><td>1.10.2</td><td>17-08-2026</td><td><strong>F5 · Resiliencia multiusuario</strong>: rate limit en dos capas (IP + usuario), semáforo global, 503 con Retry-After, ETag/304, conexión honesta, errores en cristiano</td></tr>
+<tr><td>1.10.1</td><td>17-08-2026</td><td><strong>F4 · Segunda apertura en 47 ms</strong>: caché local SWR sin datos personales, toast único, UX-4 (la edición ya no puede vaciar un parte), targets 44 px, contrastes AA</td></tr>
+<tr><td>1.10.0</td><td>17-08-2026</td><td><strong>F3 · Arranque</strong>: de 9 peticiones a 3, menú interactivo en ~160 ms, app-shell antes de que cargue el JS, AuthGate sin pantalla en blanco</td></tr>
+<tr><td>1.9.3</td><td>17-08-2026</td><td><strong>F2 · Dieta de payload + I9</strong>: <code>filter_properties</code> en todo el catálogo (partes −62 %, empleados −74 %). <strong>Corregido el fallo activo de nombres de empleado vacíos</strong> con <code>titleDe()</code> por tipo</td></tr>
+<tr><td>1.9.2</td><td>17-08-2026</td><td><strong>F1 · Integridad y red anti-error</strong>: invalidación de caché en las 5 escrituras (BE-3), <code>?? 8</code> (el 0 de horas ya no se graba como 8), medias jornadas, ErrorBoundary, fin de las esperas artificiales</td></tr>
+<tr><td>1.9.1</td><td>17-08-2026</td><td><strong>F0 · Línea base</strong>: telemetría activada y corrección de la guía de despliegue (fijar región europea habría empeorado 1-1,3 s por parte)</td></tr>
+<tr><td>1.9.0</td><td>29-07-2026</td><td><strong>Autenticación de plataforma</strong> (ADR-006, resuelve H1): Supabase Auth, login email+contraseña, middleware JWT local, migraciones <code>perfiles</code> + <code>accesos_modulo</code> + RLS, menú de cuenta, cabecera rediseñada con el logo oficial. <strong>En producción desde el 03-08-2026</strong></td></tr>
 <tr><td>1.8.0</td><td>28-07-2026</td><td><strong>Exportar CSV Chorus</strong> en la app: modal con rango, confirmación cross-mes, reglas de negocio en servidor, endpoint paginado. Verificado idéntico al CSV validado por el cliente (254 filas / 2.083 h)</td></tr>
 <tr><td>1.7.1</td><td>14-07-2026</td><td>Icono <code>Truck</code> junto a las matrículas del listado</td></tr>
 <tr><td>1.7.0</td><td>14-07-2026</td><td>Vehículos como <strong>relación</strong> Notion (fuente de verdad) + espejo rich_text para Make; chips en la UI; re-derivación del espejo en enviar-datos</td></tr>
@@ -632,12 +648,12 @@ npm run test:smoke   # 45 casos contra el mock — SIEMPRE antes de mergear</cod
 
 <section id="c1">
 <h2>22 · Deuda técnica</h2>
-<p>Fuente: <code>docs/DEUDA_TECNICA.md</code> (última edición 2026-07-30). Severidades: <span class="badge rojo">Bloqueante</span> <span class="badge naranja">Crítico</span> <span class="badge amarillo">Importante</span> <span class="badge azul">Informativo</span>. Estimación pendiente en bloqueantes + críticos: 22–35 h.</p>
+<p>Fuente: <code>docs/DEUDA_TECNICA.md</code> (última edición 2026-08-18). Severidades: <span class="badge rojo">Bloqueante</span> <span class="badge naranja">Crítico</span> <span class="badge amarillo">Importante</span> <span class="badge azul">Informativo</span>. <strong>Actualización 18-08-2026:</strong> los bloqueantes H1 y H2 están cerrados o mitigados. Los 13 hallazgos críticos de la auditoría de julio (C1-C6, I-A..I-F) se cerraron entre el 17 y el 18 de agosto con el plan F0-F7. Deuda viva principal: <strong>P1</strong> (la versión de API de Notion rompe si el cliente añade una 2ª data source — post-demo, 1-2 h), <strong>I-A parcial</strong> (el listado de partes sigue mostrando 100 de 191), <strong>S2</strong> (sin CSP en el HTML) y <strong>S3</strong> (17 vulnerabilidades en dependencias, 9 alcanzan producción). Detalle completo y trazabilidad en <code>docs/RESULTADOS_RENDIMIENTO_2026-08.md</code>.</p>
 <h3>Hallazgos principales (H / C)</h3>
 <div class="tabla-scroll"><table>
 <tr><th>Código</th><th>Hallazgo</th><th>Sev.</th><th>Estado</th></tr>
-<tr><td>H1</td><td>API sin autenticación (PII expuesta). Resuelto técnicamente en v1.9.0; producción pendiente del corte con Efrén</td><td><span class="badge rojo">B</span></td><td>🔧 En corte</td></tr>
-<tr><td>H2</td><td>Creación/edición de parte no atómica (N escrituras sin transacción; un 5xx deja el parte a medias). Mitigado con idempotencia; fix pendiente 8–12 h</td><td><span class="badge rojo">B</span></td><td>🔧 Abierto</td></tr>
+<tr><td>H1</td><td>API sin autenticación (PII expuesta). <strong>CERRADO</strong>: en producción desde el 03-08-2026 con 5 usuarios dados de alta</td><td><span class="badge rojo">B</span></td><td>🔧 En corte</td></tr>
+<tr><td>H2</td><td>Creación/edición de parte no atómica (N escrituras sin transacción; un 5xx deja el parte a medias). <strong>MITIGADO</strong> en v1.12.0/v1.12.2: archivado transaccional con rollback (nunca horas de menos ni duplicadas) + <code>maxDuration: 60</code></td><td><span class="badge rojo">B</span></td><td>🔧 Abierto</td></tr>
 <tr><td>H3</td><td>SSE incompatible con Vercel serverless → polling client-side</td><td><span class="badge rojo">B</span></td><td>✅ v1.3.0</td></tr>
 <tr><td>C1</td><td>Webhook Make recibe payload sin sanear — descartado: la plantilla solo renderiza datos horarios</td><td><span class="badge naranja">C</span></td><td>❌ Descartado</td></tr>
 <tr><td>C2</td><td>Ventana entre webhook y PATCH de estado → estado intermedio <code>Procesando</code> (lock optimista)</td><td><span class="badge naranja">C</span></td><td>✅ 2026-05-27</td></tr>
@@ -712,6 +728,11 @@ npm run test:smoke   # 45 casos contra el mock — SIEMPRE antes de mergear</cod
 <section id="c4">
 <h2>25 · Gotchas y lecciones aprendidas</h2>
 <ul>
+	<li><strong>La reversión de despliegue NO es instantánea ni atómica</strong> — ensayado en producción el 18-08 (v1.13.4→v1.13.3→v1.13.4, muestreo cada segundo, n=150): <strong>~12 s</strong> hasta que producción sirve la versión anterior, <strong>2 s de convivencia</strong> en los que distintas peticiones reciben respuestas de despliegues distintos, y <strong>1 fallo diferido a los ~42 s</strong> (arranque en frío de la instancia nueva). Medio minuto largo hasta estabilidad completa. Y antes de revertir, <strong>comprobar cuál es el despliegue ACTIVO</strong>: los commits de <code>docs:</code> también despliegan, así que el activo no tiene por qué ser el último de código.</li>
+	<li><strong>La cuenta personal de Vercel no ve el proyecto del cliente</strong> — el CLI y el conector autentican contra la cuenta personal; el proyecto vive en la organización de Copuno. Revertir, promover o leer telemetría exige la sesión del navegador con la organización correcta seleccionada.</li>
+	<li><strong>El mock no implementa el filtro de fechas</strong> del listado: devuelve el catálogo completo con y sin ventana. La semántica de <code>?desde</code>/<code>?hasta</code> solo está verificada contra Notion real, nunca por la suite. Mismo patrón que otros huecos conocidos: el mock tampoco cubre <code>filter_properties</code>, la saturación real ni el renombrado de propiedades que causó I9.</li>
+	<li><strong>Un guard de caché en un endpoint no protege a los demás</strong> — el de <code>/api/empleados</code> (P4) se añadió el 18-08 y el del listado (P5) seguía sin existir, pese a ser el endpoint más consultado. Al añadir protección de concurrencia, revisar <em>todos</em> los endpoints cacheados, no solo el que dio el problema.</li>
+	<li><strong>Las cabeceras de <code>helmet</code> solo llegan a <code>/api/*</code></strong> — los estáticos los sirve la plataforma sin pasar por Express, así que el HTML de la app necesita sus cabeceras declaradas aparte en <code>vercel.json</code> (S1).</li>
 	<li><strong>MCP de Notion prohibido para el workspace del cliente</strong> — apunta al workspace privado de Javi. Siempre API directa con el <code>NOTION_TOKEN</code> de <code>.env</code>.</li>
 	<li><strong>La doc puede declarar intenciones como hechos.</strong> Tres dominios convivieron meses en la doc y ninguno existía (<code>partesobra.copuno.com</code> = NXDOMAIN). Verificar con <code>nslookup</code> antes de dar un dominio por bueno.</li>
 	<li><strong>Mover la app de <code>/</code> a <code>/partes</code> no es un alias DNS</strong>: toca <code>base</code> de Vite, catch-all SPA y assets de <code>vercel.json</code>; y revisar el flujo de firma (la fórmula <code>Firmar</code> construye URL externa).</li>
