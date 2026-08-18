@@ -8,9 +8,9 @@
 **Autor:** NotionVan
 **Fecha de emisión:** 18 de agosto de 2026
 **Periodo cubierto:** 17-18 de agosto de 2026
-**Versiones:** v1.9.0 → v1.13.2 · 16 despliegues a producción
+**Versiones:** v1.9.0 → v1.13.4 · 18 despliegues a producción
 **Sistema:** Copuno — Gestión de Partes (`app.copuno.com`)
-**Estado al cierre:** v1.13.2 en producción · suite de humo 64/64 · árbol de trabajo limpio
+**Estado al cierre:** v1.13.4 en producción · suite de humo 66/66 · árbol de trabajo limpio
 
 **Documentos relacionados**
 
@@ -98,7 +98,7 @@ mejoras nuevas ni funciones nuevas.»*
 | Coste de comprobar novedades | 1,5-2,5 s | **0,43 s** | −75 % |
 | Catálogo de empleados accesible | 100 de 1.533 | **1.533** | 15× |
 | Refresco sin cambios (red) | payload completo | **304, 0 bytes** | −100 % |
-| Cobertura de pruebas de humo | 45 casos | **64 casos** | +42 % |
+| Cobertura de pruebas de humo | 45 casos | **66 casos** | +47 % |
 | Modos de fallo con pantalla en blanco | 3 identificados | **0** | — |
 
 ## 2.2 Lo que no era rendimiento y valía más
@@ -174,7 +174,32 @@ Suite completa:
 npm run test:smoke
 ```
 
-## 3.4 Sesgos declarados
+## 3.4 Número de ejecuciones y dispersión
+
+**Corrección respecto a la primera versión de este informe.** Las cifras de latencia de
+endpoint publicadas inicialmente eran **mediciones puntuales**, y al repetirlas con
+muestra suficiente resultaron ser las marcas más favorables del rango, no valores
+representativos. La tabla de §10.1 se ha rehecho con mediana y p95.
+
+Muestras empleadas en la medición definitiva (18-08, servidor local contra base de
+datos real):
+
+| Endpoint | n (caché fría) | n (caché caliente) |
+|---|---|---|
+| `/api/jefes-obra`, `/api/obras`, `/api/partes-trabajo` | 7 | 15 |
+| `/api/datos-completos` | 5 | 15 |
+| `/api/empleados` | 3 | 15 |
+
+La muestra del catálogo de empleados es pequeña **a propósito**: cada ejecución en frío
+son dieciséis consultas contra la base de datos de producción del cliente, y repetirla
+más veces habría supuesto castigar su cuota para obtener un decimal.
+
+**Las cifras de escritura (crear y editar) siguen siendo n=1.** Repetirlas exige crear
+y archivar partes reales; se consideró que el coste de ensuciar los datos del cliente
+superaba al beneficio. Se declaran como lo que son: mediciones únicas, con la dirección
+del cambio verificada pero sin intervalo de confianza.
+
+## 3.5 Sesgos declarados
 
 - **Las escrituras se midieron desde España contra servidores en la costa este de
   Estados Unidos.** En producción la función se ejecuta en esa misma región, junto a
@@ -189,7 +214,7 @@ npm run test:smoke
   posterior: la telemetría de plataforma se activó el 17 de agosto y no acumula
   todavía una serie significativa.
 
-## 3.5 Volumen del sistema al medir
+## 3.6 Volumen del sistema al medir
 
 | Entidad | Registros |
 |---|---|
@@ -308,10 +333,19 @@ Veinte endpoints bajo `/api/*`. Los relevantes para esta intervención:
 
 # 5 · Estado inicial: anatomía completa
 
-La auditoría del 17 de agosto sobre el código en producción produjo **105 hallazgos**:
-20 de servidor, 29 de interfaz y 56 de experiencia de uso. Los 13 hallazgos críticos
-detectados en una auditoría previa de julio **seguían vivos al 100 %**, verificados
-uno a uno con referencia a fichero y línea.
+La auditoría del 17 de agosto sobre el código en producción numeró **105 hallazgos**
+(rangos BE-1..20 de servidor, FE-1..29 de interfaz y UX-1..56 de experiencia de uso).
+
+**Precisión sobre esa cifra**, verificada al redactar este informe: de esos 105
+identificadores, **48 están desarrollados individualmente** en el documento de
+diagnóstico (8 de servidor, 7 de interfaz, 33 de experiencia). El resto se numeró
+dentro de rangos cuyo detalle quedó en la sesión de auditoría y no en el documento.
+Citar «105 hallazgos» sin esta aclaración da una precisión que el material no
+respalda.
+
+Los 12 hallazgos críticos de la auditoría previa de julio (C1-C6 e I-A..I-F)
+**seguían vivos al 100 %**, esos sí verificados uno a uno con referencia a fichero y
+línea.
 
 Lo que sigue no es la lista completa —está en el informe de diagnóstico— sino la
 anatomía de las cuatro familias de problema.
@@ -505,6 +539,8 @@ antes de continuar con el siguiente.
 | v1.13.0 | 18-08 | — | Catálogo completo de empleados | Extremo a extremo contra datos reales + navegador |
 | v1.13.1 | 18-08 | — | Seis casos límite del catálogo | Suite 62 casos + navegador |
 | v1.13.2 | 18-08 | — | Reintento ante saturación y descarga compartida | Suite 64 casos + prueba de concurrencia real |
+| v1.13.3 | 18-08 | — | **P5**: guard de estampida en el listado | Suite 66 casos + prueba de carga |
+| v1.13.4 | 18-08 | — | **S1**: cabeceras de seguridad en el HTML | Cabeceras verificadas en producción |
 
 Dos versiones anteriores completan el marco: **v1.9.0** (autenticación de plataforma,
 desarrollada en julio y activada el 3 de agosto) y **v1.8.0** (exportación para
@@ -1038,7 +1074,21 @@ mecanismo que los cazó.
 | 6 | Sin indicador durante la descarga del catálogo | v1.13.0 | Pasada adversarial propia | **Reproducía la percepción de lista rota que se estaba corrigiendo** |
 | 7 | Paginación sin reintento ni protección de concurrencia | v1.13.0 | Revisión posterior al despliegue | Fallo del catálogo con varios usuarios simultáneos y caché vacía |
 
-**Lecturas de esta tabla.** Cuatro de los siete los detectó un **revisor independiente**
+**Y dos más, encontrados al redactar este mismo informe** (v1.13.3 y v1.13.4):
+
+| # | Defecto | Detectado por | Consecuencia si hubiera pasado |
+|---|---|---|---|
+| 8 | `GET /api/partes-trabajo` sin protección de estampida: 10 peticiones concurrentes con caché fría disparaban **10 consultas completas**, en el endpoint más usado de la aplicación | La prueba de carga que faltaba | Lunes de septiembre tras un despliegue: cada usuario que abre el listado dispara su propia consulta, consumiendo el semáforo y la cuota compartida con las automatizaciones |
+| 9 | El documento HTML **no recibía las cabeceras de seguridad**: `helmet` solo cubre `/api/*` | Revisión de la postura de seguridad, ausente del informe | La aplicación podía enmarcarse desde otro dominio sin restricción |
+
+El número 8 es el más instructivo de los nueve: **llevaba activo desde siempre**, no lo
+introdujo esta intervención, y sobrevivió a una auditoría de 105 hallazgos, a siete
+revisiones de regresión y a dieciséis despliegues. Lo encontró la primera prueba de
+carga del proyecto, ejecutada solo porque escribir la sección de metodología obligó a
+admitir que no existía. Es el argumento más sólido a favor de documentar con honestidad:
+**el hueco en el informe señaló el hueco en el sistema.**
+
+**Lecturas de esta tabla.** Cuatro de los primeros siete los detectó un **revisor independiente**
 y no las pruebas automáticas: la suite verifica contrato, no razonamiento sobre
 invariantes de negocio. Dos los detectó una **pasada adversarial deliberada** hecha
 después de dar el trabajo por terminado, a petición explícita. Y el número 6 es el más
@@ -1060,19 +1110,107 @@ ante error— es más relevante que el síntoma.
 Medición del 18 de agosto contra la base de datos real de producción, endpoint
 completo, petición fría y cacheada:
 
-| Endpoint | Frío | Cacheado | Payload |
+**Caché fría** (mediana de n ejecuciones, ver §3.4):
+
+| Endpoint | n | Mín | **Mediana** | p95 | Máx | Desv. | Payload |
+|---|---|---|---|---|---|---|---|
+| `/api/jefes-obra` | 7 | 0,34 s | **0,45 s** | 1,13 s | 1,13 s | 0,25 | 0,3 KB |
+| `/api/obras` | 7 | 0,48 s | **0,64 s** | 0,71 s | 0,71 s | 0,07 | 6,6 KB |
+| `/api/partes-trabajo` | 7 | 1,29 s | **1,41 s** | 2,89 s | 2,89 s | 0,56 | 94,6 KB |
+| `/api/datos-completos` | 5 | 1,38 s | **1,49 s** | 2,85 s | 2,85 s | 0,56 | 123 KB |
+| `/api/empleados` (1.533) | 3 | 8,19 s | **9,13 s** | 11,20 s | 11,20 s | 1,26 | 373 KB |
+
+**Caché caliente** (n=15):
+
+| Endpoint | **Mediana** | p95 | Máx |
 |---|---|---|---|
-| `/api/datos-completos` | 1,38 s | **3,8 ms** | 123 KB |
-| `/api/partes-trabajo` | 1,17 s | **4,1 ms** | 94,6 KB |
-| `/api/empleados` (1.533) | 7,58 s | **6,1 ms** | 373 KB |
-| `/api/obras` | 1,67 s | **2,1 ms** | 6,6 KB |
-| `/api/jefes-obra` | 0,65 s | **0,8 ms** | 0,3 KB |
+| `/api/obras` | **0,8 ms** | 1,8 ms | 1,8 ms |
+| `/api/partes-trabajo` | **1,6 ms** | 2,9 ms | 2,9 ms |
+| `/api/datos-completos` | **2,0 ms** | 4,2 ms | 4,2 ms |
+| `/api/empleados` | **4,7 ms** | 8,3 ms | 8,3 ms |
+
+**Lo que revela la dispersión, y que una medición puntual ocultaba.** La desviación de
+0,56 s en el listado y el arranque significa que **el p95 casi duplica la mediana**. La
+causa es la variabilidad de la propia plataforma de datos: el mismo endpoint, con los
+mismos datos y desde la misma máquina, oscila entre 1,29 y 2,89 segundos. Cualquier
+objetivo de servicio debe fijarse sobre el p95, no sobre la mediana, y desde luego no
+sobre la mejor marca observada.
 
 **Lectura.** El arranque completo cuesta **1,38 s en el peor caso** —caché
 completamente vacía— y **menos de 4 ms** en el caso normal. El catálogo de empleados
 es la operación más cara del sistema, dieciséis consultas paginadas, y por eso se
 descarga en segundo plano mientras el usuario puede seguir trabajando, se conserva
 diez minutos, y varias peticiones simultáneas comparten una sola descarga.
+
+## 10.1.b Producción real
+
+Primera medición contra `app.copuno.com`, no contra laboratorio. Desde España, n=10 por
+recurso:
+
+| Recurso | Mediana total | TTFB mediana | p95 | Tamaño |
+|---|---|---|---|---|
+| Documento HTML | 187 ms | 186 ms | 248 ms | 1,8 KB |
+| `/api/health` (función) | 257 ms | 257 ms | 321 ms | 0,1 KB |
+| Paquete principal | 205 ms | 138 ms | 351 ms | 341,8 KB |
+
+Y en navegador real contra producción, con la pantalla de acceso:
+
+| Métrica | Valor |
+|---|---|
+| TTFB | 130 ms |
+| DOM interactivo | **153 ms** |
+| DOMContentLoaded / load | 503 ms |
+| Transferencia total | 191 KB |
+
+Los 153 ms de DOM interactivo **confirman en producción** los ~160 ms medidos en
+laboratorio: la cifra publicada en §2.1 se sostiene fuera del banco de pruebas.
+
+El recurso más lento del arranque es el **logotipo, 35 KB y 174 ms** — mayor que el
+paquete de componentes de interfaz. Convertirlo a un formato moderno es una mejora
+pendiente ya anotada.
+
+**Lo que sigue sin medirse, y es el hueco principal de este informe:** no hay datos de
+usuarios reales. La telemetría de plataforma está activa desde el 17 de agosto, pero
+su consulta requiere acceso al panel del cliente, del que este análisis no dispone.
+Faltan por tanto las métricas que de verdad importan —las percibidas por un jefe de
+obra con una tablet y cobertura irregular— y no hay sustituto de laboratorio para
+ellas. **Obtenerlas es cuestión de dos minutos para quien tenga acceso al panel**, y
+debería hacerse antes de la demostración.
+
+## 10.1.c Desglose: dónde se va el tiempo al crear un parte
+
+Latencia unitaria de un viaje de ida y vuelta a la plataforma de datos, medida desde
+España (n=12, operación de lectura):
+
+| | |
+|---|---|
+| Mínimo | 370 ms |
+| **Mediana** | **439 ms** |
+| p95 | 564 ms |
+| Máximo | 1.027 ms |
+| Desviación | 168 ms |
+
+Aplicado a la creación de un parte con diez trabajadores:
+
+| Concepto | Antes | Ahora |
+|---|---|---|
+| Viajes en serie | 11 (uno por detalle) | 5 (cabecera + 4 tandas de 3) |
+| Pausas artificiales | 10 × 100 ms = 1,0 s | 0 |
+| **Suelo teórico** | 11 × 439 ms + 1,0 s = **5,83 s** | 5 × 439 ms = **2,19 s** |
+| **Medido** | **8,50 s** | **4,80 s** |
+| No explicado | 2,67 s (31 %) | **2,61 s (54 %)** |
+
+**Este desglose deja una pregunta abierta, y conviene decirlo.** Más de la mitad del
+tiempo de creación no lo explican los viajes de ida y vuelta. La hipótesis más probable
+es que **el viaje base se midió con una operación de lectura, y las escrituras son
+sensiblemente más caras** en esta plataforma. Otras candidatas: la serialización del
+semáforo global y el coste del propio mapeo.
+
+Cerrar esta pregunta exige medir la latencia de una escritura real, lo que implica
+crear y archivar páginas en los datos del cliente. **No se ha hecho**, y por tanto el
+desglose queda como aproximación con su incógnita declarada. Es la medición pendiente
+más informativa que queda: sin ella no se sabe si los 4,8 s tienen margen de mejora o
+están cerca del suelo físico.
 
 ## 10.2 Cliente
 
@@ -1088,10 +1226,12 @@ autenticación**: medido construyendo sin las variables de entorno correspondien
 fragmento baja a 35,1 KB. Es el candidato evidente si algún día hace falta recortar el
 camino crítico, mediante carga diferida.
 
-## 10.3 Presupuesto de rendimiento
+## 10.3 Presupuesto de rendimiento (propuesto, no acordado)
 
-Valores que el sistema debe mantener. Si alguno se degrada de forma sostenida, es
-señal de regresión:
+**Advertencia:** estos objetivos los propone este informe. **No están acordados con el
+cliente ni derivados de ningún requisito contractual.** Se publican como referencia
+interna para detectar regresiones, no como compromiso de servicio. Si alguna vez se
+convierten en compromiso, deben negociarse y medirse en producción, no en laboratorio.
 
 | Métrica | Objetivo | Actual | Margen |
 |---|---|---|---|
@@ -1126,6 +1266,54 @@ pausas e interruptor · estado optimista con caducidad · catálogo memoizado co
 normalización de acentos · límite de peticiones en dos capas · barrera de errores de
 render · indicador de conexión honesto.
 
+## 10.4.b Postura de seguridad
+
+Sección ausente en las primeras versiones de este informe, que solo trataba la
+seguridad de forma incidental al justificar decisiones de caché. Estado verificado el
+18 de agosto.
+
+### Lo que está bien
+
+| Control | Estado |
+|---|---|
+| Autenticación de plataforma en todo `/api/*` | Activa. Verificación de token en servidor |
+| Cinturón de arranque | Con la variable correspondiente activa, la ausencia de configuración de sesión **aborta el arranque** en lugar de dejar la API abierta |
+| Orígenes permitidos | Restringidos al dominio propio. Verificado: a orígenes ajenos no se les concede acceso |
+| Cabeceras en `/api/*` | Política de contenido, anti-enmarcado y transporte seguro, vía `helmet` |
+| Datos económicos | Redactados antes de responder, con cinturón deliberado en la capa de respuesta |
+| Datos personales en disco | El almacenamiento local **excluye** empleados: ni DNI ni teléfono |
+| Cachés compartidas | Prohibidas explícitamente en las respuestas de API |
+| Límite de peticiones | Dos capas, con la gruesa protegiendo la verificación de token |
+| Secretos en el repositorio | Ninguno. Los blueprints de automatización se versionan saneados, y el exportador **aborta sin escribir** si detecta un patrón de secreto que no sabe redactar |
+
+### Lo que se corrigió al escribir este informe
+
+**S1 — El documento HTML no recibía las cabeceras de seguridad.** `helmet` se aplica en
+el servidor, es decir solo a `/api/*`. Los archivos estáticos los sirve la plataforma
+de despliegue sin pasar por él. Verificado contra producción: la raíz solo devolvía
+transporte seguro, mientras que la API devolvía el juego completo.
+
+Consecuencia: el documento que ejecuta la aplicación, mantiene la sesión y desde el que
+se envía un parte **no tenía protección anti-enmarcado**. Un tercero podía cargarlo en
+un marco invisible y provocar pulsaciones no intencionadas sobre acciones reales.
+
+Corregido en v1.13.4 con cuatro cabeceras aplicadas a todas las rutas, verificadas en
+producción.
+
+### Lo que sigue abierto
+
+| Id | Asunto | Severidad | Nota |
+|---|---|---|---|
+| S2 | **Sin política de contenido en el HTML** | Media | Es la protección más valiosa que falta. Exige declarar orígenes (proveedor de identidad y telemetría) y verificar que el acceso no se rompe. Fuera de la ventana de congelación por riesgo/beneficio |
+| S3 | **17 vulnerabilidades declaradas en dependencias** (11 altas, 5 moderadas, 1 baja); **9 de ellas alcanzan a producción** (4 altas) | Media | Ninguna con explotación conocida en este contexto de uso: la mayoría son denegación de servicio por expresiones regulares o lectura de ficheros en herramientas de construcción. Requiere una pasada de actualización con verificación, no un parche a ciegas |
+| E1 | Credencial de datos incrustada en cinco puntos de tres automatizaciones | Media-alta | La plataforma de automatización descarta por API los parámetros de sus almacenes de claves, así que solo puede resolverse desde su interfaz |
+| — | Sin rotación programada de credenciales | Baja | No hay procedimiento definido ni calendario |
+| — | Sin registro de auditoría de accesos | Baja | Se sabe quién puede entrar, no quién entró ni cuándo |
+
+**Declaración de alcance:** no se ha realizado un modelado de amenazas formal, ni
+pruebas de penetración, ni revisión de la configuración del proveedor de identidad.
+Lo anterior es un inventario de controles verificados, no una auditoría de seguridad.
+
 ## 10.5 Riesgo estructural conocido
 
 **Toda la caché, la idempotencia y el control de límites viven en memoria, por
@@ -1138,6 +1326,23 @@ instancias.
 
 Está **instrumentado desde v1.12.3** y el diseño del almacén compartido está terminado
 y presupuestado. La decisión de ejecutarlo depende de los datos, no de la intuición.
+
+---
+
+# 10.6 · Afirmaciones que este informe NO puede respaldar
+
+Inventario de lo que se ha dicho en versiones anteriores de este documento sin
+evidencia suficiente, corregido aquí:
+
+| Afirmación | Estado real |
+|---|---|
+| «Reversión disponible en todo momento» | La capacidad existe en la plataforma, pero **nunca se ha ensayado un retroceso** en este proyecto. Es una capacidad supuesta, no probada. Ensayarla antes de la demostración cuesta diez minutos y convertiría una suposición en un hecho |
+| «Modos de fallo con pantalla en blanco: 0» | Se corrigieron **los tres caminos conocidos**. No se hizo una búsqueda sistemática de otros, ni existe una prueba que lo garantice. La formulación correcta es «los tres caminos identificados están cerrados» |
+| Objetivos del presupuesto de rendimiento | **Los propone este informe.** No están acordados ni derivados de requisito alguno (ver §10.3) |
+| «105 hallazgos» | Numeración declarada; 48 desarrollados individualmente (ver §5) |
+| Latencias de endpoint de la primera versión | Eran mediciones puntuales que resultaron ser las mejores marcas del rango. Rehechas con muestra en §10.1 |
+| Desglose del tiempo de escritura | Explica el 46 %; el resto queda como incógnita declarada (ver §10.1.c) |
+| Métricas de usuarios reales | **No existen.** La telemetría está activa pero sus datos no se han consultado (ver §10.1.b) |
 
 ---
 
@@ -1157,6 +1362,46 @@ y presupuestado. La decisión de ejecutarlo depende de los datos, no de la intui
 —porque el simulado devolvía valores que no pasaban por esa rama—, ni una limitación
 de propiedades mal construida. Por eso existen las otras tres capas, y por eso las
 fases que tocaban lectura o saturación exigieron verificación adicional explícita.
+
+## 11.1.b Prueba de carga
+
+**No existía hasta la redacción de este informe**, pese a que todo el proyecto se
+justifica por el crecimiento de usuarios previsto. Al ejecutarla apareció un defecto
+real, descrito en §9.
+
+**Escenario 1 — 20 usuarios concurrentes, 5 peticiones cada uno (100 en total), caché
+caliente:**
+
+| Métrica | Valor |
+|---|---|
+| Respuestas correctas | 100 / 100 |
+| Duración total | 2,01 s |
+| Rendimiento | 49,9 peticiones/s |
+| Mediana | 2 ms |
+| p95 | 1.545 ms |
+| Máximo | 1.911 ms |
+
+La mediana de 2 ms confirma que la caché absorbe la carga. **El p95 de 1,5 segundos fue
+la señal**: algunas peticiones pagaban una consulta completa, lo que llevó al escenario
+2.
+
+**Escenario 2 — 10 peticiones concurrentes con caché fría:**
+
+| | Antes de v1.13.3 | Después |
+|---|---|---|
+| Consultas a la plataforma | **10** | **1** |
+| Tiempos | 1,35 · 1,36 · 1,52 · 1,63 · 1,78 · 2,58 · 2,74 · 2,85 · 2,96 · 3,10 s | 1,73 · 1,73 · 1,73 · 1,73 · 1,73 · 1,73 · 1,73 · 1,74 · 1,74 · 1,74 s |
+| Duración total | 3,13 s | 1,77 s |
+
+El escalonamiento del «antes» es el semáforo global sirviendo diez consultas de tres en
+tres. La uniformidad del «después» es la firma inequívoca de una única descarga
+compartida.
+
+**Limitaciones de esta prueba, declaradas:** se ejecutó contra un servidor local, no
+contra producción, por lo que no mide el comportamiento de la infraestructura ni la
+aparición de instancias adicionales bajo carga. Y simula usuarios pidiendo el mismo
+endpoint, no recorriendo la aplicación. Es una prueba de estampida de caché, no de
+carga de sistema.
 
 ## 11.2 Comparación campo a campo
 
@@ -1331,6 +1576,112 @@ nada nuestro. Herramientas de integración comerciales tardaron semanas en adapt
 
 ---
 
+# Apéndice 0 · Diagramas de secuencia
+
+## D1 · Envío de un parte, con los estados y el punto de reversión
+
+```
+Usuario        Cliente              Servidor                Datos        Automatización
+  │               │                    │                      │                │
+  │──[Enviar]────▶│                    │                      │                │
+  │               │ parche optimista   │                      │                │
+  │◀─"Procesando"─│ (TTL 60 s)         │                      │                │
+  │               │───POST enviar─────▶│                      │                │
+  │               │                    │──PATCH Procesando───▶│                │
+  │               │                    │◀─────────────────────│                │
+  │               │                    │─────── webhook ──────┼───────────────▶│
+  │               │                    │◀────── 200 ──────────┼────────────────│
+  │               │                    │──PATCH Datos Env.───▶│                │
+  │               │◀───200 {estado}────│                      │                │
+  │◀"Datos Env."──│ parche→confirmado  │                      │                │
+  │               │                    │                      │   [genera PDF] │
+  │               │                    │                      │◀─ Listo firmar─│
+  │               │                    │                      │                │
+  │      (el seguimiento lo detecta en 12-30 s y lo pinta)     │                │
+
+  CAMINO DE FALLO — el webhook no responde:
+                   │                    │─────── webhook ─────╳                │
+                   │                    │──PATCH Borrador ────▶│                │
+                   │◀───error───────────│                      │                │
+                   │ parche descartado  │                      │                │
+                   │  vuelve a Borrador │                      │                │
+```
+
+**Por qué el optimismo se detiene en «Procesando»:** si se pintara «Datos Enviados» al
+pulsar, el camino de fallo dejaría al usuario creyendo enviado un parte que el servidor
+acaba de devolver a Borrador.
+
+## D2 · Lectura del listado, con las cinco rutas posibles
+
+```
+        GET /api/partes-trabajo
+                 │
+        ¿lleva ventana de fechas?
+           │yes            │no
+           ▼               ▼
+      consulta        ¿hay foto en caché?
+      directa          │no          │sí
+      (sin caché)      ▼            ▼
+           │      [FRÍO]      edad de la foto
+           │           │    ┌───────┴────────┐
+           │           │  ≤30 s            >30 s
+           │           │    │                │
+           │           │  [HIT]        ¿supera el techo de 5 min?
+           │           │  0 ms          │sí           │no
+           │           │  ◀──           ▼             ▼
+           │           │           [TECHO]      comprobar novedades
+           │           │           consulta         ~0,43 s
+           │           │           completa      ┌─────┴──────┐
+           │           │                     sin cambios  con cambios
+           │           │                         │            │
+           │           │                    [EXTENDER]   [REVALIDAR]
+           │           │                     0 ms          ~1,4 s
+           │           ▼                         
+           │    ¿ya hay una consulta en vuelo?     ← guard P5, v1.13.3
+           │      │sí               │no
+           │      ▼                 ▼
+           │  [COALESCIDO]     lanzar consulta
+           │  se une a ella    y publicar promesa
+           ▼      ▼                 ▼
+        ────── respuesta ──────────────
+
+  Ante saturación de la plataforma durante la comprobación: se sirve la foto anterior
+  (camino STALE) en lugar de propagar el error.
+```
+
+Los seis caminos —`frio`, `hit`, `check-sin-cambios`, `check-con-cambios`, `ttl-duro`,
+`stale-por-429`, más `coalescido`— se registran como telemetría, de modo que su
+frecuencia relativa en producción es medible.
+
+## D3 · Edición de un parte: el punto donde se puede perder trabajo
+
+```
+PUT /api/partes-trabajo/:id
+   │
+   ├── 1. PATCH cabecera ──────────────────────────▶ ok
+   │
+   ├── 2. ARCHIVAR detalles existentes (lotes de 3)
+   │        │
+   │        ├── todos ok ──────────────────────────▶ continúa
+   │        │
+   │        └── uno falla tras reintento
+   │                 │
+   │                 ├── CORTE INMEDIATO (no se archiva más)
+   │                 ├── DESARCHIVAR lo ya archivado
+   │                 ├── lo no restaurable se registra y se devuelve
+   │                 └── ERROR ─────────────────────▶ el parte queda íntegro
+   │
+   │   ◀── BARRERA ESTRICTA: nunca se solapa con el paso 3 ──▶
+   │
+   └── 3. RECREAR detalles con el contenido nuevo (lotes de 3)
+            └── errores por elemento, sin abortar el resto
+
+  Sin el corte y la reversión del paso 2, un fallo a mitad dejaba el parte con
+  parte de sus horas archivadas Y devolvía mensaje de éxito.
+```
+
+---
+
 # Apéndice A · Comandos de reproducción
 
 ```bash
@@ -1360,6 +1711,40 @@ npm run build
 # Comprobación de versión en producción
 curl -s https://app.copuno.com/api/health
 ```
+
+# Apéndice A.b · Trazabilidad: hallazgo → commit → prueba
+
+Tabla que permite auditar cualquier corrección de este informe sin buscar a mano.
+
+| Hallazgo | Qué era | Commit | Versión | Cubierto por |
+|---|---|---|---|---|
+| **I9** | Nombres de empleado vacíos en producción | `bb2ffbc` (F2) | v1.9.3 | Comparación campo a campo contra datos reales. **Sin prueba automática**: el simulado no reproduce el renombrado |
+| **UX-23** | El 0 de horas se grababa como 8 | F1 | v1.9.2 | `smoke.test.js` — caso con `0` explícito |
+| **UX-4** | La edición podía vaciar un parte | F1/F4 | v1.9.2 / v1.10.1 | Verificación en navegador. **Sin prueba automática** |
+| **UX-22** | Medias jornadas imposibles de teclear | F1 | v1.9.2 | Verificación en navegador |
+| **BE-3** | La caché no se invalidaba tras escribir | F1 | v1.9.2 | `smoke.test.js` — flujos de escritura |
+| **BE-1** | Consultas sin limitar propiedades | `bb2ffbc` | v1.9.3 | Comparación campo a campo. **La suite no lo cubre** (corre contra simulado) |
+| **C2** | Arranque de 9 peticiones | `1ab77a1` | v1.10.0 | Medición en navegador: 3 peticiones |
+| **P5-F4** | Sin caché de cliente | `50814a6` | v1.10.1 | Medición en navegador: 47 ms |
+| **BE-8** | Límite de peticiones por dirección de red | `2fbb0b6` | v1.10.2 | `auth.test.js` + verificación manual |
+| **C1** | Seguimiento del listado muerto desde v1.3 | `ac81993` | v1.11.0 | `freshness.test.js` (4 ramas) + dos navegadores |
+| **I-C** | N+1 en firmantes | `ac81993` | v1.11.0 | Verificación contra datos reales |
+| **BE-10** | Escrituras seriales con pausas | `a347d74` | v1.12.0 | `lotes.test.js` (11 casos) + cronometrado real |
+| **H2** | Riesgo de corte por tiempo de ejecución | `f2e68d3` | v1.12.2 | Lista de 8 comprobaciones en vista previa |
+| **I8** | La tarjeta podía mostrar un estado falso | `acc0631` | v1.12.1 | Verificación en navegador con red interrumpida |
+| **P2** | Causa de saturación indistinguible | `de94beb` | v1.12.3 | `smoke.test.js` |
+| **I-A** (parcial) | Catálogo truncado a 100 de 1.533 | `cd8488d` | v1.13.0 | `catalogo.test.js` (3 casos) + extremo a extremo real |
+| **P4** | Paginación sin reintento ni protección | `cbc42f4` | v1.13.2 | `catalogo.test.js` (2 casos) + prueba de concurrencia real |
+| **P5** | Estampida de caché en el listado | `d788709` | v1.13.3 | `smoke.test.js` (2 casos) + prueba de carga |
+| **S1** | HTML sin cabeceras de seguridad | `f124710` | v1.13.4 | Verificación de cabeceras en producción |
+
+**Lo que esta tabla deja a la vista:** las tres correcciones de integridad más
+importantes —nombres vacíos, edición que vacía un parte, y limitación de propiedades—
+**no tienen prueba automática**. Están verificadas contra datos reales, que es más
+fuerte pero no repetible en cada cambio. Si alguien reintroduce el acceso literal a la
+propiedad título, la suite no lo detectará.
+
+---
 
 # Apéndice B · Configuración
 

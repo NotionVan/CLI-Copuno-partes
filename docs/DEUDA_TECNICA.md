@@ -3,7 +3,7 @@
 > **Documento de seguimiento interno.** No compartir con el cliente sin filtrar previamente.
 > Cada hallazgo lleva severidad, coste estimado, ROI de no arreglar y recomendación (retainer / proyecto aparte / ignorar).
 
-- **Última edición:** 2026-08-18 mediodía (**P4 CERRADO en v1.13.2** — retry de 429 por página con `conReintento429` + guard de promesa en vuelo en `GET /api/empleados`; suite 64/64, E2E de concurrencia contra Notion real) — 2026-08-18 tarde (**P4 abierto** 🟡 — `listarTodos` pagina sin retry de 429 ni guard de petición en vuelo (hallazgo del `@regression-checker` en la verificación post-despliegue de v1.13.1, que dio 🟢 GO en los 3 flujos críticos); ~30 min, sin urgencia porque degrada al buscador de F5. **Limpieza de datos de prueba**: archivados los 3 partes de la obra TEST con sus detalles (191→188 partes) — detalles primero, según la lección de julio; la obra TEST se pasará a *Parada* como último paso de la congelación del 31/08, tras el ensayo. Verificado que «Persona firmante Notionvan - tests» **NO se puede archivar**: es el firmante de 12 partes de obras reales de la fase piloto.) — 2026-08-18 tarde (**I-A parcialmente cerrado en v1.13.0** — a raíz del reporte de Efrén «no se cargan las listas completas»: `GET /api/empleados` pagina ahora la BD entera (1.533; antes primeros 100) y la búsqueda libre de empleados filtra en local sobre el catálogo completo, sin mínimo de 3 letras ni tope invisible de 20. Verificado contra Notion real que las listas POR OBRA no truncan (ninguna de las 54 obras activas llega a 100). **Sigue abierto de I-A: el listado de partes trunca a 100** — bolsa de octubre.) — 2026-08-18 (**P2 CERRADO en v1.12.3** — `rate_limit_reason` en los 429 + telemetría multi-instancia: `INSTANCE_ID` en health/logs, eventos `partes_cache` y `enviar_datos_entrada`. Es el paso de medición previo al escalón KV diseñado en [CACHE_NOTION_INDUSTRIA_2026-08.md](CACHE_NOTION_INDUSTRIA_2026-08.md); la lectura de los logs tiene tarea en Notion (21-08) y rutina diaria automatizada a mediodía.) — 2026-08-17 noche (**F7 completa — v1.12.0/v1.12.1/v1.12.2 en producción; plan F0-F7 CERRADO** + **investigación del estado del arte de la API de Notion** → [INVESTIGACION_NOTION_API_2026-08.md](INVESTIGACION_NOTION_API_2026-08.md), que abre tres hallazgos nuevos: **P1** 🔴 la versión de API 2022-06-28 rompe entera si el cliente añade una 2ª data source a una BD desde la UI de Notion (el disparador no está en nuestro código); **P2** 🟠 desde jun-2026 hay un límite de rate por workspace compartido con Make y no lo distinguimos en los logs; **P3** 🟡 los webhooks oficiales de Notion —que ya existen— harían el polling innecesario y cerrarían el punto ciego de los archivados, invalidando de paso la premisa con la que se aplazó el ADR-007. De F7: I8 cerrado, I7 cerrado, H2 mitigado con archivado transaccional + maxDuration 60.) — 2026-08-17 tarde (**F3-F6 del plan pre-demo desplegadas — v1.10.0→v1.11.0**: el **polling del listado, muerto desde v1.3** (hallazgo C1 de la auditoría de julio, causa del «hay que refrescar manual»), **revivido en v1.11.0** con freshness-check server-side (query mínima `last_edited_time` ~0,4 s antes de repetir la query completa; TTL duro 5 min para archivados) y pausas reales en background. **I7 CERRADO** (cache de firmantes 60 s + expansión en paralelo, dentro de F6). **UX-40 verificado y DESCARTADO con evidencia** (2 ediciones round-trip sobre parte TEST: fecha estable — no hay corrimiento de día). **Cola de incompletas de Make purgada** (10/10 de julio, por API; corta los correos de reintentos). Ver CHANGELOG V1.10.0-V1.11.0 y [SMART_POLLING.md](SMART_POLLING.md) v3.) — 2026-08-17 (**I9 detectado y CERRADO el mismo día**: la propiedad título de EMPLEADOS fue renombrada en Notion ('Nombre Completo' → cadena vacía) y desde entonces producción servía todos los nombres de empleado vacíos y la búsqueda por nombre devolvía 400→500 — incidente activo silencioso, con toda probabilidad el error de la demo ante la central de ~finales de julio. Fix estructural en v1.9.3: `titleDe()` lee el título por TIPO (inmune a renombres) y la búsqueda filtra por el ID canónico `'title'`. De la misma tanda: F0-F2 del plan pre-demo — invalidación del cache tras escrituras (BE-3, la mitad intermitente de «la app no actualiza»), `?? 8` (un 0 de horas ya no se graba como 8), `filter_properties` en todo el catálogo (payload Notion −62/−74 %), caches de estado-opciones y datos-completos. Ver [INFORME_UX_RENDIMIENTO_2026-08-17.md](INFORME_UX_RENDIMIENTO_2026-08-17.md) y CHANGELOG V1.9.1-V1.9.3.) — 2026-07-30 (**H1 resuelto técnicamente** en la rama `feature/auth-supabase` con Supabase Auth — ver H1 e historial; pendiente únicamente del corte a producción coordinado con Efrén) — 2026-07-28 (noche, 2ª tanda — **M9: 3 fixes en producción (E2, E3, E5) + E8 mitigado**; auditados ya TODOS los escenarios activos, con E8/E9/E10 nuevos. Blueprints **ya versionados** en `docs/blueprints-make/` vía `scripts/export-blueprints-make.py`, que sanea secretos → por fin hay `git diff` de lo que se toca en Make. Abiertos E1, E4, E10 y menores. — **M9 registrado: auditoría preventiva de edge cases del pipeline Make** ([EDGE_CASES_MAKE.md](EDGE_CASES_MAKE.md), E1–E7 sobre blueprints vivos de eu2) con **dos fixes aplicados en producción el mismo día**: E2 (`ifempty` en los 9 numéricos del mod 37 de PARTES2/4, vía PATCH API) y E3 (data structures explícitas `608077`/`608078` asociadas a los webhooks de 2/4 y 3/4 — cierra la clase de fallo de M8), pendiente E2E con el primer parte. **M6 CERRADO**: los 5 blueprints re-descargados desde producción vía API; además se corrigió la premisa — la referencia canónica es producción, no el repo (blueprints en `.gitignore` a propósito: contienen token Notion en claro → E1). Quedan abiertos M7 🔵 y, de M9: E1 🟠, E4–E7)
+- **Última edición:** 2026-08-18 tarde (**P5 y S1 CERRADOS; S2 y S3 abiertos** — hallazgos de la redacción del informe técnico: (1) **P5**, estampida de caché en el listado — 10 peticiones concurrentes = 10 queries a Notion en el endpoint más usado; lo encontró la **primera prueba de carga del proyecto**, que nunca se había hecho, y llevaba activo desde siempre; cerrado en v1.13.3 con el patrón de P4. (2) **S1**, el HTML no recibía las cabeceras de helmet porque los estáticos no pasan por Express — sin anti-clickjacking en la página desde la que se firma; cerrado en v1.13.4. (3) **S2** 🟠 sin CSP en el HTML, fuera de la congelación por riesgo. (4) **S3** 🟠 17 vulnerabilidades en dependencias, 9 alcanzan producción. Nuevo hueco de cobertura anotado: el mock no implementa el filtro de fechas.) — 2026-08-18 mediodía (**P4 CERRADO en v1.13.2** — retry de 429 por página con `conReintento429` + guard de promesa en vuelo en `GET /api/empleados`; suite 64/64, E2E de concurrencia contra Notion real) — 2026-08-18 tarde (**P4 abierto** 🟡 — `listarTodos` pagina sin retry de 429 ni guard de petición en vuelo (hallazgo del `@regression-checker` en la verificación post-despliegue de v1.13.1, que dio 🟢 GO en los 3 flujos críticos); ~30 min, sin urgencia porque degrada al buscador de F5. **Limpieza de datos de prueba**: archivados los 3 partes de la obra TEST con sus detalles (191→188 partes) — detalles primero, según la lección de julio; la obra TEST se pasará a *Parada* como último paso de la congelación del 31/08, tras el ensayo. Verificado que «Persona firmante Notionvan - tests» **NO se puede archivar**: es el firmante de 12 partes de obras reales de la fase piloto.) — 2026-08-18 tarde (**I-A parcialmente cerrado en v1.13.0** — a raíz del reporte de Efrén «no se cargan las listas completas»: `GET /api/empleados` pagina ahora la BD entera (1.533; antes primeros 100) y la búsqueda libre de empleados filtra en local sobre el catálogo completo, sin mínimo de 3 letras ni tope invisible de 20. Verificado contra Notion real que las listas POR OBRA no truncan (ninguna de las 54 obras activas llega a 100). **Sigue abierto de I-A: el listado de partes trunca a 100** — bolsa de octubre.) — 2026-08-18 (**P2 CERRADO en v1.12.3** — `rate_limit_reason` en los 429 + telemetría multi-instancia: `INSTANCE_ID` en health/logs, eventos `partes_cache` y `enviar_datos_entrada`. Es el paso de medición previo al escalón KV diseñado en [CACHE_NOTION_INDUSTRIA_2026-08.md](CACHE_NOTION_INDUSTRIA_2026-08.md); la lectura de los logs tiene tarea en Notion (21-08) y rutina diaria automatizada a mediodía.) — 2026-08-17 noche (**F7 completa — v1.12.0/v1.12.1/v1.12.2 en producción; plan F0-F7 CERRADO** + **investigación del estado del arte de la API de Notion** → [INVESTIGACION_NOTION_API_2026-08.md](INVESTIGACION_NOTION_API_2026-08.md), que abre tres hallazgos nuevos: **P1** 🔴 la versión de API 2022-06-28 rompe entera si el cliente añade una 2ª data source a una BD desde la UI de Notion (el disparador no está en nuestro código); **P2** 🟠 desde jun-2026 hay un límite de rate por workspace compartido con Make y no lo distinguimos en los logs; **P3** 🟡 los webhooks oficiales de Notion —que ya existen— harían el polling innecesario y cerrarían el punto ciego de los archivados, invalidando de paso la premisa con la que se aplazó el ADR-007. De F7: I8 cerrado, I7 cerrado, H2 mitigado con archivado transaccional + maxDuration 60.) — 2026-08-17 tarde (**F3-F6 del plan pre-demo desplegadas — v1.10.0→v1.11.0**: el **polling del listado, muerto desde v1.3** (hallazgo C1 de la auditoría de julio, causa del «hay que refrescar manual»), **revivido en v1.11.0** con freshness-check server-side (query mínima `last_edited_time` ~0,4 s antes de repetir la query completa; TTL duro 5 min para archivados) y pausas reales en background. **I7 CERRADO** (cache de firmantes 60 s + expansión en paralelo, dentro de F6). **UX-40 verificado y DESCARTADO con evidencia** (2 ediciones round-trip sobre parte TEST: fecha estable — no hay corrimiento de día). **Cola de incompletas de Make purgada** (10/10 de julio, por API; corta los correos de reintentos). Ver CHANGELOG V1.10.0-V1.11.0 y [SMART_POLLING.md](SMART_POLLING.md) v3.) — 2026-08-17 (**I9 detectado y CERRADO el mismo día**: la propiedad título de EMPLEADOS fue renombrada en Notion ('Nombre Completo' → cadena vacía) y desde entonces producción servía todos los nombres de empleado vacíos y la búsqueda por nombre devolvía 400→500 — incidente activo silencioso, con toda probabilidad el error de la demo ante la central de ~finales de julio. Fix estructural en v1.9.3: `titleDe()` lee el título por TIPO (inmune a renombres) y la búsqueda filtra por el ID canónico `'title'`. De la misma tanda: F0-F2 del plan pre-demo — invalidación del cache tras escrituras (BE-3, la mitad intermitente de «la app no actualiza»), `?? 8` (un 0 de horas ya no se graba como 8), `filter_properties` en todo el catálogo (payload Notion −62/−74 %), caches de estado-opciones y datos-completos. Ver [INFORME_UX_RENDIMIENTO_2026-08-17.md](INFORME_UX_RENDIMIENTO_2026-08-17.md) y CHANGELOG V1.9.1-V1.9.3.) — 2026-07-30 (**H1 resuelto técnicamente** en la rama `feature/auth-supabase` con Supabase Auth — ver H1 e historial; pendiente únicamente del corte a producción coordinado con Efrén) — 2026-07-28 (noche, 2ª tanda — **M9: 3 fixes en producción (E2, E3, E5) + E8 mitigado**; auditados ya TODOS los escenarios activos, con E8/E9/E10 nuevos. Blueprints **ya versionados** en `docs/blueprints-make/` vía `scripts/export-blueprints-make.py`, que sanea secretos → por fin hay `git diff` de lo que se toca en Make. Abiertos E1, E4, E10 y menores. — **M9 registrado: auditoría preventiva de edge cases del pipeline Make** ([EDGE_CASES_MAKE.md](EDGE_CASES_MAKE.md), E1–E7 sobre blueprints vivos de eu2) con **dos fixes aplicados en producción el mismo día**: E2 (`ifempty` en los 9 numéricos del mod 37 de PARTES2/4, vía PATCH API) y E3 (data structures explícitas `608077`/`608078` asociadas a los webhooks de 2/4 y 3/4 — cierra la clase de fallo de M8), pendiente E2E con el primer parte. **M6 CERRADO**: los 5 blueprints re-descargados desde producción vía API; además se corrigió la premisa — la referencia canónica es producción, no el repo (blueprints en `.gitignore` a propósito: contienen token Notion en claro → E1). Quedan abiertos M7 🔵 y, de M9: E1 🟠, E4–E7)
 - **Última auditoría completa:** 2026-05-11 (`@senior-architect-auditor`, alcance: arquitectura general)
 - **Próxima revisión sugerida:** tras cerrar bloqueantes, o trimestral.
 - **Historial completo:** ver [final del documento](#historial-de-cambios).
@@ -220,6 +220,74 @@ momento posible.
 endpoint reutiliza la promesa en vuelo (`catalogoEmpleadosEnVuelo`, limpiada en `finally`).
 Suite 64/64; E2E contra Notion real: dos GET concurrentes en frío comparten la descarga
 (terminan en el mismo ms), tercera petición 7 ms de cache.
+
+---
+
+### P5 ✅ CERRADO (v1.13.3, 18-08) — estampida de caché en `GET /api/partes-trabajo`
+
+**Detectado:** 2026-08-18, por la **primera prueba de carga del proyecto**, ejecutada al
+redactar el informe técnico y descubrir que esa verificación nunca se había hecho.
+
+10 peticiones concurrentes con caché fría disparaban **10 consultas completas** a Notion
+en el endpoint más usado de la app (arranque, refresco manual y cada ciclo del polling).
+Escalonadas de 1,35 a 3,10 s por el semáforo global.
+
+**No lo introdujo la intervención de agosto: llevaba activo desde siempre.** Sobrevivió a
+una auditoría de 105 hallazgos, a siete revisiones de regresión y a dieciséis despliegues.
+
+**Cerrado** reutilizando el patrón de P4: promesa en vuelo (`partesEnVuelo`), solo para el
+listado sin ventana de fechas. Verificado: las 10 peticiones pasan a terminar en el mismo
+instante (1,73 s). Telemetría nueva: camino `coalescido`.
+
+---
+
+### S1 ✅ CERRADO (v1.13.4, 18-08) — el documento HTML no recibía cabeceras de seguridad
+
+`helmet` se aplica en Express, es decir **solo a `/api/*`**. Los estáticos —incluido el
+`index.html` que ejecuta toda la app— los sirve Vercel sin pasar por Express. Verificado
+contra producción: la raíz solo devolvía HSTS.
+
+Consecuencia: **sin protección anti-clickjacking** en el documento desde el que se envía
+un parte. Cerrado con `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` y
+`Permissions-Policy` en `vercel.json` para todas las rutas.
+
+---
+
+### S2 🟠 — Sin Content-Security-Policy en el HTML
+
+La protección más valiosa que falta tras S1. Exige declarar orígenes
+(`connect-src 'self' https://cuwtneprjbvumfjycnmn.supabase.co` más la telemetría de
+Vercel) y verificar que el login no se rompe.
+
+**Fuera de la ventana de congelación** por riesgo/beneficio: una directiva mal cerrada
+deja la app sin poder iniciar sesión. **Coste:** 1-2 h con verificación en preview.
+**Ventana:** primera semana post-demo, junto a P1.
+
+---
+
+### S3 🟠 — 17 vulnerabilidades declaradas en dependencias
+
+11 altas, 5 moderadas, 1 baja. **9 alcanzan a producción** (4 altas): `brace-expansion`,
+`form-data`, `minimatch`, `nanoid`, `path-to-regexp`, `picomatch`, `postcss`, `rollup`,
+`body-parser`, `follow-redirects`, `qs`.
+
+Ninguna con explotación conocida en este contexto: la mayoría son denegación de servicio
+por expresiones regulares o lectura de ficheros en herramientas de construcción. Requiere
+una pasada de actualización **con verificación**, no `npm audit fix --force` a ciegas —
+varias arrastran cambios incompatibles en Express y Vite.
+
+**Coste:** 3-4 h. **Ventana:** post-demo.
+
+---
+
+### Hueco de cobertura 🟡 — el mock no implementa el filtro de fechas
+
+`GET /api/partes-trabajo?desde=&hasta=` (BE-13a) devuelve el listado completo contra el
+mock, con y sin ventana. La semántica del filtro **solo está verificada contra Notion
+real**, nunca por la suite. Anotado en el propio test para que no se descubra por
+sorpresa. Mismo patrón que otros tres huecos ya conocidos: la suite corre contra
+simulado y no cubre `filter_properties`, el comportamiento ante 429 real, ni el
+renombrado de propiedades que causó I9.
 
 ---
 
@@ -632,6 +700,25 @@ Reglas por tipo de cambio:
 - **Recomendación:** octubre, después de P1. Ver plan completo en [INVESTIGACION_NOTION_API_2026-08.md](INVESTIGACION_NOTION_API_2026-08.md).
 
 ## Historial de cambios
+
+### 2026-08-18 (tarde III) — P5 y S1 cerrados; S2, S3 y un hueco de cobertura abiertos
+
+Origen inusual: **la redacción del informe técnico de la intervención**. Al escribir la
+sección de metodología hubo que admitir que faltaban dos verificaciones (prueba de carga
+y revisión de seguridad), y al hacerlas aparecieron dos defectos reales.
+
+- **P5 ✅** — estampida de caché en `GET /api/partes-trabajo`. La primera prueba de carga
+  del proyecto reveló que 10 peticiones concurrentes con caché fría disparaban 10
+  consultas completas. No lo introdujo la intervención: **llevaba activo desde siempre** y
+  sobrevivió a la auditoría, a siete revisiones de regresión y a dieciséis despliegues.
+- **S1 ✅** — el documento HTML no recibía las cabeceras de seguridad, porque `helmet`
+  solo cubre `/api/*` y los estáticos los sirve Vercel.
+- **S2 🟠** — sin CSP en el HTML. Fuera de la congelación por riesgo de romper el login.
+- **S3 🟠** — 17 vulnerabilidades en dependencias, 9 alcanzan producción.
+- **Hueco de cobertura** — el mock no implementa el filtro de fechas: BE-13a solo está
+  verificado contra Notion real.
+
+Lección de proceso: **el hueco en la documentación señaló el hueco en el sistema.**
 
 ### 2026-08-18 (mediodía III) — P4 cerrado en v1.13.2
 
