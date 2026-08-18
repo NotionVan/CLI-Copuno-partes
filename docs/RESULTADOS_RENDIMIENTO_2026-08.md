@@ -1327,6 +1327,13 @@ instancias.
 Está **instrumentado desde v1.12.3** y el diseño del almacén compartido está terminado
 y presupuestado. La decisión de ejecutarlo depende de los datos, no de la intuición.
 
+**Primera confirmación en producción (18-08, durante el ensayo de reversión):** dos
+identificadores de instancia distintos (`cab062f9` y `f38e4a38`) respondiendo en una
+ventana de cinco segundos. Es la primera evidencia directa de que la convivencia de
+instancias no es teórica. Ocurrió tras un cambio de despliegue, que es el momento en
+que más se espera; queda por medir con qué frecuencia sucede en operativa normal, que
+es lo que responderá la telemetría de septiembre.
+
 ---
 
 # 10.6 · Afirmaciones que este informe NO puede respaldar
@@ -1336,7 +1343,7 @@ evidencia suficiente, corregido aquí:
 
 | Afirmación | Estado real |
 |---|---|
-| «Reversión disponible en todo momento» | La capacidad existe en la plataforma, pero **nunca se ha ensayado un retroceso** en este proyecto. Es una capacidad supuesta, no probada. Ensayarla antes de la demostración cuesta diez minutos y convertiría una suposición en un hecho |
+| «Reversión disponible en todo momento» | ✅ **Verificado el 18-08 con un ensayo real en producción** (ver §12.5). Matiz importante que el ensayo reveló: no es instantánea ni atómica — 12 s de conmutación, 2 s de convivencia entre versiones y un posible fallo diferido |
 | «Modos de fallo con pantalla en blanco: 0» | Se corrigieron **los tres caminos conocidos**. No se hizo una búsqueda sistemática de otros, ni existe una prueba que lo garantice. La formulación correcta es «los tres caminos identificados están cerrados» |
 | Objetivos del presupuesto de rendimiento | **Los propone este informe.** No están acordados ni derivados de requisito alguno (ver §10.3) |
 | «105 hallazgos» | Numeración declarada; 48 desarrollados individualmente (ver §5) |
@@ -1479,6 +1486,57 @@ se rompen sin darse cuenta:
 4. **No mover la sincronización del espejo de vehículos** fuera del camino del envío.
 5. **No invertir el orden de los limitadores** de peticiones respecto a la
    autenticación.
+
+## 12.4b Reversión de despliegue: procedimiento ensayado
+
+**Ensayo real ejecutado el 18-08-2026 a las 13:39 sobre producción**, retrocediendo de
+v1.13.4 a v1.13.3 y volviendo. Medido con muestreo de `/api/health` cada segundo
+(n=150) desde una conexión externa.
+
+### Resultados
+
+| Métrica | Valor |
+|---|---|
+| Tiempo de conmutación | **~12 s** desde la pulsación hasta que producción sirve la versión anterior |
+| Ventana de inconsistencia | **2 s** con peticiones alternando entre ambas versiones |
+| Peticiones fallidas | **1 de 150** — tiempo de espera agotado **42 s después** de la conmutación |
+| Aviso al usuario | El banner de versión apareció correctamente en una sesión abierta |
+| Instancias | Renovadas tras el cambio (`5f0e2ba9` → `c009c57a` → `cab062f9`) |
+| Restauración | Correcta: v1.13.4, cabeceras de seguridad presentes, autenticación activa |
+
+### Tres hallazgos del ensayo
+
+**1. La conmutación no es atómica.** Durante unos dos segundos convivieron ambas
+versiones: distintas peticiones recibieron respuestas de despliegues distintos. En un
+retroceso de emergencia desde una versión defectuosa, **parte del tráfico seguirá
+llegando a la versión mala unos segundos más**.
+
+**2. Hay un fallo diferido tras la conmutación.** La única petición fallida no ocurrió
+durante el cambio, sino **42 segundos después**, y corresponde al arranque en frío de
+la instancia nueva. Para un usuario sería una operación que se cuelga justo después del
+retroceso. La aplicación lo absorbe —tiene reintento y mensaje comprensible—, pero
+conviene saber que el primer usuario tras una reversión puede encontrarse un tirón.
+
+**3. El aviso de versión cumple su función**, confirmado en una sesión real abierta
+durante el ensayo. Un jefe de obra con la aplicación abierta se entera y puede recargar.
+
+### Conclusión operativa
+
+Ante un fallo durante una demostración: **doce segundos hasta tener la versión anterior
+sirviendo**, más unos segundos de convivencia, más un posible tirón en la primera
+petición. **Medio minuto largo hasta estabilidad completa.** Es un dato manejable, pero
+muy distinto de «instantáneo», que es lo que sugiere el nombre del botón.
+
+### Procedimiento
+
+1. Panel de despliegues del proyecto, con la cuenta que tiene acceso al equipo del
+   cliente (la cuenta personal no ve el proyecto).
+2. Localizar el despliegue anterior sano. **Comprobar cuál está marcado como activo**:
+   no tiene por qué ser el que uno recuerda, porque los commits de documentación también
+   generan despliegue.
+3. Menú de la fila → reversión inmediata → confirmar.
+4. Verificar con `curl -s <dominio>/api/health` que la versión servida es la esperada.
+5. Para volver: promover el despliegue bueno desde la misma lista.
 
 ## 12.4 Qué vigilar en septiembre
 
