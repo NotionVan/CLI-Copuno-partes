@@ -136,12 +136,17 @@ function mapNotionError(error, { method, endpoint }) {
 	const status = error.response?.status
 	const notionMessage = error.response?.data?.message || error.message
 	const notionCode = error.response?.data?.code
+	// P2: desde jun-2026 el 429 distingue si se excedió la cuota de la CONEXIÓN
+	// o la del WORKSPACE (compartida con Make) — remedios opuestos. Sin este
+	// campo, los 429 de octubre serían indiagnosticables.
+	const rateLimitReason = error.response?.data?.additional_data?.rate_limit_reason
 
 	// Log centralizado — mantiene el formato que ya usaba server.js
 	console.error(`Error en request a Notion (${method} ${endpoint}):`, {
 		status,
 		message: notionMessage,
-		code: notionCode
+		code: notionCode,
+		...(rateLimitReason ? { rateLimitReason } : {})
 	})
 
 	let mapped
@@ -150,8 +155,9 @@ function mapNotionError(error, { method, endpoint }) {
 	else if (status === 404) mapped = new Error('Base de datos no encontrada')
 	else if (status === 409) mapped = new Error('Conflicto al crear el registro. Puede ser un duplicado o problema de permisos.')
 	else if (status === 429) {
-		mapped = new Error('Límite de rate limit excedido')
+		mapped = new Error(`Límite de rate limit excedido${rateLimitReason ? ` (${rateLimitReason})` : ''}`)
 		mapped.retryAfter = Number(error.response?.headers?.['retry-after']) || 2
+		mapped.rateLimitReason = rateLimitReason
 	}
 	else mapped = new Error(`Error de conectividad con Notion: ${error.message}`)
 

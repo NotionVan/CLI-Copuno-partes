@@ -128,6 +128,13 @@ const limiterFinoPorUsuario = rateLimit({
 })
 app.use('/api', limiterFinoPorUsuario)
 
+// Telemetría multi-instancia (v1.12.3): cada instancia lambda genera un id al
+// arrancar. Aparece en /api/health y en los logs estructurados — contar ids
+// distintos por franja en los logs de Vercel dice cuántas instancias conviven
+// y con qué frecuencia se pisan (el dato que decide si el escalón KV del
+// monográfico de caché es urgente o puede esperar a octubre).
+const INSTANCE_ID = require('crypto').randomBytes(4).toString('hex')
+
 // Cache simple en memoria para catálogos (TTL configurable)
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30 * 1000) // 30 segundos para reducir requests innecesarios a Notion
 const cache = new Map()
@@ -213,14 +220,17 @@ app.use((req, res, next) => {
 app.get('/api/health', (req, res) => {
 	const { version } = require('./package.json')
 	if (USE_MOCK_DATA) {
-		return res.json({ ...mockStore.getHealthStatus(), version, mode: 'mock' })
+		return res.json({ ...mockStore.getHealthStatus(), version, mode: 'mock', inst: INSTANCE_ID })
 	}
 	res.json({
 		status: 'ok',
 		version,
 		timestamp: new Date().toISOString(),
 		notionToken: NOTION_TOKEN ? 'configured' : 'missing',
-		mode: 'live'
+		mode: 'live',
+		// v1.12.3: id aleatorio de esta instancia lambda — muestrear /api/health
+		// varias veces seguidas revela cuántas instancias hay vivas
+		inst: INSTANCE_ID
 	})
 })
 
@@ -332,7 +342,7 @@ app.get('/api/empleados/buscar', async (req, res) => {
 
 			if (duplicado) {
 				console.warn(JSON.stringify({
-					reqId: req.id,
+					reqId: req.id, inst: INSTANCE_ID,
 					event: 'id_copuno_duplicado',
 					idCopuno: idNum,
 					count: resultados.length,
@@ -522,6 +532,12 @@ app.get('/api/partes-trabajo', async (req, res) => {
 		const desde = FECHA_AAAA_MM_DD.test(req.query.desde || '') ? req.query.desde : undefined
 		const hasta = FECHA_AAAA_MM_DD.test(req.query.hasta || '') ? req.query.hasta : undefined
 		const conVentana = Boolean(desde || hasta)
+		// v1.12.3: telemetría del camino de cache — {event:'partes_cache', inst,
+		// camino} en los logs de Vercel. Contar `inst` distintos y la frecuencia
+		// de 'query-completa'/'frio' mide el solapamiento multi-instancia real
+		// (la evidencia que decide el escalón KV). El hit fresco no se loguea
+		// (es la mayoría y saturaría los logs).
+		const logCamino = (camino) => console.log(JSON.stringify({ event: 'partes_cache', inst: INSTANCE_ID, camino }))
 		if (!conVentana && CACHE_TTL_MS > 0) {
 			const foto = cache.get('partes-trabajo')
 			if (foto) {
@@ -532,17 +548,26 @@ app.get('/api/partes-trabajo', async (req, res) => {
 						const hayCambios = await data.partesTrabajo.hayCambiosDesde({ desdeIso: foto.cursorIso || new Date(foto.ts).toISOString() })
 						if (!hayCambios) {
 							foto.ts = Date.now() // la foto sigue válida: extender TTL
+							logCamino('check-sin-cambios')
 							return res.json(foto.data)
 						}
+						logCamino('check-con-cambios')
 					} catch (err) {
 						// Con Notion saturado (429), una foto algo vieja es mejor
 						// respuesta que un 503 — la query completa también fallaría.
-						if (err?.status === 429) return res.json(foto.data)
+						if (err?.status === 429) {
+							logCamino('stale-por-429')
+							return res.json(foto.data)
+						}
+						logCamino('check-fallido')
 						// Otros fallos del check → caer a la query completa.
 					}
 				} else {
 					cache.delete('partes-trabajo')
+					logCamino('ttl-duro')
 				}
+			} else {
+				logCamino('frio')
 			}
 		}
 		const partesTrabajo = await data.partesTrabajo.listar({ desde, hasta })
@@ -586,7 +611,7 @@ app.post('/api/partes-trabajo', async (req, res) => {
 		const { parteData, nombreFinal, detallesCreados, erroresDetalles } = result
 
 		console.log(JSON.stringify({
-			reqId: req.id,
+			reqId: req.id, inst: INSTANCE_ID,
 			event: 'parte_creado',
 			parteId: parteData.id,
 			nombreFinal,
@@ -675,6 +700,13 @@ app.post('/api/partes-trabajo/:parteId/enviar-datos', async (req, res) => {
 	// o `enviar-datos:${parteId}` por defecto (mata doble-click sin tocar frontend).
 	const idemKey = String(req.headers['idempotency-key'] || `enviar-datos:${parteId}`)
 	const cached = enviarDatosIdempotency.get(idemKey)
+	// v1.12.3: si dos requests del MISMO parte aparecen con `inst` distintos y
+	// ambos con idem:'miss', la idempotencia in-memory se repartió entre
+	// instancias — la evidencia del riesgo cross-instancia del monográfico de caché.
+	console.log(JSON.stringify({
+		event: 'enviar_datos_entrada', inst: INSTANCE_ID, reqId: req.id, parteId,
+		idem: cached ? cached.status : 'miss'
+	}))
 	if (cached) {
 		if (cached.status === 'in_flight') {
 			return res.status(409).json({
@@ -925,10 +957,10 @@ app.put('/api/partes-trabajo/:parteId', async (req, res) => {
 		const { parteActualizado, estadoAnterior, necesitaCambioEstado, detallesCreados, erroresDetalles } = result
 
 		if (necesitaCambioEstado) {
-			console.log(JSON.stringify({ reqId: req.id, event: 'parte_estado_borrador', parteId, estadoAnterior }))
+			console.log(JSON.stringify({ reqId: req.id, inst: INSTANCE_ID, event: 'parte_estado_borrador', parteId, estadoAnterior }))
 		}
 		console.log(JSON.stringify({
-			reqId: req.id,
+			reqId: req.id, inst: INSTANCE_ID,
 			event: 'detalles_actualizados',
 			parteId,
 			pretendidos: empleados?.length || 0,
@@ -980,7 +1012,7 @@ app.post('/api/partes-trabajo/:parteId/rectificar', async (req, res) => {
 		const { parteData, nombreFinal, parteOriginalId, detallesCopiados, erroresDetalles } = result
 
 		console.log(JSON.stringify({
-			reqId: req.id,
+			reqId: req.id, inst: INSTANCE_ID,
 			event: 'parte_rectificado',
 			parteOriginalId,
 			parteNuevoId: parteData.id,
